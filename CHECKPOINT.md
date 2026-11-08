@@ -28,6 +28,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   "Ship it" is now **v0.10**; **v1.1 Gallery** (curated `barista-scripts` repo, `barista://install`, notes only);
   the rest of v1.x is **v1.2+**. v0.8 also gets a first-party system monitor item. The plan files
   (`docs/release/plan/`, `releases/`) are git-ignored and local only; `docs/release/README.md` has the table.
+- Website (2026-11-08, branch `chore/web-app`, PR open): `apps/web` = Next.js 16 + Fumadocs, static export (ADR 0004). `pnpm web:dev` / `pnpm web:build` (writes `apps/web/out/`). Landing page at `/` is a placeholder (Liam builds the real one); docs at `/docs` have two placeholder pages (content/docs/*.mdx, real content in v0.10). Docs search is off until v0.10 (static export needs a prebuilt index). Collections use `fumadocs-mdx/macro` (no source.config.ts).
 - **Next:** Liam reviews and merges the setup PR and builds `apps/bar/src/` (his structure and components). Then Claude starts v0.1 (rust-only): ADRs 0001 and 0002, bar window, AppBar.
 
 ## Fix next

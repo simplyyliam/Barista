@@ -81,6 +81,7 @@ apps/bar/                 Tauri app
     src/registry/         status items, menus, popover anchors
     src/scripts/          script items: parser, runner, folder watcher, trust (v0.9)
     src/platform/windows/ AppBar, tray bridging, monitors, DPI
+apps/web/                 website and SDK docs (Next.js + Fumadocs, static export); Liam owns the landing page UI
 crates/protocol/          message types shared by bar and SDK (source of protocol.ts)
 packages/sdk/             @barista/sdk (BA.StatusItem etc.)
   src/protocol.ts         generated from crates/protocol (never edit)
@@ -130,6 +131,7 @@ Nothing imports from `apps/`. The SDK never imports Tauri.
 ## Commands
 
 - Root: `pnpm dev`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm bench`
+- Root: `pnpm web:dev`, `pnpm web:build` (website, static `apps/web/out/`)
 - Root: `pnpm gen` (bindings + protocol types), `pnpm test-client`, `pnpm release`, `pnpm updater:keygen`
 - Root (one Cargo workspace: the app and `crates/protocol`): `cargo check --workspace`,
   `cargo clippy --workspace --all-targets`, `cargo test --workspace`
