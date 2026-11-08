@@ -127,7 +127,8 @@ Nothing imports from `apps/`. The SDK never imports Tauri.
 
 - Root: `pnpm dev`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm bench`
 - Root: `pnpm gen` (bindings + protocol types), `pnpm test-client`, `pnpm release`, `pnpm updater:keygen`
-- In `apps/bar/src-tauri`: `cargo check`, `cargo clippy --all-targets`, `cargo test`
+- Root (one Cargo workspace: the app and `crates/protocol`): `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets`, `cargo test --workspace`
 
 ## Never
 

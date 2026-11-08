@@ -48,7 +48,7 @@ is `docs/release/README.md`.
 - `.private/` must be ignored: `git check-ignore -q .private/updater/barista-updater.key` must
   succeed, and `git ls-files .private` must print nothing. Otherwise stop: the signing key could be committed.
 - Run every check and stop if any fails:
-  - in `apps/bar/src-tauri/`: `cargo check`, `cargo clippy --all-targets`, `cargo test`
+  - in the root (Cargo workspace): `cargo check --workspace`, `cargo clippy --workspace --all-targets`, `cargo test --workspace`
   - in the root: `pnpm gen`, `pnpm typecheck`, `pnpm build`, `pnpm lint`, `pnpm test`
 - Clippy or lint warnings don't fail the build: list them and ask whether to go on.
 - `pnpm gen` regenerates `bindings.ts` and `protocol.ts`. If any check leaves the tree dirty, stop:
@@ -77,7 +77,7 @@ is `docs/release/README.md`.
 
 - Create the release branch from `main` (see Tracks).
 - Write the version into every version file of the track.
-- App track: run `cargo check` in `apps/bar/src-tauri/` again so `Cargo.lock` picks up the new version.
+- App track: run `cargo check --workspace` in the root again so `Cargo.lock` picks up the new version.
 - Commit those files and `Cargo.lock`: `chore(release): vX.Y.Z` (or `sdk-vX.Y.Z`), body as short bullets.
 - Branch already exists with this version (a release prepared again after a fix): check it out,
   rebase on `main`, skip the bump.
