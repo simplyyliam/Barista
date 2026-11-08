@@ -1,0 +1,17 @@
+[package]
+name = "barista-protocol"
+version = "0.0.0"
+edition = "2021"
+description = "Messages between the Barista bar and its clients. Source of packages/sdk/src/protocol.ts."
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# specta derives the TypeScript types. Pinned exactly: specta 2 is still a release candidate
+# and tauri-specta needs this same version (see docs/decisions/0003-type-generation.md).
+specta = { version = "=2.0.0-rc.26", features = ["derive"] }
+specta-serde = "=0.0.13" # understands #[serde(...)] attributes
+specta-typescript = "=0.0.13"
+
+[dev-dependencies]
+serde_json = "1"

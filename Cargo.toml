@@ -1,0 +1,5 @@
+# One Cargo workspace for the whole repo: a single `cargo test` covers the bar and the
+# protocol crate, and both share one target/ folder.
+[workspace]
+resolver = "2"
+members = ["crates/protocol"]
