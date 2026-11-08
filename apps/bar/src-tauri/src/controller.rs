@@ -50,9 +50,12 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     let settings_file = settings_path(&app.path().app_config_dir().map_err(|e| e.to_string())?);
     let settings = Settings::load(&settings_file);
     let monitors = monitors::list();
+    // No monitor at launch (display reset, session switch): start on a placeholder instead of
+    // failing. Windows sends WM_DISPLAYCHANGE when a real one appears, and `refresh_monitors`
+    // then replaces it.
     let current = pick_monitor(settings.monitor.as_deref(), &monitors)
-        .ok_or("no monitor found")?
-        .clone();
+        .cloned()
+        .unwrap_or_else(placeholder_monitor);
 
     let controller = Controller {
         app: app.clone(),
@@ -83,6 +86,18 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
 
     c.apply();
     Ok(())
+}
+
+fn placeholder_monitor() -> Monitor {
+    let rect = Rect { left: 0, top: 0, right: 1920, bottom: 1080 };
+    Monitor {
+        id: String::new(),
+        name: "no monitor".into(),
+        is_primary: true,
+        rect,
+        work_area: rect,
+        scale: 1.0,
+    }
 }
 
 /// If the bar crashes, give the screen space back before the process dies.

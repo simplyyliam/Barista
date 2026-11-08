@@ -54,9 +54,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   external monitor; nothing broke and no awkward behaviour was reported. Nothing else added to "Fix next" from it.
 - Dogfood (scripted, 4 min with Edge open: bar CPU 0.009%; Edge): maximized Edge stops under the bar, F11 hides it and leaving F11 shows it, a simulated
   `WM_DISPLAYCHANGE` leaves the bar unchanged.
-- Review leftover: `start` fails if there is no monitor at launch (should wait for one).
-  Fixed since the review: failed `ABM_NEW` retries on the next apply, full-screen check skips more shell
-  windows and cloaked ones, `pnpm bench` closes the bar gracefully first.
+- Code review is fully addressed. The last item (no monitor at launch) now starts on a placeholder monitor and
+  switches to the real one on the next display change; not testable here with real hardware.
 - The first-run window is 800x32 until the first `apply`; fine because it starts hidden.
 
 ## Useful facts (keep only what still matters)
