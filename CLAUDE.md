@@ -79,6 +79,7 @@ apps/bar/                 Tauri app
     src/commands/         Tauri commands for the frontend
     src/ipc/              named-pipe server, client sessions, heartbeat
     src/registry/         status items, menus, popover anchors
+    src/scripts/          script items: parser, runner, folder watcher, trust (v0.9)
     src/platform/windows/ AppBar, tray bridging, monitors, DPI
 crates/protocol/          message types shared by bar and SDK (source of protocol.ts)
 packages/sdk/             @barista/sdk (BA.StatusItem etc.)
@@ -87,6 +88,7 @@ packages/ui/              @barista/ui: shared shadcn/ui (preset base-mira); apps
   src/styles.css          shadcn's generated theme (:root, @theme, dark); leave it as generated
 packages/react/           @barista/react (later)
 examples/test-client/     tiny app that registers items, used in tests and demos
+examples/scripts/         example script items (system monitor, ...), dropped into %APPDATA%\Barista\scripts
 docs/                     release plan, ADRs (decisions/), design, research, perf
 ```
 

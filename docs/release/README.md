@@ -52,7 +52,7 @@ through a `release/v0.X.Y` PR (see `CLAUDE.md` > Releases).
 | v0.9 | Script items | Drop a PowerShell, Python or Node script in a folder and it shows up in the bar (a system monitor script is the demo) |
 | v0.10 | Ship it | Installer, auto-updater, docs, first public release |
 | v1.0 | 1.0 | Stable protocol v1, stable SDK |
-| v1.1 | Gallery | Curated scripts on the Barista site, Install button with a confirm dialog (notes only, `releases/v1.1.md`) |
+| v1.1 | Gallery | Curated scripts (repo `barista-scripts`) on the Barista site, Install button with a confirm dialog (notes only, `releases/v1.1.md`) |
 | v1.2+ | After the gallery | Dock, React package, Tauri plugin, C# SDK (`releases/v1.2.md`) |
 
 ## History
