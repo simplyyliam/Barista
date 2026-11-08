@@ -24,6 +24,10 @@ if (git("rev-list", "-n", "1", tag) !== git("rev-parse", "HEAD")) {
   fail(`${tag} doesn't point at HEAD. Pull main, then run /release tag again.`)
 }
 git("fetch", "origin", "--tags", "--quiet")
+// Local main must be exactly the merged origin/main, or the tag could build an old commit.
+if (git("rev-parse", "HEAD") !== git("rev-parse", "origin/main")) {
+  fail("Local main differs from origin/main. Run `git pull --ff-only` first.")
+}
 if (git("ls-remote", "--tags", "origin", tag)) fail(`${tag} is already on GitHub.`)
 
 console.log(`\nTag ${tag}\n${git("tag", "-l", "--format=%(contents)", tag)}\n`)

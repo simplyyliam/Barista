@@ -68,9 +68,13 @@ pub enum ErrorCode {
 
 /// True when `client` has the same major version as this crate's [`PROTOCOL_VERSION`].
 pub fn is_compatible(client: &str) -> bool {
-    let major = |v: &str| v.split('.').next().map(str::to_owned);
-    match (major(client), major(PROTOCOL_VERSION)) {
-        (Some(a), Some(b)) => !a.is_empty() && a == b,
+    // A version is exactly `major.minor`, both numbers. Anything else is rejected.
+    let parse = |v: &str| -> Option<(u32, u32)> {
+        let (major, minor) = v.split_once('.')?;
+        Some((major.parse().ok()?, minor.parse().ok()?))
+    };
+    match (parse(client), parse(PROTOCOL_VERSION)) {
+        (Some((a, _)), Some((b, _))) => a == b,
         _ => false,
     }
 }
@@ -107,7 +111,10 @@ mod tests {
             protocol_version: PROTOCOL_VERSION.into(),
             app_name: "Test".into(),
             pid: 42,
-            sdk: SdkInfo { name: "@barista/sdk".into(), version: "0.0.0".into() },
+            sdk: SdkInfo {
+                name: "@barista/sdk".into(),
+                version: "0.0.0".into(),
+            },
         };
         let value = serde_json::to_value(&hello).unwrap();
         assert_eq!(
@@ -120,7 +127,10 @@ mod tests {
                 "sdk": { "name": "@barista/sdk", "version": "0.0.0" }
             })
         );
-        assert_eq!(serde_json::from_value::<ClientMessage>(value).unwrap(), hello);
+        assert_eq!(
+            serde_json::from_value::<ClientMessage>(value).unwrap(),
+            hello
+        );
     }
 
     #[test]
@@ -168,5 +178,8 @@ mod tests {
         assert!(is_compatible("0.9"));
         assert!(!is_compatible("1.0"));
         assert!(!is_compatible(""));
+        assert!(!is_compatible("0"));
+        assert!(!is_compatible("0.x"));
+        assert!(!is_compatible("0.1.2"));
     }
 }

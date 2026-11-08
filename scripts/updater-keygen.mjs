@@ -21,7 +21,9 @@ if (existsSync(keyPath)) {
 mkdirSync(dirname(keyPath), { recursive: true })
 
 // Interactive: Tauri prompts for the password in this terminal.
-execFileSync("pnpm", ["--filter", "@barista/bar", "tauri", "signer", "generate", "-w", keyPath], {
+// On Windows pnpm is a .cmd file and needs a shell, so the path is quoted (spaces in the path).
+const keyArg = process.platform === "win32" ? `"${keyPath}"` : keyPath
+execFileSync("pnpm", ["--filter", "@barista/bar", "tauri", "signer", "generate", "-w", keyArg], {
   stdio: "inherit",
   shell: process.platform === "win32",
 })
@@ -31,10 +33,14 @@ const conf = JSON.parse(readFileSync(confPath, "utf8"))
 conf.plugins ??= {}
 conf.plugins.updater ??= {}
 conf.plugins.updater.pubkey = readFileSync(`${keyPath}.pub`, "utf8").trim()
+// Makes `tauri build` produce the signed update files that latest.json points at.
+conf.bundle ??= {}
+conf.bundle.createUpdaterArtifacts = true
 writeFileSync(confPath, `${JSON.stringify(conf, null, 2)}\n`)
 
 console.log(`
 Done. The public key is now in apps/bar/src-tauri/tauri.conf.json (commit that).
+The updater plugin and its endpoints are wired in v0.9; until then this only prepares signing.
 
 Add these GitHub secrets so the release Action can sign updates:
   gh secret set TAURI_SIGNING_PRIVATE_KEY < "${keyPath}"

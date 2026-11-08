@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "pnpm --filter @barista/bar dev",
     "gen": "cargo test --workspace export_ -q",

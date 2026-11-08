@@ -29,6 +29,11 @@ describe("changelog-section", () => {
     expect(changelogSection(CHANGELOG, "0.1.0")).toBe("- First release")
   })
 
+  it("ignores a version mentioned in the middle of a line", () => {
+    const text = "## [0.2.0]\n\nsee ## [0.1.0] for details\n\n## [0.1.0]\n\n- real notes\n"
+    expect(changelogSection(text, "0.1.0")).toBe("- real notes")
+  })
+
   it("returns null for an unknown version", () => {
     expect(changelogSection(CHANGELOG, "9.9.9")).toBeNull()
   })

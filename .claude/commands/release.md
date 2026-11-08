@@ -25,7 +25,7 @@ Stop and report at the first step that fails. Don't fix code as part of a releas
 
 | | App | SDK |
 |---|---|---|
-| Version files | `apps/bar/src-tauri/tauri.conf.json`, `apps/bar/src-tauri/Cargo.toml`, `apps/bar/package.json`, root `package.json` | `packages/sdk/package.json` (and `crates/protocol/Cargo.toml` if the protocol changed) |
+| Version files | `apps/bar/src-tauri/tauri.conf.json`, `apps/bar/src-tauri/Cargo.toml`, `apps/bar/package.json`, root `package.json` | `packages/sdk/package.json` and `SDK_VERSION` in `packages/sdk/src/index.ts` (and `crates/protocol/Cargo.toml` if the protocol changed) |
 | Tag | `vX.Y.Z` | `sdk-vX.Y.Z` |
 | Last tag | `git describe --tags --abbrev=0 --match 'v*'` | `git describe --tags --abbrev=0 --match 'sdk-v*'` |
 | Changes | `git log --oneline <last tag>..HEAD` | same, limited to `-- packages/sdk crates/protocol` |

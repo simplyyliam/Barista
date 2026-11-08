@@ -14,8 +14,12 @@ export function versionFromTag(tag) {
 
 /** The text under "## [version]" up to the next "## [" heading, or null if there is none. */
 export function changelogSection(text, version) {
-  const start = text.indexOf(`## [${version}]`)
-  if (!version || start === -1) return null
+  if (!version) return null
+  // Anchored on a line start, so a mention inside text or a code block never matches.
+  const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const heading = new RegExp(`^## \\[${escaped}\\]`, "m").exec(text)
+  if (!heading) return null
+  const start = heading.index
   const rest = text.slice(start)
   const next = rest.indexOf("\n## [", 1)
   // Drop the "## [x.y.z] - date" heading itself: the release already has a title.
