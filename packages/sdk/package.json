@@ -2,6 +2,7 @@
   "name": "@barista/sdk",
   "version": "0.0.0",
   "description": "Put your app in the Barista menu bar for Windows.",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
