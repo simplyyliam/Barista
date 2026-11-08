@@ -50,6 +50,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Verified by Liam: 100% and 125% scaling, and unplugging the external monitor (bar fell back to the
   laptop screen, then went back when it was plugged in again). 150% checked by Claude (4K monitor).
   Explorer restart checked by Claude on Liam's running bar: space dropped to 0 and came back at 48 px.
+- Dogfooding by Liam (hands-on, 2026-11-08): ran the bar at 100% and 125% scaling and unplugged and replugged the
+  external monitor; nothing broke and no awkward behaviour was reported. Nothing else added to "Fix next" from it.
 - Dogfood (scripted, 4 min with Edge open: bar CPU 0.009%; Edge): maximized Edge stops under the bar, F11 hides it and leaving F11 shows it, a simulated
   `WM_DISPLAYCHANGE` leaves the bar unchanged.
 - Review leftover: `start` fails if there is no monitor at launch (should wait for one).
