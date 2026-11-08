@@ -2,4 +2,4 @@
 # protocol crate, and both share one target/ folder.
 [workspace]
 resolver = "2"
-members = ["crates/protocol"]
+members = ["apps/bar/src-tauri", "crates/protocol"]
