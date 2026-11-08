@@ -45,6 +45,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Memory is over budget: the bar + WebView2 sum to ~410 MB working set (~130 MB private) vs the 120 MB budget.
   This is the WebView2 baseline with a near-empty page. Decide: change the budget to private memory, or trim.
 - Not verified live yet: 100%/125% scaling, second monitor (switch and unplug), Explorer restart (`TaskbarCreated`).
+- Review leftovers (not fixed in v0.1): `start` fails if there is no monitor at launch (wait for one instead);
+  failed `ABM_NEW` is only logged (retry); `pnpm bench` uses `taskkill /F`, so the strip can linger until Explorer
+  notices; the full-screen check uses a class-name list, so overlays like Start may flicker the bar.
 - The first-run window is 800x32 until the first `apply`; fine because it starts hidden.
 
 ## Useful facts (keep only what still matters)

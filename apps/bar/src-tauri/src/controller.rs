@@ -21,6 +21,8 @@ struct State {
     /// The strip Windows granted last time, to skip work when nothing changed.
     last_rect: Option<Rect>,
     last_visible: bool,
+    /// What the UI last heard, so `bar-changed` fires on any change (monitor list, scale, ...).
+    last_info: Option<BarInfo>,
 }
 
 pub struct Controller {
@@ -63,6 +65,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
             hidden_for_fullscreen: false,
             last_rect: None,
             last_visible: false,
+            last_info: None,
         }),
         applying: AtomicBool::new(false),
         again: AtomicBool::new(false),
@@ -92,12 +95,32 @@ fn install_panic_hook() {
     }));
 }
 
-fn on_window_event(event: window::WindowEvent) {
+/// Runs `f`; if it panics, the panic hook has already released the screen space, so reserve
+/// it again and carry on (the bar must survive one bad event).
+fn guarded(f: impl FnOnce(&'static Controller)) {
     let Some(c) = get() else { return };
+    if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(c))).is_err() {
+        appbar::forget();
+        appbar::register(c.hwnd());
+        c.lock().last_rect = None;
+        c.apply();
+    }
+}
+
+fn on_window_event(event: window::WindowEvent) {
+    guarded(|c| handle_window_event(c, event));
+}
+
+fn handle_window_event(c: &'static Controller, event: window::WindowEvent) {
     use window::WindowEvent::*;
     match event {
         PosChanged => c.apply(),
-        FullscreenApp(on) => c.set_fullscreen(on),
+        // The shell's signal is global (a game on monitor 2 also reaches us), so only hide when
+        // the window in front really covers the bar's own monitor.
+        FullscreenApp(on) => {
+            let monitor = c.lock().current.rect;
+            c.set_fullscreen(on && fullscreen::foreground_covers(&monitor, c.hwnd()));
+        }
         DisplayChanged | DpiChanged => {
             c.refresh_monitors();
             c.apply();
@@ -112,9 +135,10 @@ fn on_window_event(event: window::WindowEvent) {
 }
 
 fn on_foreground_changed() {
-    let Some(c) = get() else { return };
-    let monitor = c.lock().current.rect;
-    c.set_fullscreen(fullscreen::foreground_covers(&monitor, c.hwnd()));
+    guarded(|c| {
+        let monitor = c.lock().current.rect;
+        c.set_fullscreen(fullscreen::foreground_covers(&monitor, c.hwnd()));
+    });
 }
 
 impl Controller {
@@ -151,8 +175,8 @@ impl Controller {
     /// Re-reads the monitors and picks where the bar goes: the saved one if plugged in,
     /// else the primary. The saved id stays, so the bar returns when the monitor does.
     fn refresh_monitors(&self) {
-        let list = monitors::list();
         let mut state = self.lock();
+        let list = monitors::list();
         if let Some(m) = pick_monitor(state.settings.monitor.as_deref(), &list) {
             state.current = m.clone();
             state.monitors = list;
@@ -202,6 +226,15 @@ impl Controller {
             self.again.store(true, Ordering::SeqCst);
             return;
         }
+        // Clears the flags even if `apply_once` panics, so one bad round can't freeze the bar.
+        struct Reset<'a>(&'a Controller);
+        impl Drop for Reset<'_> {
+            fn drop(&mut self) {
+                self.0.again.store(false, Ordering::SeqCst);
+                self.0.applying.store(false, Ordering::SeqCst);
+            }
+        }
+        let _reset = Reset(self);
         // Bounded: a few extra rounds settle any ping-pong with other appbars.
         for _ in 0..4 {
             self.apply_once();
@@ -209,8 +242,6 @@ impl Controller {
                 break;
             }
         }
-        self.again.store(false, Ordering::SeqCst);
-        self.applying.store(false, Ordering::SeqCst);
     }
 
     fn apply_once(&self) {
@@ -232,14 +263,20 @@ impl Controller {
             s.last_visible = !hidden;
             changed
         };
-        if !changed {
-            return;
+        if changed {
+            window::place(self.hwnd(), granted);
+            window::set_visible(self.hwnd(), !hidden);
         }
 
-        window::place(self.hwnd(), granted);
-        window::set_visible(self.hwnd(), !hidden);
-
-        let info = self.info();
+        let info = {
+            let mut s = self.lock();
+            let info = Self::info_of(&s);
+            if s.last_info.as_ref() == Some(&info) {
+                return;
+            }
+            s.last_info = Some(info.clone());
+            info
+        };
         let _ = BarChanged(info).emit(&self.app);
     }
 
