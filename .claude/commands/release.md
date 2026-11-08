@@ -1,9 +1,9 @@
 ---
-description: Prepare a Menubar release as a PR (checks, version bump, changelog), or tag it after the PR is merged. Never pushes main or tags.
+description: Prepare a Barista release as a PR (checks, version bump, changelog), or tag it after the PR is merged. Never pushes main or tags.
 argument-hint: '[sdk] [notes, e.g. "known issue: …"]  or  tag [sdk]'
 ---
 
-Prepare the next Menubar release. Because `main` only accepts PRs, a release has two steps:
+Prepare the next Barista release. Because `main` only accepts PRs, a release has two steps:
 
 1. `/release [sdk] [notes]`: checks, version bump and changelog on a `release/...` branch, then a PR.
 2. The user merges the PR on GitHub (merge commit), then runs `/release tag [sdk]`.
@@ -45,7 +45,7 @@ is `docs/release/README.md`.
 
 - On `main`, up to date with origin (`git pull --ff-only`), with a clean working tree
   (`git status --porcelain` empty, untracked files included). Otherwise stop.
-- `.private/` must be ignored: `git check-ignore -q .private/updater/menubar-updater.key` must
+- `.private/` must be ignored: `git check-ignore -q .private/updater/barista-updater.key` must
   succeed, and `git ls-files .private` must print nothing. Otherwise stop: the signing key could be committed.
 - Run every check and stop if any fails:
   - in `apps/bar/src-tauri/`: `cargo check`, `cargo clippy --all-targets`, `cargo test`
@@ -110,7 +110,7 @@ One plain sentence: what this release is about.
   fixes, update the ones that changed, add new ones and the user's notes. Over 8: merge related ones
   or keep the ones that matter most. While the installer isn't code-signed, always keep the
   SmartScreen item ("More info", then "Run anyway").
-- **Privacy** (app only): what Menubar sends to whom. Carry over what's still true and add anything
+- **Privacy** (app only): what Barista sends to whom. Carry over what's still true and add anything
   new. At least: update checks to GitHub; apps talk to the bar only on this computer (nothing leaves
   the machine); tray icons are read locally and never sent anywhere.
 - The GitHub release body is this section, so it must read well on its own.
@@ -152,8 +152,8 @@ Show the version, the changelog section and the PR link, then tell the user:
 ## B2. Tag
 
 - Annotated, on the merge commit:
-  - App: `git tag -a vX.Y.Z -m "Menubar X.Y.Z: <the changelog sentence, shortened>"`
-  - SDK: `git tag -a sdk-vX.Y.Z -m "@menubar/sdk X.Y.Z: <the changelog sentence, shortened>"`
+  - App: `git tag -a vX.Y.Z -m "Barista X.Y.Z: <the changelog sentence, shortened>"`
+  - SDK: `git tag -a sdk-vX.Y.Z -m "@barista/sdk X.Y.Z: <the changelog sentence, shortened>"`
 - Never push the tag.
 - Delete the local release branch (`git branch -d release/...`).
 

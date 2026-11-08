@@ -1,10 +1,8 @@
-# Menubar (working name)
+# Barista
 
 A macOS-style menu bar (and later a dock) for Windows, built with Tauri. It replaces the system
 tray: tray icons live in the bar, and apps can add real menu bar items through a public SDK
-(`@menubar/sdk`, prefix `MB`). The bar reserves screen space like macOS.
-
-> Working name. When the product is named, find-and-replace `Menubar`, `menubar` and the `MB` prefix.
+(`@barista/sdk`, prefix `BA`). The bar reserves screen space like macOS.
 
 ## Who does what
 
@@ -33,7 +31,7 @@ Claude may build a release's Rust while Liam's UI for it isn't done yet. Then:
 
 - `widgets/` are parent bodies (bar, menu panel, overflow, settings window). `features/` hold the
   pieces inside them, in a folder with the **same name** as their widget:
-  `widgets/menubar/menubar.tsx` renders the pieces in `features/menubar/`.
+  `widgets/barista/barista.tsx` renders the pieces in `features/barista/`.
 - A feature folder can have its own `hooks/`, `lib/`, `utils/` when nothing else uses them.
   Shared code lives in `shared/` (bindings, stores, helpers). A feature never edits another feature.
 
@@ -83,9 +81,9 @@ apps/bar/                 Tauri app
     src/registry/         status items, menus, popover anchors
     src/platform/windows/ AppBar, tray bridging, monitors, DPI
 crates/protocol/          message types shared by bar and SDK (source of protocol.ts)
-packages/sdk/             @menubar/sdk (MB.StatusItem etc.)
+packages/sdk/             @barista/sdk (BA.StatusItem etc.)
   src/protocol.ts         generated from crates/protocol (never edit)
-packages/react/           @menubar/react (later)
+packages/react/           @barista/react (later)
 examples/test-client/     tiny app that registers items, used in tests and demos
 docs/                     release plan, ADRs (decisions/), design, research, perf
 ```
@@ -94,8 +92,8 @@ Nothing imports from `apps/`. The SDK never imports Tauri.
 
 ## SDK naming
 
-- Main style: `import * as MB from '@menubar/sdk'` then `MB.StatusItem`, `MB.Menu`, `MB.Popover`.
-  Also export prefixed names (`MBStatusItem`, `MBMenu`, ...).
+- Main style: `import * as BA from '@barista/sdk'` then `BA.StatusItem`, `BA.Menu`, `BA.Popover`.
+  Also export prefixed names (`BAStatusItem`, `BAMenu`, ...).
 - Names: `StatusBar` (host), `StatusItem`, `Menu`, `MenuItem`, `Popover`; later `Dock`, `DockItem`.
 - `create` / `remove` for lifecycle, `set...` for changes (`setLabel`, `setIcon`, `setMenu`,
   `setPopover`), `on('click' | 'open' | 'close')` for events.
