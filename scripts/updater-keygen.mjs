@@ -40,7 +40,7 @@ writeFileSync(confPath, `${JSON.stringify(conf, null, 2)}\n`)
 
 console.log(`
 Done. The public key is now in apps/bar/src-tauri/tauri.conf.json (commit that).
-The updater plugin and its endpoints are wired in v0.9; until then this only prepares signing.
+The updater plugin and its endpoints are wired in v0.10; until then this only prepares signing.
 
 Add these GitHub secrets so the release Action can sign updates:
   gh secret set TAURI_SIGNING_PRIVATE_KEY < "${keyPath}"

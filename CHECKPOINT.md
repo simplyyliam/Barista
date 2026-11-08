@@ -22,6 +22,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - UI package: shadcn lives in `packages/ui` (`@barista/ui`, preset `base-mira`). Apps import
   `@barista/ui/styles.css` from their `index.css` (it holds Tailwind, the theme and the `@source`
   line). Add components with `pnpm dlx shadcn@latest add <name> -c apps/bar`; they land in the package.
+- Plan changed (2026-11-08): new **v0.9 Script items** (xbar-style PowerShell/Python/Node scripts become
+  bar items through the public SDK; trust prompt, timeouts, folder watcher; demo = system monitor script);
+  "Ship it" is now **v0.10**; **v1.1 Gallery** (curated scripts, `barista://install`, notes only);
+  the rest of v1.x is **v1.2+**. v0.8 also gets a first-party system monitor item. The plan files
+  (`docs/release/plan/`, `releases/`) are git-ignored and local only; `docs/release/README.md` has the table.
 - **Next:** Liam reviews and merges the setup PR and builds `apps/bar/src/` (his structure and components). Then Claude starts v0.1 (rust-only): ADRs 0001 and 0002, bar window, AppBar.
 
 ## Fix next

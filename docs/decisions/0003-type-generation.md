@@ -33,4 +33,4 @@ writes `protocol.ts`; tauri-specta does the same for `bindings.ts`. `pnpm gen` r
   deliberate step (bump all pinned crates together, run `pnpm gen`, read the diff).
 - If specta breaks the protocol export, the fallback is ts-rs 12 for `crates/protocol` only.
   The SDK would not notice: it imports the generated `protocol.ts` either way.
-- Revisit when the C# SDK (v1.x) needs the protocol in C#.
+- Revisit when the C# SDK (v1.2+) needs the protocol in C#.

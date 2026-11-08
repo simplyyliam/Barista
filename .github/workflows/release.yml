@@ -2,7 +2,7 @@
 # signs the auto-update, and attaches everything plus latest.json to a DRAFT release.
 # Publishing the draft (by hand, after testing) is what makes installed copies update.
 # SDK tags (sdk-v*) are handled by sdk-release.yml, not here.
-# Stays idle until v0.9: it only runs when a v* tag is pushed, and nobody pushes one before then.
+# Stays idle until v0.10: it only runs when a v* tag is pushed, and nobody pushes one before then.
 name: Release
 
 on:
