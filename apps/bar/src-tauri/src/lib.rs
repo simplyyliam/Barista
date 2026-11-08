@@ -2,6 +2,7 @@
 
 mod bar;
 mod commands;
+mod controller;
 mod events;
 mod ipc;
 mod platform;
@@ -9,7 +10,7 @@ mod registry;
 mod settings;
 mod tray;
 
-use tauri_specta::{collect_commands, Builder};
+use tauri_specta::{collect_commands, collect_events, Builder};
 
 /// Where the generated TypeScript bindings go. Anchored on the crate folder (not the current
 /// directory), so it works however the app is started. Never edit that file.
@@ -17,7 +18,13 @@ const BINDINGS_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../src/shared/
 
 /// Lists every command the frontend may call. bindings.ts is generated from this list.
 fn specta_builder() -> Builder<tauri::Wry> {
-    Builder::<tauri::Wry>::new().commands(collect_commands![commands::get_version])
+    Builder::<tauri::Wry>::new()
+        .commands(collect_commands![
+            commands::get_version,
+            commands::get_bar_info,
+            commands::set_monitor
+        ])
+        .events(collect_events![events::BarChanged])
 }
 
 /// Writes bindings.ts (on debug runs and in `cargo test`, i.e. `pnpm gen`).
@@ -39,8 +46,21 @@ pub fn run() {
 
     tauri::Builder::default()
         .invoke_handler(builder.invoke_handler())
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .setup(move |app| {
+            builder.mount_events(app);
+            controller::start(app.handle())?;
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // Give the reserved screen space back on a normal quit.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(c) = controller::get() {
+                    c.shutdown();
+                }
+            }
+        });
 }
 
 #[cfg(test)]

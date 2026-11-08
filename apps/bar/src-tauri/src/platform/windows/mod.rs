@@ -1,5 +1,9 @@
-//! Win32 code behind small modules: `appbar.rs` (reserve screen space with SHAppBarMessage),
-//! `monitors.rs` (monitor list, work areas, DPI), `window.rs` (styles, hooks) and
-//! `fullscreen.rs`; tray bridging helpers come later.
+//! Win32 code behind small modules, so the rest of the crate reads like plain Rust:
+//! `appbar` (reserve screen space), `monitors` (list, work areas, DPI), `window` (styles,
+//! placement, message hook) and `fullscreen` (is a full-screen app in front?).
+//! Tray bridging helpers come later.
 
+pub mod appbar;
+pub mod fullscreen;
 pub mod monitors;
+pub mod window;
