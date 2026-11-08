@@ -8,7 +8,7 @@
     "dev:web": "vite",
     "build": "vite build",
     "build:app": "tauri build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc6 --noEmit",
     "tauri": "tauri"
   },
   "dependencies": {
