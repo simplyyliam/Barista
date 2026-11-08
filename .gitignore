@@ -1,8 +1,11 @@
 # Dependencies (pnpm puts them in node_modules/ in every package)
 node_modules
 
-# Build output: Vite and tsc write dist/, Cargo writes target/
+# Build output: Vite and tsc write dist/, Cargo writes target/, Next.js writes .next/ and out/
 dist
+.next
+out
+next-env.d.ts
 dist-ssr
 target
 *.tsbuildinfo

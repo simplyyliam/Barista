@@ -47,6 +47,11 @@ The first column must be the exact package or crate name.
 | @fontsource-variable/inter | 5.3     | OFL-1.1           | https://github.com/fontsource/font-files               |
 | class-variance-authority   | 0.7     | Apache-2.0        | https://github.com/joe-bell/cva                        |
 | cn                         | 0.5     | MIT               | https://github.com/shadcn-ui/cn                        |
+| next                       | 16.4    | MIT               | https://github.com/vercel/next.js                      |
+| fumadocs-core              | 16.18   | MIT               | https://github.com/fuma-nama/fumadocs                  |
+| fumadocs-ui                | 16.18   | MIT               | https://github.com/fuma-nama/fumadocs                  |
+| fumadocs-mdx               | 15.5    | MIT               | https://github.com/fuma-nama/fumadocs                  |
+| @types/mdx                 | 2.0     | MIT               | https://github.com/DefinitelyTyped/DefinitelyTyped     |
 | tw-animate-css             | 1.4     | MIT               | https://github.com/Wombosvideo/tw-animate-css          |
 
 ## Design tooling

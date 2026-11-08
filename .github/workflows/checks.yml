@@ -37,5 +37,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
 
+      # The website must build as a static export (apps/web/out/).
+      - run: pnpm web:build
+
       # Fails if pnpm gen or cargo test changed generated files: they were stale.
       - run: git diff --exit-code

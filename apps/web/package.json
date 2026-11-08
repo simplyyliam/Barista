@@ -1,0 +1,29 @@
+{
+  "name": "@barista/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "next typegen && tsc6 --noEmit"
+  },
+  "dependencies": {
+    "@barista/ui": "workspace:*",
+    "fumadocs-core": "^16.18.2",
+    "fumadocs-mdx": "^15.5.1",
+    "fumadocs-ui": "^16.18.2",
+    "next": "^16.4.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "npm:@typescript/typescript6@~6.0.2"
+  }
+}
