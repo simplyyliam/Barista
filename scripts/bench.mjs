@@ -18,6 +18,17 @@ if (!existsSync(exe)) {
   process.exit(1)
 }
 
+// A second bar would share the first one's WebView2 process, so the numbers would be wrong.
+const running = execFileSync("tasklist", ["/FI", "IMAGENAME eq barista.exe", "/NH"], {
+  encoding: "utf8",
+})
+if (running.toLowerCase().includes("barista.exe")) {
+  console.error(
+    "barista.exe is already running. Close the bar (and pnpm dev) first, then run pnpm bench again.",
+  )
+  process.exit(1)
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // One PowerShell call returns CPU seconds and working set for the bar and all its descendants.
@@ -75,19 +86,14 @@ stop()
 const cores = os.cpus().length
 const cpuPercent = ((last.cpu - first.cpu) / elapsed / cores) * 100
 const memoryMb = last.memory / 1024 / 1024
-// Working sets of the WebView2 processes share pages (DLLs), so the plain sum counts them
-// several times. Private working set is what the processes really own.
+// The budget counts private working set (what the processes really own). The plain working
+// set sum counts pages the WebView2 processes share (DLLs) several times: reference only.
 const privateMb = last.private / 1024 / 1024
 
 const rows = [
   ["Idle CPU (avg)", `${cpuPercent.toFixed(2)}%`, "< 0.5%", cpuPercent < 0.5],
-  [
-    "Memory, working set sum (bar + WebView2)",
-    `${memoryMb.toFixed(0)} MB`,
-    "< 120 MB",
-    memoryMb < 120,
-  ],
-  ["Memory, private only (bar + WebView2)", `${privateMb.toFixed(0)} MB`, "for reference", true],
+  ["Memory, private (bar + WebView2)", `${privateMb.toFixed(0)} MB`, "< 120 MB", privateMb < 120],
+  ["Memory, working set sum (reference)", `${memoryMb.toFixed(0)} MB`, "counts shared pages", true],
 ]
 const table = [
   "| What | Result | Budget | |",

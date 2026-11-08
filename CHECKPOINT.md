@@ -42,13 +42,14 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Fix next
 
-- Memory: private memory is 62 MB (budget 120 MB) after adding `--disable-gpu --renderer-process-limit=1` to the
-  window's `additionalBrowserArgs`. The plain working-set sum is still ~330 MB because the 7 WebView2 processes
-  share runtime pages; no flag changes that. Decide: measure the budget as private memory. `--disable-gpu` means
-  software rendering: tell me if animations in the bar feel slower.
+- Memory (decided by Liam 2026-11-08): the budget counts private memory, 62 MB vs 120 MB. The plain working-set
+  sum (~330 MB) is reference only. `--disable-gpu --renderer-process-limit=1` in the window's `additionalBrowserArgs`
+  got it there, so bar animations render in software: tell me if they feel slower.
+- `pnpm bench` refuses to run while a bar is already running (a second bar shares its WebView2 process and
+  the numbers come out wrong): close the bar and `pnpm dev` first.
 - Verified by Liam: 100% and 125% scaling, and unplugging the external monitor (bar fell back to the
   laptop screen, then went back when it was plugged in again). 150% checked by Claude (4K monitor).
-  Still not verified live: Explorer restart (`TaskbarCreated`).
+  Explorer restart checked by Claude on Liam's running bar: space dropped to 0 and came back at 48 px.
 - Dogfood (scripted, 4 min with Edge open: bar CPU 0.009%; Edge): maximized Edge stops under the bar, F11 hides it and leaving F11 shows it, a simulated
   `WM_DISPLAYCHANGE` leaves the bar unchanged.
 - Review leftover: `start` fails if there is no monitor at launch (should wait for one).
