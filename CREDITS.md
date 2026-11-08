@@ -16,6 +16,7 @@ The first column must be the exact package or crate name.
 | specta-serde      | 0.0.13      | MIT               | https://github.com/specta-rs/specta       |
 | serde             | 1.0         | MIT OR Apache-2.0 | https://github.com/serde-rs/serde         |
 | serde_json        | 1.0         | MIT OR Apache-2.0 | https://github.com/serde-rs/json          |
+| windows           | 0.62        | MIT OR Apache-2.0 | https://github.com/microsoft/windows-rs   |
 
 ## JavaScript and TypeScript
 

@@ -93,11 +93,13 @@ name = "barista"
 version = "0.0.0"
 dependencies = [
  "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-build",
  "tauri-specta",
+ "windows",
 ]
 
 [[package]]

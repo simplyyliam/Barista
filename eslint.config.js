@@ -47,6 +47,11 @@ export default tseslint.config(
               importNames: ["invoke"],
               message: "Don't call invoke directly. Use `commands` from @/shared/bindings.",
             },
+            {
+              name: "@tauri-apps/api/event",
+              importNames: ["listen", "once", "emit", "emitTo"],
+              message: "Don't use raw events. Use the typed `events` from @/shared/bindings.",
+            },
           ],
         },
       ],
