@@ -23,7 +23,8 @@
         "focus": false,
         "resizable": false,
         "shadow": false,
-        "visible": false
+        "visible": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --renderer-process-limit=1"
       }
     ],
     "security": {
