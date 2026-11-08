@@ -1,0 +1,24 @@
+[package]
+name = "barista"
+version = "0.0.0"
+description = "A macOS-style menu bar for Windows"
+authors = ["Liam Matthews"]
+edition = "2021"
+rust-version = "1.77.2"
+publish = false
+
+[lib]
+name = "barista_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+# tauri-specta turns the Tauri commands into src/shared/bindings.ts. The three specta crates
+# are pinned exactly because specta 2 is a release candidate (docs/decisions/0003).
+tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
+specta = { version = "=2.0.0-rc.26", features = ["derive"] }
+specta-typescript = "=0.0.13"

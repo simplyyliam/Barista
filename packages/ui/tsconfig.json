@@ -1,0 +1,12 @@
+{
+  // Shared UI package: shadcn components, styles and helpers. Apps import it as @barista/ui.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [],
+    "jsx": "react-jsx",
+    // shadcn writes imports like "@barista/ui/lib/utils". Inside this package they resolve here.
+    "paths": { "@barista/ui/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}

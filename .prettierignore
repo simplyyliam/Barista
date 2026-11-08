@@ -1,0 +1,13 @@
+node_modules
+dist
+target
+pnpm-lock.yaml
+Cargo.lock
+**/src-tauri/gen
+apps/bar/src/shared/bindings.ts
+packages/sdk/src/protocol.ts
+docs/release
+.claude
+
+# shadcn writes and rewrites these files; keep them exactly as the CLI generates them
+packages/ui/src

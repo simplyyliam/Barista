@@ -1,0 +1,2 @@
+/* Everything (Tailwind, theme tokens, sources) comes from the shared UI package. */
+@import "@barista/ui/styles.css";

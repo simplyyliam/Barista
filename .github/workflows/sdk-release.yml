@@ -1,6 +1,7 @@
 # Publishes @barista/sdk to npm when an SDK tag (sdk-v0.1.0, ...) is pushed by `pnpm release`,
 # and makes a GitHub release (not a draft) with that version's notes from packages/sdk/CHANGELOG.md.
 # Needs the NPM_TOKEN repo secret (an npm automation token).
+# Stays idle until the SDK ships (v0.5): it only runs when an sdk-v* tag is pushed.
 name: SDK release
 
 on:

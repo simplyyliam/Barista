@@ -2,6 +2,7 @@
 # signs the auto-update, and attaches everything plus latest.json to a DRAFT release.
 # Publishing the draft (by hand, after testing) is what makes installed copies update.
 # SDK tags (sdk-v*) are handled by sdk-release.yml, not here.
+# Stays idle until v0.10: it only runs when a v* tag is pushed, and nobody pushes one before then.
 name: Release
 
 on:
@@ -68,7 +69,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: apps/bar/src-tauri -> target
+          workspaces: . -> target
 
       - run: pnpm install --frozen-lockfile
 
