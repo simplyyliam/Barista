@@ -1,0 +1,44 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: windows-latest # Barista is Windows-only
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # version comes from packageManager in package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/bar/src-tauri -> target
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: cargo check
+        working-directory: apps/bar/src-tauri
+      - run: cargo clippy --all-targets
+        working-directory: apps/bar/src-tauri
+      - run: cargo test
+        working-directory: apps/bar/src-tauri
+
+      # Regenerates bindings.ts (tauri-specta) and protocol.ts (crates/protocol).
+      - run: pnpm gen
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+      # Fails if pnpm gen or cargo test changed generated files: they were stale.
+      - run: git diff --exit-code

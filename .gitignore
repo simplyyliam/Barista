@@ -1,0 +1,46 @@
+# Dependencies (pnpm puts them in node_modules/ in every package)
+node_modules
+
+# Build output: Vite and tsc write dist/, Cargo writes target/
+dist
+dist-ssr
+target
+*.tsbuildinfo
+
+# Private files: updater signing key, release reports. Never commit.
+.private/
+.env*
+*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Design inspiration images stay local (not ours to redistribute)
+docs/design/
+
+# Private release plan, release files, history and research (local only)
+docs/release/plan/
+docs/release/releases/
+docs/release/history/
+docs/research/

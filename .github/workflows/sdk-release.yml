@@ -1,0 +1,52 @@
+# Publishes @barista/sdk to npm when an SDK tag (sdk-v0.1.0, ...) is pushed by `pnpm release`,
+# and makes a GitHub release (not a draft) with that version's notes from packages/sdk/CHANGELOG.md.
+# Needs the NPM_TOKEN repo secret (an npm automation token).
+name: SDK release
+
+on:
+  push:
+    tags: ["sdk-v*"]
+
+permissions:
+  contents: write # GitHub release for the SDK tag
+  id-token: write # npm provenance (shows the package was built from this repo)
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04 # the SDK is plain TypeScript, no Windows needed to build it
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the tag matches packages/sdk/package.json
+        shell: bash
+        run: |
+          want="${GITHUB_REF_NAME#sdk-v}"
+          have="$(node -p "require('./packages/sdk/package.json').version")"
+          if [ "$want" != "$have" ]; then
+            echo "Tag says $want but packages/sdk/package.json says $have"; exit 1
+          fi
+
+      - run: pnpm --filter @barista/sdk test
+      - run: pnpm --filter @barista/sdk build
+
+      - run: pnpm publish --access public --no-git-checks --provenance
+        working-directory: packages/sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: GitHub release with the SDK notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/changelog-section.mjs packages/sdk/CHANGELOG.md "${GITHUB_REF_NAME}" > notes.md
+          gh release create "${GITHUB_REF_NAME}" --title "@barista/sdk ${GITHUB_REF_NAME#sdk-v}" --notes-file notes.md
