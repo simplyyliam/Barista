@@ -1,0 +1,9 @@
+node_modules
+dist
+target
+pnpm-lock.yaml
+Cargo.lock
+**/src-tauri/gen
+apps/bar/src/shared/bindings.ts
+packages/sdk/src/protocol.ts
+docs/release

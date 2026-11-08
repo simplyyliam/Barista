@@ -1,0 +1,12 @@
+# Every folder matched here is a workspace package: pnpm links them together,
+# so `@barista/sdk` resolves to packages/sdk instead of the npm registry.
+packages:
+  - apps/*
+  - packages/*
+  - examples/*
+
+# pnpm 10 blocks dependency install scripts unless listed. esbuild ships its
+# binary as a separate package, so its install script isn't needed.
+ignoredBuiltDependencies:
+  - esbuild
+  - unrs-resolver

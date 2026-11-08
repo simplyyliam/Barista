@@ -1,0 +1,2 @@
+# Always LF in the repo, so generated files never show a CRLF diff in CI.
+* text=auto eol=lf
