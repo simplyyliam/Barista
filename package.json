@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "pnpm --filter @barista/bar dev",
+    "web:dev": "pnpm --filter @barista/web dev",
+    "web:build": "pnpm --filter @barista/web build",
     "gen": "cargo test --workspace export_ -q",
     "build": "pnpm -r build",
     "typecheck": "pnpm --filter @barista/sdk build && pnpm -r typecheck",
