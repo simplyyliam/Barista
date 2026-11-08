@@ -42,10 +42,20 @@ function snapshot(barPid) {
 
 const bar = spawn(exe, [], { stdio: "ignore", detached: false })
 const stop = () => {
-  try {
-    execFileSync("taskkill", ["/PID", String(bar.pid), "/T", "/F"], { stdio: "ignore" })
-  } catch {
-    // already gone
+  // Ask nicely first (WM_CLOSE) so the bar gives its screen space back, then force.
+  for (const flags of [[], ["/F", "/T"]]) {
+    try {
+      execFileSync("taskkill", ["/PID", String(bar.pid), ...flags], { stdio: "ignore" })
+    } catch {
+      return // already gone
+    }
+    if (flags.length === 0) {
+      const until = Date.now() + 3000
+      while (Date.now() < until && bar.exitCode === null) {
+        execFileSync("powershell", ["-NoProfile", "-Command", "Start-Sleep -Milliseconds 200"])
+      }
+      if (bar.exitCode !== null) return
+    }
   }
 }
 process.on("exit", stop)

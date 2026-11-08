@@ -44,10 +44,13 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 - Memory is over budget: the bar + WebView2 sum to ~410 MB working set (~130 MB private) vs the 120 MB budget.
   This is the WebView2 baseline with a near-empty page. Decide: change the budget to private memory, or trim.
-- Not verified live yet: 100%/125% scaling, second monitor (switch and unplug), Explorer restart (`TaskbarCreated`).
-- Review leftovers (not fixed in v0.1): `start` fails if there is no monitor at launch (wait for one instead);
-  failed `ABM_NEW` is only logged (retry); `pnpm bench` uses `taskkill /F`, so the strip can linger until Explorer
-  notices; the full-screen check uses a class-name list, so overlays like Start may flicker the bar.
+- Not verified live (one 4K monitor at 150% here; Windows refuses scripted scaling changes): 100%/125% scaling,
+  second monitor (switch and unplug), Explorer restart (`TaskbarCreated`). Rect math for 1.0/1.25/1.5 is unit tested.
+- Dogfood (scripted, Edge): maximized Edge stops under the bar, F11 hides it and leaving F11 shows it, a simulated
+  `WM_DISPLAYCHANGE` leaves the bar unchanged.
+- Review leftover: `start` fails if there is no monitor at launch (should wait for one).
+  Fixed since the review: failed `ABM_NEW` retries on the next apply, full-screen check skips more shell
+  windows and cloaked ones, `pnpm bench` closes the bar gracefully first.
 - The first-run window is 800x32 until the first `apply`; fine because it starts hidden.
 
 ## Useful facts (keep only what still matters)

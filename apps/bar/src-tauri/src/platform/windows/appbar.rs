@@ -62,6 +62,10 @@ pub fn unregister() {
     unsafe { SHAppBarMessage(ABM_REMOVE, &mut d) };
 }
 
+pub fn is_registered() -> bool {
+    REGISTERED.load(Ordering::SeqCst) != 0
+}
+
 /// Forgets the registration without telling Windows (used when explorer restarted and
 /// already lost it), so `register` can run again.
 pub fn forget() {

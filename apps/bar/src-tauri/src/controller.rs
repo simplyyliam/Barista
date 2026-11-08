@@ -254,6 +254,10 @@ impl Controller {
             )
         };
 
+        // A failed ABM_NEW at startup (or a lost registration) is retried on the next apply.
+        if !appbar::is_registered() && !appbar::register(self.hwnd()) {
+            eprintln!("barista: appbar registration failed, will retry");
+        }
         let granted = appbar::set_pos(self.hwnd(), desired);
 
         let changed = {

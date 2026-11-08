@@ -4,6 +4,7 @@
 use crate::bar::{covers, Rect};
 use std::sync::OnceLock;
 use windows::Win32::Foundation::{HWND, RECT};
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetClassNameW, GetForegroundWindow, GetWindowRect, IsIconic, IsWindowVisible,
@@ -61,7 +62,30 @@ pub fn foreground_covers(monitor: &Rect, own: HWND) -> bool {
         let mut class = [0u16; 64];
         let len = GetClassNameW(fg, &mut class) as usize;
         let class = String::from_utf16_lossy(&class[..len.min(class.len())]);
-        if class == "Progman" || class == "WorkerW" || class == "Shell_TrayWnd" {
+        // Desktop, taskbar and shell overlays (Start, task view) can cover the monitor but
+        // are not "a full-screen app".
+        const SHELL_CLASSES: [&str; 7] = [
+            "Progman",
+            "WorkerW",
+            "Shell_TrayWnd",
+            "Shell_SecondaryTrayWnd",
+            "Windows.UI.Core.CoreWindow",
+            "XamlExplorerHostIslandWindow",
+            "MultitaskingViewFrame",
+        ];
+        if SHELL_CLASSES.contains(&class.as_str()) {
+            return false;
+        }
+        // Cloaked = "visible" to Win32 but hidden by the shell (e.g. a UWP window on another
+        // virtual desktop).
+        let mut cloaked = 0u32;
+        let _ = DwmGetWindowAttribute(
+            fg,
+            DWMWA_CLOAKED,
+            &mut cloaked as *mut u32 as *mut _,
+            std::mem::size_of::<u32>() as u32,
+        );
+        if cloaked != 0 {
             return false;
         }
         let mut r = RECT::default();
