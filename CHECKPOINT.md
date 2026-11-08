@@ -46,8 +46,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   window's `additionalBrowserArgs`. The plain working-set sum is still ~330 MB because the 7 WebView2 processes
   share runtime pages; no flag changes that. Decide: measure the budget as private memory. `--disable-gpu` means
   software rendering: tell me if animations in the bar feel slower.
-- Not verified live (one 4K monitor at 150% here; Windows refuses scripted scaling changes): 100%/125% scaling,
-  second monitor (switch and unplug), Explorer restart (`TaskbarCreated`). Rect math for 1.0/1.25/1.5 is unit tested.
+- Verified by Liam: 100% and 125% scaling, nothing broke (150% checked by Claude, 4K monitor).
+  Still not verified live: second monitor (switch and unplug), Explorer restart (`TaskbarCreated`).
 - Dogfood (scripted, 4 min with Edge open: bar CPU 0.009%; Edge): maximized Edge stops under the bar, F11 hides it and leaving F11 shows it, a simulated
   `WM_DISPLAYCHANGE` leaves the bar unchanged.
 - Review leftover: `start` fails if there is no monitor at launch (should wait for one).
