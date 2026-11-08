@@ -1,2 +1,97 @@
-//! Saved settings: bar height, monitor, item order, pinned and hidden items.
-//! Stored as a small JSON file in the app's data folder. Arrives with v0.1 (height, monitor).
+//! Saved settings: bar height and monitor now; item order, pinned and hidden items later.
+//! Stored as a small JSON file in the app's config folder.
+
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+
+pub const DEFAULT_BAR_HEIGHT: u32 = 32;
+pub const MIN_BAR_HEIGHT: u32 = 20;
+pub const MAX_BAR_HEIGHT: u32 = 64;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Settings {
+    /// Bar height in logical pixels (scaled by the monitor's DPI when applied).
+    pub bar_height: u32,
+    /// Id of the monitor the bar lives on. `None` = the primary monitor.
+    pub monitor: Option<String>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self { bar_height: DEFAULT_BAR_HEIGHT, monitor: None }
+    }
+}
+
+impl Settings {
+    /// A hand-edited file must not be able to make the bar huge or invisible.
+    fn clamped(mut self) -> Self {
+        self.bar_height = self.bar_height.clamp(MIN_BAR_HEIGHT, MAX_BAR_HEIGHT);
+        self
+    }
+
+    /// Missing or broken file gives the defaults. Never fails: the bar must start.
+    pub fn load(path: &Path) -> Self {
+        std::fs::read_to_string(path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<Settings>(&text).ok())
+            .unwrap_or_default()
+            .clamped()
+    }
+
+    /// Writes to a temp file and renames it over the real one, so a crash mid-write
+    /// can't leave a half-written settings file.
+    pub fn save(&self, path: &Path) -> std::io::Result<()> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(&tmp, serde_json::to_string_pretty(self)?)?;
+        std::fs::rename(&tmp, path)
+    }
+}
+
+pub fn settings_path(config_dir: &Path) -> PathBuf {
+    config_dir.join("settings.json")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_file(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("barista-test-{}-{name}", std::process::id()))
+    }
+
+    #[test]
+    fn missing_file_gives_defaults() {
+        assert_eq!(Settings::load(&temp_file("missing.json")), Settings::default());
+    }
+
+    #[test]
+    fn broken_file_gives_defaults() {
+        let path = temp_file("broken.json");
+        std::fs::write(&path, "{ not json").unwrap();
+        assert_eq!(Settings::load(&path), Settings::default());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn height_is_clamped() {
+        let path = temp_file("clamp.json");
+        std::fs::write(&path, r#"{"barHeight": 5000}"#).unwrap();
+        assert_eq!(Settings::load(&path).bar_height, MAX_BAR_HEIGHT);
+        std::fs::write(&path, r#"{"barHeight": 0}"#).unwrap();
+        assert_eq!(Settings::load(&path).bar_height, MIN_BAR_HEIGHT);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn save_then_load_round_trips() {
+        let path = temp_file("round.json");
+        let s = Settings { bar_height: 40, monitor: Some("monitor-a".into()) };
+        s.save(&path).unwrap();
+        assert_eq!(Settings::load(&path), s);
+        let _ = std::fs::remove_file(path);
+    }
+}

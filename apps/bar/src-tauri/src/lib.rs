@@ -1,5 +1,6 @@
 //! Barista's native side. The frontend only renders state it gets from here (CLAUDE.md rule 5).
 
+mod bar;
 mod commands;
 mod events;
 mod ipc;
