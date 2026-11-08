@@ -83,6 +83,8 @@ apps/bar/                 Tauri app
 crates/protocol/          message types shared by bar and SDK (source of protocol.ts)
 packages/sdk/             @barista/sdk (BA.StatusItem etc.)
   src/protocol.ts         generated from crates/protocol (never edit)
+packages/ui/              @barista/ui: shared shadcn/ui (preset base-mira); apps import its styles.css
+  src/styles.css          shadcn's generated theme (:root, @theme, dark); leave it as generated
 packages/react/           @barista/react (later)
 examples/test-client/     tiny app that registers items, used in tests and demos
 docs/                     release plan, ADRs (decisions/), design, research, perf

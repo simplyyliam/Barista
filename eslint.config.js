@@ -50,6 +50,14 @@ export default tseslint.config(
     },
   },
 
+  // The shared UI package (shadcn components) also runs in the browser.
+  {
+    files: ["packages/ui/src/**/*.{ts,tsx}"],
+    languageOptions: { globals: globals.browser },
+    plugins: { "react-hooks": reactHooks },
+    rules: { "react-hooks/rules-of-hooks": "error" },
+  },
+
   // The SDK never imports Tauri, and nothing outside apps/ imports from apps/.
   {
     files: ["packages/**/*.ts", "examples/**/*.ts"],

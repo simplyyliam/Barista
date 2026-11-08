@@ -19,8 +19,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - v0.0 facts: one Cargo workspace at the root (`apps/bar/src-tauri`, `crates/protocol`); `pnpm gen`
   = `cargo test --workspace export_` (writes `bindings.ts` and `protocol.ts`); specta crates are
   pinned exactly (ADR 0003); `CREDITS.md` needs a row for every new dependency (a test checks).
-- **Next:** Liam reviews and merges the setup PR and builds `apps/bar/src/` (his structure, shadcn
-  `utils.ts` and components). Then Claude starts v0.1 (rust-only): ADRs 0001 and 0002, bar window, AppBar.
+- UI package: shadcn lives in `packages/ui` (`@barista/ui`, preset `base-mira`). Apps import
+  `@barista/ui/styles.css` from their `index.css` (it holds Tailwind, the theme and the `@source`
+  line). Add components with `pnpm dlx shadcn@latest add <name> -c apps/bar`; they land in the package.
+- **Next:** Liam reviews and merges the setup PR and builds `apps/bar/src/` (his structure and components). Then Claude starts v0.1 (rust-only): ADRs 0001 and 0002, bar window, AppBar.
 
 ## Fix next
 

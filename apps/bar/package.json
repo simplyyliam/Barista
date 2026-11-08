@@ -12,13 +12,17 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@barista/ui": "workspace:*",
     "@tauri-apps/api": "^2.12.4",
+    "cn": "^0.5.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
     "@tailwindcss/vite": "^4.3.5",
     "@tauri-apps/cli": "^2.12.4",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.2.1",
