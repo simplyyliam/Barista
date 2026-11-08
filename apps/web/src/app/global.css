@@ -1,0 +1,8 @@
+/* Tailwind, the shadcn theme and the @source line come from the shared UI package. */
+@import "@barista/ui/styles.css";
+/* Fumadocs' docs styles, mapped onto the shadcn tokens above. */
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* Fumadocs' components live in node_modules, which Tailwind skips by default. */
+@source "../../node_modules/fumadocs-ui/dist/**/*.js";
