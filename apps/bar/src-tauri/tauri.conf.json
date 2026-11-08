@@ -14,8 +14,16 @@
       {
         "label": "main",
         "title": "Barista",
-        "width": 640,
-        "height": 160
+        "width": 800,
+        "height": 32,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "resizable": false,
+        "shadow": false,
+        "visible": false
       }
     ],
     "security": {
