@@ -7,3 +7,4 @@ Cargo.lock
 apps/bar/src/shared/bindings.ts
 packages/sdk/src/protocol.ts
 docs/release
+.claude

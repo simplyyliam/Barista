@@ -1,0 +1,12 @@
+{
+  // Typecheck everything in the package (source and tests). tsconfig.build.json emits dist/.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // NodeNext: the built files run in plain Node, so relative imports need ".js" endings.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

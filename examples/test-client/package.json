@@ -1,0 +1,16 @@
+{
+  "name": "@barista/test-client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@barista/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "npm:@typescript/typescript6@~6.0.2"
+  }
+}
