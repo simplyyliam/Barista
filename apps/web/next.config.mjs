@@ -4,6 +4,7 @@ import { createMDX } from "fumadocs-mdx/next"
 /** @type {import('next').NextConfig} */
 const config = {
   output: "export",
+  trailingSlash: true,
   reactStrictMode: true,
   // Image optimisation needs a server, so images are served as they are.
   images: { unoptimized: true },
