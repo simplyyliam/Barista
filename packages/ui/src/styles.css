@@ -131,3 +131,9 @@
     @apply font-sans;
     }
 }
+
+body {
+  -webkit-user-select: none; /* Safari */
+  -ms-user-select: none;     /* IE 10 and Older */
+  user-select: none;         /* Standard syntax for Chrome, Firefox, Opera */
+}
