@@ -74,15 +74,17 @@ if (clickAt >= 0) {
     console.error("usage: pnpm inspect --click <item id, like s1/counter> [left|right|middle]")
     process.exit(1)
   }
+  let timer: NodeJS.Timeout | undefined
   const socket = open((message, send) => {
     if (message.type === "welcome") {
       send({ type: "debug.click", id, button })
       // A request that fails comes back as an error; give it a moment, then say it went out.
-      setTimeout(() => {
+      timer = setTimeout(() => {
         console.log(`click (${button}) sent to ${id}`)
         socket.end()
       }, 200)
     } else if (message.type === "error") {
+      clearTimeout(timer)
       console.error(`${message.code}: ${message.message}`)
       process.exitCode = 1
       socket.end()

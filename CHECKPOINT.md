@@ -38,9 +38,33 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - Not testable here (one monitor, 150% only): 100%/125% live, monitor switch/unplug, Explorer restart.
   - New for the UI: `commands.getBarInfo()`, `commands.setMonitor(id)`, `events.barChanged`. The window is
     transparent now, so `html, body` need `background: transparent`.
-- **Next:** Liam reviews the v0.1 PR and builds the bar layout in `apps/bar/src/`. Then v0.2 (items, IPC server).
+- v0.2 First item (2026-11-09, branch `feature/v0.2-first-item`, PR open): built, rust-only. ADRs 0005 (pipe server), 0006 (items), 0007 (SDK shape).
+  - Code: `crates/protocol` (protocol 0.2, limits exported into `protocol.ts`), `ipc/{frame,validate,session,mod}.rs`,
+    `registry/mod.rs`, `platform/windows/pipe.rs` (user-only DACL, first-instance, client pid), `events::forward_changes`
+    (one `items-changed` per 16 ms at most). SDK: `status-bar.ts`, `status-item.ts`, `frame.ts`, `validate.ts`.
+  - Examples: `pnpm test-client` (counting item), `pnpm inspect [--watch | --click <key> [button]]`,
+    `examples/clock` (dogfood). `pnpm bench 0.2` -> `docs/perf/0.2.md` (needs a release build; sets `BARISTA_DEBUG=1`).
+  - `debug.listItems` / `debug.click` work in debug builds, or in release with `BARISTA_DEBUG` set. Otherwise `unknown_type`.
+  - Checked live (debug and release bar): item shows, label counts, `inspect --click` reaches the client, bad messages
+    (huge icon, bad id, garbage, unknown type, 2 MB frame) are rejected and the bar plus another client are unaffected,
+    killing the client removes its item. Not testable without the UI: that items draw and clicks go through `itemClicked`.
+  - New for the UI: `commands.getItems()` -> `StatusItemView[]` (`id` is the key `"s3/counter"`, `appName`, `icon` as a
+    `data:` URL, `label`, `tooltip`), `commands.itemClicked(id, button)` (`"left" | "right" | "middle"`),
+    `events.itemsChanged` (full list of visible items, replaces what the UI holds). Show icons with `<img src>` only, never inline the SVG.
+- **Next:** Liam reviews the v0.1 and v0.2 PRs and builds the bar layout and item rendering in `apps/bar/src/`. Then v0.3 (menus).
 
 ## Fix next
+
+- Dogfooding v0.2 (`examples/clock`, written from the SDK README only):
+  - A plain SVG string as `icon` throws ("must be a base64 data: URL"); it is the first thing anyone tries. Accept raw SVG
+    markup (a string starting with `<svg`) and probably a file path helper too.
+  - No bar running = `connect()` rejects and an app that does not catch it dies with a stack trace. Needs wait/retry (v0.5);
+    until then the README should show a try/catch.
+  - `create()` resolves when the message is sent, not when the bar accepted it, so `limit_reached` shows up later as an
+    `error` event. A real "accepted" answer (or `await item.ready`) would be easier to explain.
+  - README says "label up to 128 characters" but not what happens beyond: it throws a `TypeError` at the call. Say so.
+  - `appName` defaults to the script name; the README quick start does not mention it besides the `connect` option.
+  - `item.on("click")` only gives `button`; apps will want the item's position for anchoring (popovers, v0.4).
 
 - Memory (decided by Liam 2026-11-08): the budget counts private memory, 62 MB vs 120 MB. The plain working-set
   sum (~330 MB) is reference only. `--disable-gpu --renderer-process-limit=1` in the window's `additionalBrowserArgs`
