@@ -16,11 +16,19 @@ export const commands = {
 	getBarInfo: () => typedError<BarInfo, string>(__TAURI_INVOKE("get_bar_info")),
 	/**  Moves the bar to another monitor (an id from `getBarInfo().monitors`) and remembers it. */
 	setMonitor: (id: string) => typedError<BarInfo, string>(__TAURI_INVOKE("set_monitor", { id })),
+	/**  The items in the bar right now. Call once when the UI starts; `itemsChanged` keeps it fresh. */
+	getItems: () => __TAURI_INVOKE<StatusItemView_Serialize[]>("get_items"),
+	/**
+	 *  The user clicked an item. `id` is the item's `id` from `getItems()` / `itemsChanged`.
+	 *  The click is sent to the app that owns the item (it gets `item.click`).
+	 */
+	itemClicked: (id: string, button: MouseButton) => typedError<null, string>(__TAURI_INVOKE("item_clicked", { id, button })),
 };
 
 /** Events */
 export const events = {
 	barChanged: makeEvent<BarChanged, BarChanged>("bar-changed"),
+	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
 };
 
 /* Types */
@@ -39,6 +47,24 @@ export type BarInfo = {
 	hiddenForFullscreen: boolean,
 };
 
+/**
+ *  The set of items in the bar changed. Carries the full list (visible items, in order), so
+ *  the UI just replaces what it has. Sent at most about once per frame (see `forward_changes`).
+ */
+export type ItemsChanged = ItemsChanged_Serialize | ItemsChanged_Deserialize;
+
+/**
+ *  The set of items in the bar changed. Carries the full list (visible items, in order), so
+ *  the UI just replaces what it has. Sent at most about once per frame (see `forward_changes`).
+ */
+export type ItemsChanged_Deserialize = StatusItemView_Deserialize[];
+
+/**
+ *  The set of items in the bar changed. Carries the full list (visible items, in order), so
+ *  the UI just replaces what it has. Sent at most about once per frame (see `forward_changes`).
+ */
+export type ItemsChanged_Serialize = StatusItemView_Serialize[];
+
 export type Monitor = {
 	/**  Stable across restarts and replugging (the display's device path). */
 	id: string,
@@ -52,6 +78,9 @@ export type Monitor = {
 	scale: number | null,
 };
 
+/**  Which mouse button clicked an item. */
+export type MouseButton = "left" | "right" | "middle";
+
 /**
  *  A rectangle in **physical pixels** (what Windows works in). Logical pixels only exist in
  *  settings and in `BarInfo.height`; `bar_rect` converts once (CLAUDE.md rule 8).
@@ -61,6 +90,29 @@ export type Rect = {
 	top: number,
 	right: number,
 	bottom: number,
+};
+
+/**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
+export type StatusItemView = StatusItemView_Serialize | StatusItemView_Deserialize;
+
+/**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
+export type StatusItemView_Deserialize = {
+	id: string,
+	appName: string,
+	/**  A `data:` URL, ready for `<img src>`. */
+	icon?: string | null,
+	label?: string | null,
+	tooltip?: string | null,
+};
+
+/**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
+export type StatusItemView_Serialize = {
+	id: string,
+	appName: string,
+	/**  A `data:` URL, ready for `<img src>`. */
+	icon: string | null,
+	label: string | null,
+	tooltip: string | null,
 };
 
 /* Tauri Specta runtime */

@@ -10,6 +10,8 @@ mod registry;
 mod settings;
 mod tray;
 
+use std::sync::Arc;
+use tauri::Manager;
 use tauri_specta::{collect_commands, collect_events, Builder};
 
 /// Where the generated TypeScript bindings go. Anchored on the crate folder (not the current
@@ -23,9 +25,11 @@ fn specta_builder() -> Builder<tauri::Wry> {
         .commands(collect_commands![
             commands::get_version,
             commands::get_bar_info,
-            commands::set_monitor
+            commands::set_monitor,
+            commands::get_items,
+            commands::item_clicked
         ])
-        .events(collect_events![events::BarChanged])
+        .events(collect_events![events::BarChanged, events::ItemsChanged])
 }
 
 /// Writes bindings.ts (on debug runs and in `cargo test`, i.e. `pnpm gen`).
@@ -51,6 +55,10 @@ pub fn run() {
         .setup(move |app| {
             builder.mount_events(app);
             controller::start(app.handle())?;
+            let registry = Arc::new(registry::Registry::new());
+            app.manage(registry.clone());
+            ipc::start(registry.clone());
+            events::forward_changes(app.handle().clone(), registry);
             Ok(())
         })
         .build(tauri::generate_context!())
