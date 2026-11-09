@@ -1,0 +1,96 @@
+/*
+ * Barista design tokens (monochrome). Imported once from index.css.
+ *
+ * Two layers:
+ *   1. raw values on :root / [data-tone]  -> the part that changes with the wallpaper
+ *   2. @theme inline                       -> gives them Tailwind names (text-bar-fg, p-panel-pad, ...)
+ *
+ * data-tone describes the WALLPAPER behind the bar (set by shared/stores/bar-tone.ts):
+ *   light wallpaper -> dark content, dark wallpaper -> light content.
+ * Light is the default, so the page looks right before Rust has answered.
+ *
+ * "App.png" = Liam's Figma design (measured on the 2560x1440 export at 1x).
+ * Where the design follows macOS the macOS value is noted; where they differ the design wins.
+ */
+
+:root,
+[data-tone="light"] {
+  /* Bar content on a LIGHT wallpaper: near-black, like the design (#0A0A0A in App.png). */
+  --bar-fg: #0a0a0a;
+  --bar-fg-muted: rgb(10 10 10 / 0.6);
+  --bar-hover: rgb(10 10 10 / 0.1);
+}
+
+[data-tone="dark"] {
+  /* Bar content on a DARK wallpaper: near-white (shadcn neutral-50). Not in the design; mirrors it. */
+  --bar-fg: #fafafa;
+  --bar-fg-muted: rgb(250 250 250 / 0.6);
+  --bar-hover: rgb(250 250 250 / 0.14);
+}
+
+:root {
+  /* Panels (notifications, calendar, control centre) stay black in both tones: App.png. */
+  --panel-bg: #000000; /* App.png: sampled #010101 */
+  --panel-bg-raised: #1c1c1e; /* App.png: calendar card, estimated by eye (ask Liam) */
+  --panel-fg: #fafafa;
+  --panel-fg-muted: rgb(250 250 250 / 0.55); /* estimated by eye (ask Liam) */
+  --panel-separator: rgb(250 250 250 / 0.12); /* macOS menus use a ~10-15% white hairline */
+}
+
+@theme inline {
+  /* --- Type --- */
+  /* App.png: SF Pro (not licensed for Windows). Inter is the closest free look; it is already
+     bundled by @barista/ui. One token, so a font setting can swap it later. */
+  --font-bar: "Inter Variable", system-ui, sans-serif;
+  /* App.png: 14px text (cap height ~10px). macOS menu bar text is 13-14pt. */
+  --text-bar: 14px;
+  --text-bar--line-height: 16px;
+  /* macOS menu bar items are regular weight; the app name is semibold. App.png shows regular. */
+  --font-weight-bar: 400;
+  --font-weight-bar-strong: 600;
+  /* App.png panels: titles 14px, secondary lines ~11px (estimated by eye, ask Liam). */
+  --text-panel-title: 14px;
+  --text-panel-small: 11px;
+
+  /* --- Bar sizes and spacing --- */
+  /* App.png: 32px tall (macOS: 24pt). Reference only; the real height is the window's. */
+  --spacing-bar-h: 32px;
+  /* App.png: 24px from the screen edge to the first/last item. */
+  --spacing-bar-x: 24px;
+  /* App.png: 18px between the right-hand icons (32px pitch for a 14px glyph). */
+  --spacing-bar-gap: 18px;
+  /* App.png: 12px between the logo and the app name. */
+  --spacing-bar-icon-label: 12px;
+  /* App.png: 16px icon box. macOS: 16x16pt icon in a 22pt area (Bjango). */
+  --spacing-bar-icon: 16px;
+
+  /* --- Panels --- */
+  /* App.png: 340px wide, 14px below the bar, 16px content padding, 8px inset for inner blocks. */
+  --spacing-panel-w: 340px;
+  --spacing-panel-offset: 14px;
+  --spacing-panel-pad: 16px;
+  --spacing-panel-inset: 8px;
+  /* App.png: ~14px between stacked notifications. */
+  --spacing-panel-gap: 14px;
+
+  /* --- Radii (ADR 0008) --- */
+  /* The panel window itself gets --window-radius from the OS / Windhawk. Never set it on a window's
+     root. Children use the same radius minus their distance from the edge, so the curves line up. */
+  --radius-panel-child: max(0px, calc(var(--window-radius, 8px) - var(--spacing-panel-inset)));
+
+  /* --- Shadows and blur --- */
+  /* App.png has no drop shadow on the panels, and Windows draws the window's own shadow. */
+  --shadow-panel: none;
+  /* macOS blurs the wallpaper behind the bar and menus. CSS backdrop-filter only sees our own
+     page, not the desktop, so real blur is a window effect (DWM acrylic) done in Rust later. */
+
+  /* --- Colours (monochrome) --- */
+  --color-bar-fg: var(--bar-fg);
+  --color-bar-fg-muted: var(--bar-fg-muted);
+  --color-bar-hover: var(--bar-hover);
+  --color-panel: var(--panel-bg);
+  --color-panel-raised: var(--panel-bg-raised);
+  --color-panel-fg: var(--panel-fg);
+  --color-panel-fg-muted: var(--panel-fg-muted);
+  --color-panel-separator: var(--panel-separator);
+}

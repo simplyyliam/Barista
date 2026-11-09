@@ -1,2 +1,22 @@
 /* Everything (Tailwind, theme tokens, sources) comes from the shared UI package. */
 @import "@barista/ui/styles.css";
+/* Barista's own tokens (bar sizes, tone colours, panels). */
+@import "./styles/tokens.css";
+
+/* The bar is a transparent strip over the wallpaper, and nothing in it ever scrolls.
+   Not in a @layer on purpose: these must beat the shared package's `bg-background` on body. */
+html,
+body,
+#root {
+  background: transparent;
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
