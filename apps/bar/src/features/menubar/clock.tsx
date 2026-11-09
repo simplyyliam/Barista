@@ -4,12 +4,16 @@ export function Clock() {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
-    // update the state every second
-    const timerId = setInterval(() => {
-      setTime(new Date())
-    }, 1000)
+    // Only minutes are shown, so wake up once at the start of each minute instead of every second.
+    let timerId: ReturnType<typeof setTimeout>
+    const tick = () => {
+      const now = new Date()
+      setTime(now)
+      timerId = setTimeout(tick, 60_000 - (now.getSeconds() * 1000 + now.getMilliseconds()))
+    }
+    tick()
 
-    return () => clearInterval(timerId)
+    return () => clearTimeout(timerId)
   }, []);
 
   return (
