@@ -1,3 +1,4 @@
+import { Battery, Clock, StatusItems, Volume } from "@/features/menubar"
 import { commands } from "@/shared/bindings"
 import { useState, useEffect } from "react"
 
@@ -11,8 +12,14 @@ export default function Menubar() {
 
   // Placeholder: fills the bar's height and centres its content vertically (tokens.css).
   return (
-    <p className="flex h-full items-center px-bar-x font-bar text-bar text-bar-fg">
-      Barista {version}
-    </p>
+    <div className="flex h-full items-center justify-between px-bar-x font-bar text-bar text-bar-fg">
+      <p>Barista {version}</p>
+      <div className="flex items-center justify-center gap-4">
+        <StatusItems/>
+        <Volume />
+        <Battery />
+        <Clock />
+      </div>
+    </div>
   )
 }
