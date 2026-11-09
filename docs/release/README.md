@@ -40,9 +40,9 @@ through a `release/v0.X.Y` PR (see `CLAUDE.md` > Releases).
 
 | Release | Name | Showcase (what Liam can do at the end) |
 |---|---|---|
-| v0.0 | Setup | `pnpm dev` opens an empty bar window; CI passes (no tag) |
-| v0.1 | Bar shell | The bar sits at the top, maximized windows stop under it |
-| v0.2 | First item | The test client puts an icon in the bar |
+| v0.0 | Setup (done) | `pnpm dev` opens an empty bar window; CI passes (no tag) |
+| v0.1 | Bar shell (done, in 0.2.0) | The bar sits at the top, maximized windows stop under it |
+| v0.2 | First item (done, 0.2.0) | The test client puts an icon in the bar |
 | v0.3 | Menus | Click the test client's icon, a menu drops down |
 | v0.4 | Popovers | Click an icon, the app's own window appears under it |
 | v0.4b | System panels | The bar shows the clock, battery and volume from real data; a panel (control center, notifications, calendar) opens under an item. Built-in Rust services, a reusable panel window (`releases/v0.4b.md`) |
