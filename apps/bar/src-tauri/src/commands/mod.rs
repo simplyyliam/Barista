@@ -16,12 +16,16 @@ pub fn get_version() -> String {
 #[tauri::command]
 #[specta::specta]
 pub fn get_bar_info() -> Result<BarInfo, String> {
-    controller::get().map(|c| c.info()).ok_or_else(|| "the bar is not running yet".into())
+    controller::get()
+        .map(|c| c.info())
+        .ok_or_else(|| "the bar is not running yet".into())
 }
 
 /// Moves the bar to another monitor (an id from `getBarInfo().monitors`) and remembers it.
 #[tauri::command]
 #[specta::specta]
 pub fn set_monitor(id: String) -> Result<BarInfo, String> {
-    controller::get().ok_or("the bar is not running yet")?.set_monitor(&id)
+    controller::get()
+        .ok_or("the bar is not running yet")?
+        .set_monitor(&id)
 }

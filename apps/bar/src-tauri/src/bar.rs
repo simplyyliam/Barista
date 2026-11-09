@@ -87,7 +87,12 @@ mod tests {
     use super::*;
 
     fn rect(l: i32, t: i32, r: i32, b: i32) -> Rect {
-        Rect { left: l, top: t, right: r, bottom: b }
+        Rect {
+            left: l,
+            top: t,
+            right: r,
+            bottom: b,
+        }
     }
 
     fn monitor(id: &str, primary: bool) -> Monitor {

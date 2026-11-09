@@ -54,7 +54,15 @@ pub fn set_no_focus_styles(hwnd: HWND) {
 pub fn place(hwnd: HWND, r: Rect) {
     // SAFETY: plain call; failure (window gone during exit) is harmless, so it is ignored.
     let _ = unsafe {
-        SetWindowPos(hwnd, Some(HWND_TOPMOST), r.left, r.top, r.width(), r.height(), SWP_NOACTIVATE)
+        SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            r.left,
+            r.top,
+            r.width(),
+            r.height(),
+            SWP_NOACTIVATE,
+        )
     };
 }
 

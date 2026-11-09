@@ -32,11 +32,21 @@ fn data(hwnd: HWND) -> APPBARDATA {
 }
 
 fn to_win(r: Rect) -> RECT {
-    RECT { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
+    RECT {
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+    }
 }
 
 fn from_win(r: RECT) -> Rect {
-    Rect { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
+    Rect {
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+    }
 }
 
 /// Tells Windows this window is an appbar. Returns false if Windows refused.
