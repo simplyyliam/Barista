@@ -61,8 +61,18 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   re-enabled -> 30, radius -1 -> 8, radius 5, in about 110-130 ms each (that includes the script's 100 ms polling and the
   50 ms debounce), `getWindowRadius` matched each time, the variable came back after a page reload, and
   `border-radius: var(--window-radius, 8px)` and the child formula computed 5px and 0px in the page.
-  Decisions taken (change if you disagree): Windows 10 is not special-cased (the bar follows the Windows 11 rules, so 8),
-  and the mod's radius is read as logical px.
+  Per-window live check on real windows (debug build with `BARISTA_RADIUS_TEST_WINDOWS=1` opens a "settings" window in
+  `Mode::Tracked` and a "popover" window in `Mode::Normal` next to the bar; real Win32 maximize, snap-to-left-half and
+  fullscreen, with a scratch key at radius 12): settings -> 0px when maximized, snapped or fullscreen with option `none`,
+  back to 12px on restore; option `snapped` keeps 12px for snapped, `snappedAndMaximized` also for maximized, fullscreen is
+  always 0px; the popover and the bar stayed 12px through all of it, even when the popover itself was maximized or
+  fullscreen. 12 of 12 steps ok, each update within 10-40 ms of the window change (about 120 ms when the registry changed,
+  which includes the 50 ms debounce). The recompute runs from Tauri `Resized`/`Moved` events per registered window.
+  - Gotcha for the real popover and settings windows: WebView2 refuses a second window whose browser arguments differ from
+    the main window's (error 0x8007139F at startup). Create them with the same `additionalBrowserArgs` as in
+    `tauri.conf.json` (see `open_radius_test_windows` in `lib.rs`).
+    Decisions taken (change if you disagree): Windows 10 is not special-cased (the bar follows the Windows 11 rules, so 8),
+    and the mod's radius is read as logical px.
   - New for the UI: `commands.getWindowRadius()` (for the window that calls it), `events.windowRadiusChanged`
     (`{ label, radius: { radius: number | null, customized } }`, sent only to that window, only on change), and the CSS
     variable `--window-radius` on each window's `<html>`: `border-radius: var(--window-radius, 8px)`. Child radius in CSS:

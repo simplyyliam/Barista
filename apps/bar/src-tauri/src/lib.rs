@@ -45,6 +45,35 @@ fn export_bindings(builder: &Builder<tauri::Wry>) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
+/// Debug builds only, and only with `BARISTA_RADIUS_TEST_WINDOWS` set: opens a "settings"-like
+/// window (follows its real state) and a "popover"-like one (always a normal window), so the
+/// per-window corner radius can be tried on real windows before the real ones exist (v0.4, v0.8).
+#[cfg(debug_assertions)]
+fn open_radius_test_windows(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+    for (label, title, mode) in [
+        ("settings", "barista-test-settings", window_radius::Mode::Tracked),
+        ("popover", "barista-test-popover", window_radius::Mode::Normal),
+    ] {
+        let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+            .title(title)
+            .inner_size(700.0, 450.0)
+            .position(150.0, 150.0);
+        // WebView2 only lets windows that share a data folder use the *same* browser arguments,
+        // so extra windows must repeat the main window's (`additionalBrowserArgs`). A window
+        // created later (popover, settings) has to do the same, or its webview fails to start.
+        if let Some(args) = app.config().app.windows.first().and_then(|w| w.additional_browser_args.clone()) {
+            builder = builder.additional_browser_args(&args);
+        }
+        if label == "popover" {
+            builder = builder.decorations(false).transparent(true);
+        }
+        builder.build()?;
+        window_radius::register(app, label, mode)?;
+    }
+    Ok(())
+}
+
 pub fn run() {
     let builder = specta_builder();
     // A failed export (read-only file, ...) must not stop the app from starting.
@@ -66,6 +95,10 @@ pub fn run() {
             controller::start(app.handle())?;
             // The bar can be moved around by Windows (monitor changes), so follow its real state.
             window_radius::register(app.handle(), "main", window_radius::Mode::Tracked)?;
+            #[cfg(debug_assertions)]
+            if std::env::var_os("BARISTA_RADIUS_TEST_WINDOWS").is_some() {
+                open_radius_test_windows(app.handle())?;
+            }
             let registry = Arc::new(registry::Registry::new());
             app.manage(registry.clone());
             ipc::start(registry.clone());

@@ -61,3 +61,6 @@ negative (-1 is stored as `0xFFFFFFFF`). Then the stock rules apply.
   never arrive out of order.
 - **Testing hook.** Changing HKLM needs admin, so in debug builds `BARISTA_WINDHAWK_HKCU_KEY` (a key under HKCU) replaces
   the HKLM location. Release builds do not contain it. With it the real bar was driven live against a changing key.
+- **Test windows.** Debug builds with `BARISTA_RADIUS_TEST_WINDOWS` open a tracked "settings" window and a normal
+  "popover" window so the per-window behaviour could be exercised with real maximize, snap and fullscreen. Extra
+  windows must repeat the main window's `additionalBrowserArgs`, or WebView2 fails to start them.
