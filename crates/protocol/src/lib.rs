@@ -113,14 +113,15 @@ pub enum ClientMessage {
         request_id: Option<String>,
         id: String,
     },
-    /// Asks for every item in the bar (used by `examples/inspect` and the bench).
+    /// Asks for every item in the bar (used by `examples/inspect` and the bench). Debug builds,
+    /// or a bar started with `BARISTA_DEBUG` set; otherwise `unknown_type`.
     #[serde(rename = "debug.listItems")]
     DebugListItems {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
     },
     /// Fakes a click on any item. `id` is the item's key from `debug.items`, like `s3/counter`.
-    /// Debug builds of the bar only; release builds answer `unknown_type`.
+    /// Same availability as `debug.listItems`.
     #[serde(rename = "debug.click")]
     DebugClick {
         #[serde(default, skip_serializing_if = "Option::is_none")]

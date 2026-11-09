@@ -29,6 +29,14 @@ const OUTBOX_SIZE: usize = 64;
 const STRIKE_LIMIT: usize = 10;
 const STRIKE_WINDOW: Duration = Duration::from_secs(60);
 
+/// `debug.*` messages exist in debug builds, and in release builds only when the bar was
+/// started with `BARISTA_DEBUG` set (the bench does that). Otherwise any program of the same
+/// user could list every app's items.
+fn debug_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| cfg!(debug_assertions) || std::env::var_os("BARISTA_DEBUG").is_some())
+}
+
 /// Counts rejected messages in a sliding window.
 #[derive(Default)]
 struct Strikes(VecDeque<Instant>);
@@ -336,6 +344,12 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
                 .remove(session, &id)
                 .map_err(|e| registry_reject(&rid, e, &id))
         })(),
+        ClientMessage::DebugListItems { .. } | ClientMessage::DebugClick { .. }
+            if !debug_enabled() =>
+        {
+            // Pretend these messages do not exist.
+            Err(reject(&rid, ErrorCode::UnknownType, "unknown message type"))
+        }
         ClientMessage::DebugListItems { .. } => {
             let items = registry.debug_items();
             if send(
@@ -351,10 +365,6 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
             }
         }
         ClientMessage::DebugClick { id, button, .. } => {
-            if !cfg!(debug_assertions) {
-                // Release bars pretend this message does not exist.
-                return reject(&rid, ErrorCode::UnknownType, "unknown message type");
-            }
             // `id` is the registry key (`s3/counter`), so a test tool can click any item.
             match registry.click(&id, button) {
                 Ok(()) => Ok(()),

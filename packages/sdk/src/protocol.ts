@@ -30,11 +30,14 @@ export type BarMessage =
 export type ClientMessage = 
 /**  First message on a new connection. */
 { type: "hello"; requestId?: string | null; protocolVersion: string; appName: string; pid: number; sdk: SdkInfo } | { type: "item.create"; requestId?: string | null; id: string; icon?: string | null; label?: string | null; tooltip?: string | null } | { type: "item.update"; requestId?: string | null; id: string; icon?: string | null; label?: string | null; tooltip?: string | null; visible?: boolean | null } | { type: "item.remove"; requestId?: string | null; id: string } | 
-/**  Asks for every item in the bar (used by `examples/inspect` and the bench). */
+/**
+ *  Asks for every item in the bar (used by `examples/inspect` and the bench). Debug builds,
+ *  or a bar started with `BARISTA_DEBUG` set; otherwise `unknown_type`.
+ */
 { type: "debug.listItems"; requestId?: string | null } | 
 /**
  *  Fakes a click on any item. `id` is the item's key from `debug.items`, like `s3/counter`.
- *  Debug builds of the bar only; release builds answer `unknown_type`.
+ *  Same availability as `debug.listItems`.
  */
 { type: "debug.click"; requestId?: string | null; id: string; button: MouseButton };
 
