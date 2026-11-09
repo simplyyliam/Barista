@@ -46,7 +46,10 @@ is tried, and if that fails the last tone stays.
 
 **When** (no polling): one worker thread sleeps until a message arrives, waits 150 ms for bursts to settle,
 measures once, and emits `bar-appearance-changed` only if the tone changed. Messages come from `WM_SETTINGCHANGE`
-with `SPI_SETDESKWALLPAPER` (Settings, themes, slideshows) and from the controller after every apply (monitor, DPI
+with `SPI_SETDESKWALLPAPER` (apps using the old API), from `platform/windows/wallpaper_watch.rs` (one thread asleep
+in `WaitForMultipleObjects` on the registry keys `Control Panel\Desktop` and `Explorer\Wallpapers` and the Themes
+folder holding `TranscodedWallpaper`: this is what the Settings app and slideshows trigger, and it does NOT always
+send `WM_SETTINGCHANGE`) and from the controller after every apply (monitor, DPI
 or display change moves the strip). `commands.getBarAppearance()` returns the current value.
 
 **UI:** `shared/stores/bar-tone.ts` holds the tone and sets `<html data-tone="light|dark">`; `styles/tokens.css`
@@ -59,8 +62,7 @@ would never fire). It cycles auto, light, dark and sends the normal event.
 
 - A wallpaper that is half light, half dark under the bar gets the average: it can look wrong, like on macOS.
 - A "Span" wallpaper across several monitors is approximated (as Fill).
-- Not watched: a wallpaper file edited in place, or a slideshow step that Windows does not announce with
-  `WM_SETTINGCHANGE` (not verified). After an announced change the worker measures again once after 1 s, because
+- Not watched: a wallpaper file edited in place under another folder. After an announced change the worker measures again once after 1 s, because
   Windows can announce before the new image is written; a failed measurement is retried once the same way.
 - Not handled: transparent PNGs (alpha is ignored), EXIF-rotated JPEGs, Tile on a monitor away from the origin.
 - Other monitors never use `TranscodedWallpaper` as a fallback (it only holds the first monitor's image).

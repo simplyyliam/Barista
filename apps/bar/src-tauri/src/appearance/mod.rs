@@ -125,6 +125,9 @@ pub fn start(app: &AppHandle) {
                 retry = !is_retry && (wallpaper_event || !ok);
             }
         });
+    // Settings and slideshows change the wallpaper without always sending WM_SETTINGCHANGE.
+    #[cfg(windows)]
+    crate::platform::windows::wallpaper_watch::start(wallpaper_changed);
     if let Err(e) = spawned {
         eprintln!("barista: could not start the appearance worker: {e}");
     }
