@@ -16,6 +16,9 @@ pub struct ParseError {
     pub request_id: Option<String>,
 }
 
+/// The SDK builds request ids as `<item id>#<counter>`, so allow a full-length item id plus that.
+const MAX_REQUEST_ID_LEN: usize = MAX_ID_LEN + 16;
+
 /// JSON bytes -> message. Splits "we don't know this type" from "known type, bad fields".
 pub fn parse_message(bytes: &[u8]) -> Result<ClientMessage, ParseError> {
     let fail = |code, message: &str, request_id| ParseError {
@@ -30,7 +33,7 @@ pub fn parse_message(bytes: &[u8]) -> Result<ClientMessage, ParseError> {
     let request_id = value
         .get("requestId")
         .and_then(|v| v.as_str())
-        .filter(|s| s.len() <= MAX_ID_LEN)
+        .filter(|s| s.len() <= MAX_REQUEST_ID_LEN)
         .map(str::to_string);
     let Some(kind) = value.get("type").and_then(|v| v.as_str()) else {
         return Err(fail(
@@ -213,6 +216,8 @@ mod tests {
             (ErrorCode::InvalidMessage, Some("r2"))
         );
         let long = format!(r#"{{"type":"x","requestId":"{}"}}"#, "r".repeat(100));
+        let ok = format!(r#"{{"type":"x","requestId":"{}#12"}}"#, "r".repeat(64));
+        assert!(parse_message(ok.as_bytes()).unwrap_err().request_id.is_some());
         assert_eq!(parse_message(long.as_bytes()).unwrap_err().request_id, None);
         assert!(parse_message(br#"{"type":"item.remove","id":"a"}"#).is_ok());
     }

@@ -19,10 +19,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self {
-            bar_height: DEFAULT_BAR_HEIGHT,
-            monitor: None,
-        }
+        Self { bar_height: DEFAULT_BAR_HEIGHT, monitor: None }
     }
 }
 
@@ -68,10 +65,7 @@ mod tests {
 
     #[test]
     fn missing_file_gives_defaults() {
-        assert_eq!(
-            Settings::load(&temp_file("missing.json")),
-            Settings::default()
-        );
+        assert_eq!(Settings::load(&temp_file("missing.json")), Settings::default());
     }
 
     #[test]
@@ -95,10 +89,7 @@ mod tests {
     #[test]
     fn save_then_load_round_trips() {
         let path = temp_file("round.json");
-        let s = Settings {
-            bar_height: 40,
-            monitor: Some("monitor-a".into()),
-        };
+        let s = Settings { bar_height: 40, monitor: Some("monitor-a".into()) };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);
         let _ = std::fs::remove_file(path);

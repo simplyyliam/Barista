@@ -55,7 +55,8 @@ pub fn foreground_covers(monitor: &Rect, own: HWND) -> bool {
     // makes a call fail, and we answer "no".
     unsafe {
         let fg = GetForegroundWindow();
-        if fg.0.is_null() || fg == own || !IsWindowVisible(fg).as_bool() || IsIconic(fg).as_bool() {
+        if fg.0.is_null() || fg == own || !IsWindowVisible(fg).as_bool() || IsIconic(fg).as_bool()
+        {
             return false;
         }
         let mut class = [0u16; 64];
@@ -91,14 +92,6 @@ pub fn foreground_covers(monitor: &Rect, own: HWND) -> bool {
         if GetWindowRect(fg, &mut r).is_err() {
             return false;
         }
-        covers(
-            &Rect {
-                left: r.left,
-                top: r.top,
-                right: r.right,
-                bottom: r.bottom,
-            },
-            monitor,
-        )
+        covers(&Rect { left: r.left, top: r.top, right: r.right, bottom: r.bottom }, monitor)
     }
 }

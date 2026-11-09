@@ -142,7 +142,13 @@ async fn serve<R: AsyncRead + Unpin>(
     };
     let mut strikes = Strikes::default();
     loop {
-        let bytes = match read_frame(reader).await {
+        // If the writer died (client stopped reading or left), end the session too, so its
+        // items don't stay in the bar. Dropping the read here is fine: we are leaving anyway.
+        let frame = tokio::select! {
+            frame = read_frame(reader) => frame,
+            () = tx.closed() => break,
+        };
+        let bytes = match frame {
             Ok(bytes) => bytes,
             Err(FrameError::BadLength(n)) => {
                 send_error(
@@ -371,7 +377,16 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
                 Err(ClickError::NotFound) => {
                     Err(reject(&rid, ErrorCode::NotFound, format!("no item {id:?}")))
                 }
-                Err(ClickError::Unreachable) => Err(Step::Disconnect),
+                // The target is stuck, not the sender: answer with an error but give no strike
+                // (`Err(Step::Ok)` just means "stop here, nothing more to do").
+                Err(ClickError::Unreachable) => {
+                    let message = format!("item {id:?} cannot be reached right now");
+                    if send_error(tx, rid.clone(), ErrorCode::InvalidMessage, message) {
+                        Err(Step::Ok)
+                    } else {
+                        Err(Step::Disconnect)
+                    }
+                }
             }
         }
     };
@@ -698,5 +713,28 @@ mod tests {
         // The well-behaved client was not slowed down.
         other.send(json!({"type":"item.create","id":"a"})).await;
         assert_eq!(other.items().await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn clicking_a_stuck_client_does_not_disconnect_the_sender() {
+        let registry = Arc::new(Registry::new());
+        let mut stuck = connect_with(&registry, Some(4242), 128);
+        stuck.hello().await;
+        stuck.send(json!({"type":"item.create","id":"a"})).await;
+        stuck.items().await;
+        // From here `stuck` never reads: its queue fills up.
+        let mut tool = connect(&registry);
+        tool.hello().await;
+        let mut unreachable = 0;
+        for _ in 0..200 {
+            tool.send(json!({"type":"debug.click","id":"s1/a","button":"left"})).await;
+            // A reply only exists once the target's queue is full.
+            if tokio::time::timeout(Duration::from_millis(5), tool.recv()).await.is_ok() {
+                unreachable += 1;
+            }
+        }
+        assert!(unreachable > 10, "expected many unreachable errors, got {unreachable}");
+        // More than STRIKE_LIMIT errors came back and the sender is still connected.
+        assert_eq!(tool.items().await.len(), 1);
     }
 }

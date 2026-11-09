@@ -15,12 +15,7 @@ const MONITORINFOF_PRIMARY: u32 = 1;
 const EDD_GET_DEVICE_INTERFACE_NAME: u32 = 1;
 
 fn to_rect(r: RECT) -> Rect {
-    Rect {
-        left: r.left,
-        top: r.top,
-        right: r.right,
-        bottom: r.bottom,
-    }
+    Rect { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
 }
 
 /// Turns a fixed-size UTF-16 buffer (zero terminated) into a String.

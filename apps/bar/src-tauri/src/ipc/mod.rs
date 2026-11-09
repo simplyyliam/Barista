@@ -32,19 +32,17 @@ async fn serve(registry: Arc<Registry>) -> std::io::Result<()> {
     // The first instance claims the name; a second bar fails here instead of sharing it.
     let mut server = pipe::create_server(true)?;
     loop {
-        server.connect().await?;
+        if let Err(error) = server.connect().await {
+            // One broken connection attempt (for example a client that died while
+            // connecting) must not stop the bar from accepting others: use a fresh instance.
+            eprintln!("barista: a client failed to connect: {error}");
+            server = next_instance().await;
+            continue;
+        }
         let connected = server;
         // A new instance must exist before we hand the old one away, or a client that
         // connects in between would find no pipe at all.
-        server = loop {
-            match pipe::create_server(false) {
-                Ok(next) => break next,
-                Err(error) => {
-                    eprintln!("barista: could not open the next pipe instance: {error}");
-                    tokio::time::sleep(Duration::from_millis(500)).await;
-                }
-            }
-        };
+        server = next_instance().await;
         // Over the limit: drop the connection right away. The permit lives as long as the
         // session task, so it is given back whenever the client leaves.
         let Ok(permit) = permits.clone().try_acquire_owned() else {
@@ -60,5 +58,18 @@ async fn serve(registry: Arc<Registry>) -> std::io::Result<()> {
             session::run(connected, Some(pid), registry, bar_version).await;
             drop(permit);
         });
+    }
+}
+
+/// Opens the next pipe instance, retrying until it works.
+async fn next_instance() -> tokio::net::windows::named_pipe::NamedPipeServer {
+    loop {
+        match pipe::create_server(false) {
+            Ok(next) => return next,
+            Err(error) => {
+                eprintln!("barista: could not open the next pipe instance: {error}");
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+        }
     }
 }
