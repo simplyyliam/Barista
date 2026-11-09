@@ -6,17 +6,19 @@ The first column must be the exact package or crate name.
 
 ## Rust
 
-| Name              | Version     | License           | Link                                      |
-| ----------------- | ----------- | ----------------- | ----------------------------------------- |
-| tauri             | 2.12        | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri       |
-| tauri-build       | 2.7         | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri       |
-| tauri-specta      | 2.0.0-rc.26 | MIT               | https://github.com/specta-rs/tauri-specta |
-| specta            | 2.0.0-rc.26 | MIT               | https://github.com/specta-rs/specta       |
-| specta-typescript | 0.0.13      | MIT               | https://github.com/specta-rs/specta       |
-| specta-serde      | 0.0.13      | MIT               | https://github.com/specta-rs/specta       |
-| serde             | 1.0         | MIT OR Apache-2.0 | https://github.com/serde-rs/serde         |
-| serde_json        | 1.0         | MIT OR Apache-2.0 | https://github.com/serde-rs/json          |
-| windows           | 0.62        | MIT OR Apache-2.0 | https://github.com/microsoft/windows-rs   |
+| Name              | Version     | License           | Link                                          |
+| ----------------- | ----------- | ----------------- | --------------------------------------------- |
+| tauri             | 2.12        | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri           |
+| tauri-build       | 2.7         | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri           |
+| tauri-specta      | 2.0.0-rc.26 | MIT               | https://github.com/specta-rs/tauri-specta     |
+| specta            | 2.0.0-rc.26 | MIT               | https://github.com/specta-rs/specta           |
+| specta-typescript | 0.0.13      | MIT               | https://github.com/specta-rs/specta           |
+| specta-serde      | 0.0.13      | MIT               | https://github.com/specta-rs/specta           |
+| serde             | 1.0         | MIT OR Apache-2.0 | https://github.com/serde-rs/serde             |
+| serde_json        | 1.0         | MIT OR Apache-2.0 | https://github.com/serde-rs/json              |
+| tokio             | 1.54        | MIT               | https://github.com/tokio-rs/tokio             |
+| base64            | 0.23        | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
+| windows           | 0.62        | MIT OR Apache-2.0 | https://github.com/microsoft/windows-rs       |
 
 ## JavaScript and TypeScript
 

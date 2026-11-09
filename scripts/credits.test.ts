@@ -38,7 +38,8 @@ function cargoDependencies(dir: string): string[] {
     if (section) inDeps = /(^|\.)(dev-|build-)?dependencies$/.test(section[1] ?? "")
     else if (inDeps) {
       const dep = line.match(/^([A-Za-z0-9_-]+)\s*=/)
-      if (dep?.[1]) names.push(dep[1])
+      // barista-protocol is our own crate (a path dependency), so it needs no credit.
+      if (dep?.[1] && dep[1] !== "barista-protocol") names.push(dep[1])
     }
   }
   return names
