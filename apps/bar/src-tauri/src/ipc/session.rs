@@ -355,8 +355,8 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
                 // Release bars pretend this message does not exist.
                 return reject(&rid, ErrorCode::UnknownType, "unknown message type");
             }
-            // Only the client's own items: the key is built from its own session.
-            match registry.click(&format!("s{session}/{id}"), button) {
+            // `id` is the registry key (`s3/counter`), so a test tool can click any item.
+            match registry.click(&id, button) {
                 Ok(()) => Ok(()),
                 Err(ClickError::NotFound) => {
                     Err(reject(&rid, ErrorCode::NotFound, format!("no item {id:?}")))
@@ -653,7 +653,7 @@ mod tests {
                 button: MouseButton::Left
             }
         );
-        c.send(json!({"type":"debug.click","id":"a","button":"right"}))
+        c.send(json!({"type":"debug.click","id":"s1/a","button":"right"}))
             .await;
         assert_eq!(
             c.recv().await,
@@ -662,7 +662,7 @@ mod tests {
                 button: MouseButton::Right
             }
         );
-        c.send(json!({"type":"debug.click","id":"ghost","button":"right"}))
+        c.send(json!({"type":"debug.click","id":"s1/ghost","button":"right"}))
             .await;
         assert_eq!(c.expect_error().await.0, ErrorCode::NotFound);
     }

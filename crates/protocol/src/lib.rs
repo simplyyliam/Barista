@@ -119,7 +119,8 @@ pub enum ClientMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
     },
-    /// Fakes a click on one of this client's own items. Debug builds of the bar only.
+    /// Fakes a click on any item. `id` is the item's key from `debug.items`, like `s3/counter`.
+    /// Debug builds of the bar only; release builds answer `unknown_type`.
     #[serde(rename = "debug.click")]
     DebugClick {
         #[serde(default, skip_serializing_if = "Option::is_none")]
