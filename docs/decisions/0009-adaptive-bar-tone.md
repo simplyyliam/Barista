@@ -59,5 +59,9 @@ would never fire). It cycles auto, light, dark and sends the normal event.
 
 - A wallpaper that is half light, half dark under the bar gets the average: it can look wrong, like on macOS.
 - A "Span" wallpaper across several monitors is approximated (as Fill).
-- Not watched: a wallpaper file edited in place without Windows announcing a change.
+- Not watched: a wallpaper file edited in place, or a slideshow step that Windows does not announce with
+  `WM_SETTINGCHANGE` (not verified). After an announced change the worker measures again once after 1 s, because
+  Windows can announce before the new image is written; a failed measurement is retried once the same way.
+- Not handled: transparent PNGs (alpha is ignored), EXIF-rotated JPEGs, Tile on a monitor away from the origin.
+- Other monitors never use `TranscodedWallpaper` as a fallback (it only holds the first monitor's image).
 - Material You style colours from the wallpaper (a seed colour) are a later idea, see `releases/v0.8.md`.

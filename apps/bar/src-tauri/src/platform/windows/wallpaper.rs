@@ -79,10 +79,12 @@ unsafe fn strip_luminance_inner(monitor: Rect, strip_h: i32) -> windows::core::R
     };
 
     // Windows keeps a converted copy of the current wallpaper here; it works when the original
-    // file is gone (a deleted file, a theme, Spotlight).
-    let fallback = std::env::var("APPDATA")
-        .map(|a| format!("{a}\\Microsoft\\Windows\\Themes\\TranscodedWallpaper"))
-        .ok();
+    // file is gone (a deleted file, a theme, Spotlight). It only holds the wallpaper of the monitor
+    // at the desktop origin, so another monitor must not borrow it (it could show another image).
+    let fallback = (monitor.left == 0 && monitor.top == 0)
+        .then(|| std::env::var("APPDATA").ok())
+        .flatten()
+        .map(|a| format!("{a}\\Microsoft\\Windows\\Themes\\TranscodedWallpaper"));
     for candidate in std::iter::once(path_text).chain(fallback) {
         if let Some((image, share)) = image_luminance(&candidate, &plan_for) {
             return Ok(Some(image * (1.0 - share) + background * share));

@@ -14,6 +14,7 @@
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::sync::OnceLock;
 
 /// How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -45,7 +46,8 @@ pub fn relative_luminance(r: u8, g: u8, b: u8) -> f64 {
 /// `None` for an empty buffer.
 pub fn average_luminance(bgrx: &[u8]) -> Option<f64> {
     // 256 entries, built once: far cheaper than a `powf` per channel on a 4K strip.
-    let table: Vec<f64> = (0..=255u8).map(channel_to_linear).collect();
+    static TABLE: OnceLock<[f64; 256]> = OnceLock::new();
+    let table = TABLE.get_or_init(|| std::array::from_fn(|i| channel_to_linear(i as u8)));
     let mut sum = 0.0;
     let mut count = 0u64;
     for px in bgrx.chunks_exact(4) {

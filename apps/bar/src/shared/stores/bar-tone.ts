@@ -27,9 +27,20 @@ function setTone(next: BarTone) {
  */
 export async function startBarTone() {
   setTone(tone)
-  // Listen first, then read, so a change in between is not lost.
-  await events.barAppearanceChanged.listen((e) => setTone(e.payload.tone))
-  setTone((await commands.getBarAppearance()).tone)
+  let gotEvent = false
+  try {
+    // Listen first, then read, so a change in between is not lost.
+    await events.barAppearanceChanged.listen((e) => {
+      gotEvent = true
+      setTone(e.payload.tone)
+    })
+    const current = await commands.getBarAppearance()
+    // An event that arrived while we were asking is newer than this answer.
+    if (!gotEvent) setTone(current.tone)
+  } catch (error) {
+    // Keep the default tone; the bar still works, it just cannot follow the wallpaper.
+    console.error("bar tone unavailable:", error)
+  }
 }
 
 /** The current tone outside React. */
