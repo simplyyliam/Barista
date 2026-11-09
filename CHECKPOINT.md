@@ -60,7 +60,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   instead of HKLM, compiled out of release): `--window-radius` in the page followed radius 12 -> 30, mod disabled -> 8,
   re-enabled -> 30, radius -1 -> 8, radius 5, in about 110-130 ms each (that includes the script's 100 ms polling and the
   50 ms debounce), `getWindowRadius` matched each time, the variable came back after a page reload, and
-  `border-radius: var(--window-radius, 8px)` and the child formula computed 5px and 0px in the page.
+  the child formula `max(0px, calc(var(--window-radius) - 12px))` computed 0px at radius 5 in the page.
   Per-window live check on real windows (debug build with `BARISTA_RADIUS_TEST_WINDOWS=1` opens a "settings" window in
   `Mode::Tracked` and a "popover" window in `Mode::Normal` next to the bar; real Win32 maximize, snap-to-left-half and
   fullscreen, with a scratch key at radius 12): settings -> 0px when maximized, snapped or fullscreen with option `none`,
@@ -75,8 +75,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
     and the mod's radius is read as logical px.
   - New for the UI: `commands.getWindowRadius()` (for the window that calls it), `events.windowRadiusChanged`
     (`{ label, radius: { radius: number | null, customized } }`, sent only to that window, only on change), and the CSS
-    variable `--window-radius` on each window's `<html>`: `border-radius: var(--window-radius, 8px)`. Child radius in CSS:
-    `max(0px, calc(var(--window-radius) - 12px))`. Not checked until the UI is in: that the variable shows up in the page.
+    variable `--window-radius` on each window's `<html>`. It is only a value: the OS (and Windhawk) already round the window,
+    so never apply it to the window's root element. Use it for child radii: `max(0px, calc(var(--window-radius) - 12px))`.
   - New windows register with `window_radius::register(app, label, Mode::Tracked | Mode::Normal)` (Rust side, e.g. when the
     settings window or a popover is created). The popover should use `Mode::Normal`.
 - **Next:** Liam reviews the v0.1 and v0.2 PRs and builds the bar layout and item rendering in `apps/bar/src/`. Then v0.3 (menus).

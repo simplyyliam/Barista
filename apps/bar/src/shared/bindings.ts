@@ -155,7 +155,8 @@ export type WindowRadiusChanged_Serialize = {
 /**  What the frontend gets from `getWindowRadius` and the `window-radius-changed` event. */
 export type WindowRadius_Deserialize = {
 	/**
-	 *  Corner radius in logical pixels (the number for CSS `border-radius`). `None` only before
+	 *  The OS window's corner radius in logical pixels, for working out child radii (window
+	 *  radius - padding). Not meant to be applied to the window itself. `None` only before
 	 *  the window's state could be read: the UI should then use its own default.
 	 */
 	radius?: number | null,
@@ -169,7 +170,8 @@ export type WindowRadius_Deserialize = {
 /**  What the frontend gets from `getWindowRadius` and the `window-radius-changed` event. */
 export type WindowRadius_Serialize = {
 	/**
-	 *  Corner radius in logical pixels (the number for CSS `border-radius`). `None` only before
+	 *  The OS window's corner radius in logical pixels, for working out child radii (window
+	 *  radius - padding). Not meant to be applied to the window itself. `None` only before
 	 *  the window's state could be read: the UI should then use its own default.
 	 */
 	radius: number | null,

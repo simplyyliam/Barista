@@ -88,7 +88,8 @@ pub enum WindowState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowRadius {
-    /// Corner radius in logical pixels (the number for CSS `border-radius`). `None` only before
+    /// The OS window's corner radius in logical pixels, for working out child radii (window
+    /// radius - padding). Not meant to be applied to the window itself. `None` only before
     /// the window's state could be read: the UI should then use its own default.
     pub radius: Option<u32>,
     /// True when the radius is not what stock Windows 11 would use for this window state, i.e.

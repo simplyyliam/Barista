@@ -7,7 +7,9 @@ Status: accepted (2026-11-09, extra on the v0.2 branch)
 Windows 11 rounds window corners by 8 px and squares them when a window is maximized, snapped or
 full screen. The Windhawk mod "custom-corner-radius" (it runs inside `dwm.exe`, so it changes every
 window) replaces the 8 with its own radius and can optionally keep the rounding for snapped and
-maximized windows. The bar and its windows should draw the same corners as everything else.
+maximized windows. Barista does **not** round or reshape its windows: the OS (and Windhawk) already do that.
+We only read the value so components inside a window can use a child radius that fits the OS window's corner
+(child radius = window radius - padding).
 
 |                              | Read the registry + watch it          | Poll the registry on a timer | Ask DWM for the radius |
 | ---------------------------- | ------------------------------------- | ---------------------------- | ---------------------- |

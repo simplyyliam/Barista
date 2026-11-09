@@ -6,14 +6,20 @@
 //! or the Windhawk mod's settings change in the registry. Both end in a recompute that sends
 //! an update to *that window only*, and only when its value really changed.
 //!
-//! A window gets its radius three ways:
+//! **This never changes a window's corners.** The operating system (with Windhawk's mod, if the
+//! user has it) already rounds every window to the radius we read here. Barista only *reads*
+//! that value so the components inside a window can pick a child radius that sits well in the
+//! OS window's corner. Do not put it on the window's root element or anything that fills the
+//! window, or the corners would be rounded twice.
+//!
+//! A window gets the value three ways:
 //! - `commands.getWindowRadius()`: the value for the window that asks (first value on start),
 //! - the typed event `windowRadiusChanged`, delivered to that window and carrying its `label`,
-//! - the CSS variable `--window-radius` on that window's own `<html>`, so a stylesheet can say
-//!   `border-radius: var(--window-radius, 8px)`.
+//! - the CSS variable `--window-radius` on that window's own `<html>`: just a number, nothing
+//!   in the page uses it until a stylesheet does.
 //!
-//! Child radii (content inside a rounded window, with padding) need no Rust: the nested radius is
-//! the parent's minus the padding, which CSS can do with
+//! The formula for a child (content inside the window, `padding` away from its edge) needs no
+//! Rust: inner radius = window radius - padding, never below 0. In CSS:
 //! `border-radius: max(0px, calc(var(--window-radius) - 12px))`.
 
 use crate::events::WindowRadiusChanged;
