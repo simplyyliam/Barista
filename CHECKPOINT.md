@@ -90,6 +90,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
     `text-panel-fg`, `text-panel-fg-muted`, `border-panel-separator`, `font-bar`, `text-bar`, `p-panel-pad`, ...
   - Gotcha: a test that sets the real wallpaper cannot restore it (Windows overwrites `TranscodedWallpaper`, and the ASUS
     OLED Shifter app rewrites its own copy). Don't do that again; `wallpaper_live` only reads.
+- Plan changed (2026-11-09): new **v0.4b System panels** (`releases/v0.4b.md`, local only): built-in Rust services (clock settings, battery,
+  volume, then brightness, Wi-Fi, Bluetooth, actions, notifications) and ONE reusable panel window (second Tauri window; shadcn inside, not as the
+  panel). Notifications start with a spike (UserNotificationListener may need package identity; Windows' own toasts cannot be hidden).
 - **Next:** Liam reviews the v0.1 and v0.2 PRs and builds the bar layout and item rendering in `apps/bar/src/`. Then v0.3 (menus).
 
 ## Fix next
