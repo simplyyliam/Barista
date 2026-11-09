@@ -79,6 +79,17 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
     so never apply it to the window's root element. Use it for child radii: `max(0px, calc(var(--window-radius) - 12px))`.
   - New windows register with `window_radius::register(app, label, Mode::Tracked | Mode::Normal)` (Rust side, e.g. when the
     settings window or a popover is created). The popover should use `Mode::Normal`.
+- Design tokens + adaptive tone (2026-11-09, branch `feature/design-tokens`, PR open): ADR 0009.
+  - Tokens: `apps/bar/src/styles/tokens.css` (raw values per `data-tone`, `@theme inline` names). `index.css` makes
+    `html/body/#root` transparent with `overflow: hidden` and hides scrollbars.
+  - Rust: `appearance/{mod,luminance,layout}.rs`, `platform/windows/wallpaper.rs` (IDesktopWallpaper + WIC, reads the
+    wallpaper file, strip only). One worker thread, no polling. Debug hotkey Ctrl+Alt+Shift+T cycles auto/light/dark.
+  - New for the UI: `commands.getBarAppearance()`, `events.barAppearanceChanged` (`{ tone: "light" | "dark" }`, the tone
+    of the WALLPAPER), store `shared/stores/bar-tone.ts` (`useBarTone()`, `getBarTone()`, started in `main.tsx`), and
+    `<html data-tone>`. Tokens: `text-bar-fg`, `text-bar-fg-muted`, `bg-bar-hover`, `bg-panel`, `bg-panel-raised`,
+    `text-panel-fg`, `text-panel-fg-muted`, `border-panel-separator`, `font-bar`, `text-bar`, `p-panel-pad`, ...
+  - Gotcha: a test that sets the real wallpaper cannot restore it (Windows overwrites `TranscodedWallpaper`, and the ASUS
+    OLED Shifter app rewrites its own copy). Don't do that again; `wallpaper_live` only reads.
 - **Next:** Liam reviews the v0.1 and v0.2 PRs and builds the bar layout and item rendering in `apps/bar/src/`. Then v0.3 (menus).
 
 ## Fix next
