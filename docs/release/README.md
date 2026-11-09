@@ -45,6 +45,7 @@ through a `release/v0.X.Y` PR (see `CLAUDE.md` > Releases).
 | v0.2 | First item | The test client puts an icon in the bar |
 | v0.3 | Menus | Click the test client's icon, a menu drops down |
 | v0.4 | Popovers | Click an icon, the app's own window appears under it |
+| v0.4b | System panels | The bar shows the clock, battery and volume from real data; a panel (control center, notifications, calendar) opens under an item. Built-in Rust services, a reusable panel window (`releases/v0.4b.md`) |
 | v0.5 | Never stuck | Kill a client, its icon goes; restart the bar, icons come back. SDK published |
 | v0.6 | Tray, read | Every tray icon shows in the bar |
 | v0.7 | Tray, live | Tray icons work: click, right-click menus, pin, collapse |

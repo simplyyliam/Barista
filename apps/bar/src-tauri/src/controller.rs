@@ -81,6 +81,9 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         eprintln!("barista: Windows refused the appbar registration; no space will be reserved");
     }
     window::install(c.hwnd, on_window_event);
+    #[cfg(debug_assertions)]
+    window::register_tone_hotkey(c.hwnd);
+    crate::appearance::start(app);
     fullscreen::watch_foreground(on_foreground_changed);
     install_panic_hook();
 
@@ -139,6 +142,11 @@ fn handle_window_event(c: &'static Controller, event: window::WindowEvent) {
         DisplayChanged | DpiChanged => {
             c.refresh_monitors();
             c.apply();
+        }
+        WallpaperChanged => crate::appearance::wallpaper_changed(),
+        ToneHotkey => {
+            #[cfg(debug_assertions)]
+            crate::appearance::cycle_override();
         }
         TaskbarCreated => {
             appbar::forget();
@@ -285,6 +293,13 @@ impl Controller {
         if changed {
             window::place(self.hwnd(), granted);
             window::set_visible(self.hwnd(), !hidden);
+        }
+
+        // Where the bar sits decides which part of the wallpaper it covers. The worker debounces,
+        // so asking on every apply is cheap.
+        {
+            let s = self.lock();
+            crate::appearance::request(s.current.rect, granted.height());
         }
 
         let info = {

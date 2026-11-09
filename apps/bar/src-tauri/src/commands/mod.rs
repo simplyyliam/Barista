@@ -1,6 +1,7 @@
 //! Tauri commands the frontend can call. Each one is listed in `specta_builder()` (lib.rs)
 //! and appears in the generated `commands` object in bindings.ts.
 
+use crate::appearance::BarAppearance;
 use crate::bar::BarInfo;
 use crate::controller;
 use crate::radius::WindowRadius;
@@ -56,6 +57,14 @@ pub fn item_clicked(
         ClickError::NotFound => "that item is gone".to_string(),
         ClickError::Unreachable => "the app is not responding".to_string(),
     })
+}
+
+/// Is the wallpaper behind the bar light or dark? `light` means the bar draws dark content.
+/// Call once when the UI starts; `barAppearanceChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_bar_appearance() -> BarAppearance {
+    crate::appearance::current()
 }
 
 /// The corner radius of the window that calls this, in logical pixels (the same value is set

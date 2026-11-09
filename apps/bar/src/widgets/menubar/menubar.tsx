@@ -9,5 +9,10 @@ export default function Menubar() {
     void commands.getVersion().then(setVersion)
   }, [])
 
-  return <p className="p-4 font-sans">Barista {version}</p>
+  // Placeholder: fills the bar's height and centres its content vertically (tokens.css).
+  return (
+    <p className="flex h-full items-center px-bar-x font-bar text-bar text-bar-fg">
+      Barista {version}
+    </p>
+  )
 }
