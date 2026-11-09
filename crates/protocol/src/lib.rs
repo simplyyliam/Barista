@@ -23,6 +23,17 @@ pub const MAX_TOOLTIP_LEN: usize = 512;
 pub const MAX_APP_NAME_LEN: usize = 64;
 pub const MAX_ITEMS_PER_CLIENT: usize = 8;
 
+/// Every `type` a client may send. The bar uses it to tell `unknown_type` (a newer client)
+/// from `invalid_message` (a known type with wrong fields). A test keeps it in sync.
+pub const CLIENT_MESSAGE_TYPES: [&str; 6] = [
+    "hello",
+    "item.create",
+    "item.update",
+    "item.remove",
+    "debug.listItems",
+    "debug.click",
+];
+
 /// Which SDK a client was built with (shown in the bar's debug info).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 pub struct SdkInfo {
@@ -46,7 +57,8 @@ pub struct ItemInfo {
     pub id: String,
     pub app_name: String,
     pub pid: u32,
-    pub icon: Option<String>,
+    /// Only whether there is one: icons can be big, and a reply must stay under the frame limit.
+    pub has_icon: bool,
     pub label: Option<String>,
     pub tooltip: Option<String>,
     pub visible: bool,
@@ -360,7 +372,13 @@ mod tests {
         let m: ClientMessage = serde_json::from_str(r#"{"type":"item.update","id":"a"}"#).unwrap();
         assert!(matches!(
             m,
-            ClientMessage::ItemUpdate { icon: None, label: None, tooltip: None, visible: None, .. }
+            ClientMessage::ItemUpdate {
+                icon: None,
+                label: None,
+                tooltip: None,
+                visible: None,
+                ..
+            }
         ));
     }
 
@@ -376,7 +394,10 @@ mod tests {
 
     #[test]
     fn click_and_items_reply_round_trip() {
-        let click = BarMessage::ItemClick { id: "a".into(), button: MouseButton::Left };
+        let click = BarMessage::ItemClick {
+            id: "a".into(),
+            button: MouseButton::Left,
+        };
         let v = serde_json::to_value(&click).unwrap();
         assert_eq!(v, json!({"type":"item.click","id":"a","button":"left"}));
         let items = BarMessage::DebugItems {
@@ -385,7 +406,7 @@ mod tests {
                 id: "a".into(),
                 app_name: "App".into(),
                 pid: 1,
-                icon: None,
+                has_icon: false,
                 label: Some("1".into()),
                 tooltip: None,
                 visible: true,
@@ -400,5 +421,26 @@ mod tests {
         let m: ClientMessage =
             serde_json::from_str(r#"{"type":"item.remove","id":"a","requestId":"x"}"#).unwrap();
         assert_eq!(m.request_id(), Some("x"));
+    }
+
+    #[test]
+    fn client_message_types_list_matches_the_enum() {
+        let samples = [
+            r#"{"type":"hello","protocolVersion":"0.2","appName":"A","pid":1,"sdk":{"name":"x","version":"1"}}"#,
+            r#"{"type":"item.create","id":"a"}"#,
+            r#"{"type":"item.update","id":"a"}"#,
+            r#"{"type":"item.remove","id":"a"}"#,
+            r#"{"type":"debug.listItems"}"#,
+            r#"{"type":"debug.click","id":"a","button":"left"}"#,
+        ];
+        for sample in samples {
+            let msg: ClientMessage = serde_json::from_str(sample).unwrap();
+            let value = serde_json::to_value(&msg).unwrap();
+            assert!(
+                CLIENT_MESSAGE_TYPES.contains(&value["type"].as_str().unwrap()),
+                "{sample}"
+            );
+        }
+        assert_eq!(samples.len(), CLIENT_MESSAGE_TYPES.len());
     }
 }

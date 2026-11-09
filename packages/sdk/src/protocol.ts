@@ -61,7 +61,8 @@ export type ItemInfo = {
 	id: string,
 	appName: string,
 	pid: number,
-	icon: string | null,
+	/**  Only whether there is one: icons can be big, and a reply must stay under the frame limit. */
+	hasIcon: boolean,
 	label: string | null,
 	tooltip: string | null,
 	visible: boolean,

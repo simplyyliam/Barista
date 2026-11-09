@@ -126,6 +126,7 @@ impl Registry {
         self.changed.notified().await;
     }
 
+    #[cfg(test)]
     pub fn session_count(&self) -> usize {
         self.lock().sessions.len()
     }
@@ -280,7 +281,7 @@ impl Registry {
                     id: format!("s{}/{}", i.session, i.id),
                     app_name: session.app_name.clone(),
                     pid: session.pid,
-                    icon: i.icon.clone(),
+                    has_icon: i.icon.is_some(),
                     label: i.label.clone(),
                     tooltip: i.tooltip.clone(),
                     visible: i.visible,
