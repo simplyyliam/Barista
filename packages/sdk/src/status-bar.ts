@@ -230,7 +230,19 @@ export class StatusBar {
     for (const message of messages) this.#handle(message as BarMessage)
   }
 
+  /** One bad listener must not stop the messages that arrived in the same chunk. */
   #handle(message: BarMessage): void {
+    try {
+      this.#dispatch(message)
+    } catch (error) {
+      // Still crash like any uncaught error would, but only after the other messages ran.
+      queueMicrotask(() => {
+        throw error
+      })
+    }
+  }
+
+  #dispatch(message: BarMessage): void {
     switch (message.type) {
       case "item.click":
         this.items.get(message.id)?.emitClick(message.button)
@@ -240,6 +252,10 @@ export class StatusBar {
         const itemId = message.requestId?.split("#")[0]
         const item = itemId === undefined ? undefined : this.items.get(itemId)
         if (!(item?.emitError(error) ?? false)) this.#emitError(error)
+        // The bar refused the create itself: the item does not exist there, so forget it.
+        if (item && itemId !== undefined && message.requestId === item.createRequestId) {
+          this.items.delete(itemId)
+        }
         break
       }
       default:
@@ -288,6 +304,8 @@ export async function connect(options: ConnectOptions = {}): Promise<StatusBar> 
   if (existing) {
     const bar = await existing.catch(() => undefined)
     if (bar && !bar.closed) return bar
+    // While we waited, another caller may have started a new connection: share that one.
+    if (defaultBar !== existing) return connect(options)
   }
   const attempt = StatusBar.connect(options)
   defaultBar = attempt

@@ -52,15 +52,23 @@ export class StatusItem {
   readonly #errorListeners = new Set<Listener<BarError>>()
   #removed = false
 
-  private constructor(id: string, bar: StatusBar) {
+  /** @internal The request id of the `item.create`, to recognise a refused create. */
+  readonly createRequestId: string
+
+  private constructor(id: string, bar: StatusBar, createRequestId: string) {
     this.id = id
     this.#bar = bar
+    this.createRequestId = createRequestId
   }
 
   /**
    * Puts a new item in the bar. Connects to the bar first if you have not yet. Rejects if
    * the bar is not running, or (without sending anything) if an argument breaks a rule
    * such as a bad id or an icon over 256 KB.
+   *
+   * It resolves once the request is sent, not when the bar accepted it. If the bar refuses
+   * the create (for example `"limit_reached"`), the error goes to `item.on("error")` (or the
+   * connection's `error` listeners) and the item is forgotten, so its id can be used again.
    *
    * @example
    * ```ts
@@ -81,16 +89,18 @@ export class StatusItem {
     if (bar.items.has(options.id)) {
       throw new Error(`This app already has an item with the id ${JSON.stringify(options.id)}`)
     }
-    const item = new StatusItem(options.id, bar)
-    bar.items.set(options.id, item)
+    const requestId = bar.requestIdFor(options.id)
+    // Send first: if the message is invalid (too big) this throws before the item is registered.
     bar.send({
       type: "item.create",
-      requestId: bar.requestIdFor(options.id),
+      requestId,
       id: options.id,
       ...(icon !== undefined && { icon }),
       ...(options.label !== undefined && { label: options.label }),
       ...(options.tooltip !== undefined && { tooltip: options.tooltip }),
     })
+    const item = new StatusItem(options.id, bar, requestId)
+    bar.items.set(options.id, item)
     return item
   }
 

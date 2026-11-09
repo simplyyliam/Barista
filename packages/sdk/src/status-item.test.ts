@@ -50,6 +50,10 @@ class FakeBar {
     this.#socket?.write(encodeFrame(message))
   }
 
+  sendRaw(bytes: Buffer): void {
+    this.#socket?.write(bytes)
+  }
+
   closeClient(): void {
     this.#socket?.destroy()
   }
@@ -242,5 +246,55 @@ describe("StatusItem", () => {
     await until(() => bar.closed)
     expect(closed).toBe(1)
     expect(() => item.setLabel("late")).not.toThrow()
+  })
+
+  it("forgets an item whose create the bar refused, so the id can be used again", async () => {
+    const { fake, bar } = await setup()
+    const item = await StatusItem.create({ id: "a", bar })
+    item.on("error", () => {})
+    const [, create] = (await fake.messages(2)) as Array<{ requestId: string }>
+    fake.send({
+      type: "error",
+      requestId: create!.requestId,
+      code: "limit_reached",
+      message: "full",
+    })
+    await until(() => !bar.items.has("a"))
+    await expect(StatusItem.create({ id: "a", bar })).resolves.toBeInstanceOf(StatusItem)
+  })
+
+  it("keeps handling messages after a click listener throws", async () => {
+    const { fake, bar } = await setup()
+    const a = await StatusItem.create({ id: "a", bar })
+    const b = await StatusItem.create({ id: "b", bar })
+    const seen: string[] = []
+    a.on("click", () => {
+      throw new Error("listener bug")
+    })
+    b.on("click", () => seen.push("b"))
+    // Catch the rethrown error so the test runner does not see it as unhandled.
+    const crashes: unknown[] = []
+    const onCrash = (e: unknown) => crashes.push(e)
+    process.once("uncaughtException", onCrash)
+    // Both clicks in one write, so they arrive in one chunk.
+    const both = Buffer.concat([
+      encodeFrame({ type: "item.click", id: "a", button: "left" }),
+      encodeFrame({ type: "item.click", id: "b", button: "left" }),
+    ])
+    fake.sendRaw(both)
+    await until(() => seen.length === 1 && crashes.length === 1)
+    process.off("uncaughtException", onCrash)
+  })
+
+  it("concurrent creates share one connection", async () => {
+    fake = new FakeBar()
+    await fake.listen()
+    const bar = await StatusBar.connect({ pipeName: fake.pipeName })
+    bars.push(bar)
+    const items = await Promise.all([
+      StatusItem.create({ id: "a", bar }),
+      StatusItem.create({ id: "b", bar }),
+    ])
+    expect(items.map((i) => i.id)).toEqual(["a", "b"])
   })
 })

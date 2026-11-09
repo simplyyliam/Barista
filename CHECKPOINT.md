@@ -55,6 +55,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Fix next
 
+- Code review v0.2 (medium): everything fixed except one on purpose: a client that sends `hello` and then goes silent,
+  or stalls in the middle of a frame, holds its task and one of the 64 connection slots until it disconnects. The fix
+  is the v0.5 heartbeat (ping/pong with a timeout); noted in `releases/v0.5.md`. Security review: nothing to report.
 - Dogfooding v0.2 (`examples/clock`, written from the SDK README only):
   - A plain SVG string as `icon` throws ("must be a base64 data: URL"); it is the first thing anyone tries. Accept raw SVG
     markup (a string starting with `<svg`) and probably a file path helper too.
