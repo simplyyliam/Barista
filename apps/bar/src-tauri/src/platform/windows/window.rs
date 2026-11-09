@@ -17,8 +17,8 @@ use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW,
     SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
-    SWP_NOACTIVATE, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE, WM_DISPLAYCHANGE, WM_DPICHANGED,
-    WM_WINDOWPOSCHANGED, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
+    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
 /// What happened to the screen or the shell, in our own words.
@@ -32,6 +32,10 @@ pub enum WindowEvent {
     DpiChanged,
     /// Explorer restarted and forgot our appbar.
     TaskbarCreated,
+    /// The desktop wallpaper changed (Settings, a theme, a slideshow).
+    WallpaperChanged,
+    /// The debug hotkey for forcing the bar tone was pressed (only registered in debug builds).
+    ToneHotkey,
 }
 
 // ABN_* notification codes, sent in WPARAM with `appbar::CALLBACK_MSG`.
@@ -85,6 +89,21 @@ pub fn install(raw_hwnd: isize, handler: fn(WindowEvent)) {
     }
 }
 
+/// Debug builds: Ctrl+Alt+Shift+T cycles the bar tone (auto, light, dark). Windows delivers the
+/// key to the bar even though the bar never takes focus. A taken key is only logged.
+#[cfg(debug_assertions)]
+pub fn register_tone_hotkey(raw_hwnd: isize) {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        RegisterHotKey, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT,
+    };
+    let modifiers = MOD_CONTROL | MOD_ALT | MOD_SHIFT | MOD_NOREPEAT;
+    // SAFETY: the window is ours and lives for the whole run; id 1 is only used here.
+    let result = unsafe { RegisterHotKey(Some(hwnd_from(raw_hwnd)), 1, modifiers, u32::from(b'T')) };
+    if let Err(e) = result {
+        eprintln!("barista: tone hotkey not registered: {e}");
+    }
+}
+
 fn emit(event: WindowEvent) {
     if let Some(handler) = HANDLER.get() {
         // A panic must not unwind through Windows' code (that aborts the process), so catch
@@ -114,6 +133,10 @@ unsafe extern "system" fn subclass_proc(
         },
         WM_DISPLAYCHANGE => emit(WindowEvent::DisplayChanged),
         WM_DPICHANGED => emit(WindowEvent::DpiChanged),
+        WM_SETTINGCHANGE if wparam.0 == SPI_SETDESKWALLPAPER.0 as usize => {
+            emit(WindowEvent::WallpaperChanged)
+        }
+        WM_HOTKEY => emit(WindowEvent::ToneHotkey),
         WM_ACTIVATE => appbar::activate(hwnd),
         WM_WINDOWPOSCHANGED => appbar::window_pos_changed(hwnd),
         m if m != 0 && m == TASKBAR_CREATED.load(Ordering::SeqCst) => {

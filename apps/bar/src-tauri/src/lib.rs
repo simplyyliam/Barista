@@ -1,5 +1,6 @@
 //! Barista's native side. The frontend only renders state it gets from here (CLAUDE.md rule 5).
 
+mod appearance;
 mod bar;
 mod commands;
 mod controller;
@@ -30,9 +31,10 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::set_monitor,
             commands::get_items,
             commands::item_clicked,
-            commands::get_window_radius
+            commands::get_window_radius,
+            commands::get_bar_appearance
         ])
-        .events(collect_events![events::BarChanged, events::ItemsChanged, events::WindowRadiusChanged])
+        .events(collect_events![events::BarChanged, events::ItemsChanged, events::WindowRadiusChanged, appearance::BarAppearanceChanged])
 }
 
 /// Writes bindings.ts (on debug runs and in `cargo test`, i.e. `pnpm gen`).

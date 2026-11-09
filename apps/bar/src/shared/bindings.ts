@@ -29,16 +29,30 @@ export const commands = {
 	 *  is known to the radius tracker.
 	 */
 	getWindowRadius: () => __TAURI_INVOKE<WindowRadius_Serialize>("get_window_radius"),
+	/**
+	 *  Is the wallpaper behind the bar light or dark? `light` means the bar draws dark content.
+	 *  Call once when the UI starts; `barAppearanceChanged` keeps it fresh.
+	 */
+	getBarAppearance: () => __TAURI_INVOKE<BarAppearance>("get_bar_appearance"),
 };
 
 /** Events */
 export const events = {
+	barAppearanceChanged: makeEvent<BarAppearanceChanged, BarAppearanceChanged>("bar-appearance-changed"),
 	barChanged: makeEvent<BarChanged, BarChanged>("bar-changed"),
 	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
 	windowRadiusChanged: makeEvent<WindowRadiusChanged_Serialize, WindowRadiusChanged_Deserialize>("window-radius-changed"),
 };
 
 /* Types */
+/**  What the UI needs to know. `tone` is the tone of the WALLPAPER: `light` means dark content. */
+export type BarAppearance = {
+	tone: Tone,
+};
+
+/**  The wallpaper behind the bar changed from light to dark or back (or the debug override did). */
+export type BarAppearanceChanged = BarAppearance;
+
 /**  The bar moved, resized, changed monitor or hid/showed itself. Carries the new state. */
 export type BarChanged = BarInfo;
 
@@ -121,6 +135,9 @@ export type StatusItemView_Serialize = {
 	label: string | null,
 	tooltip: string | null,
 };
+
+/**  How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round. */
+export type Tone = "light" | "dark";
 
 /**  What the frontend gets from `getWindowRadius` and the `window-radius-changed` event. */
 export type WindowRadius = WindowRadius_Serialize | WindowRadius_Deserialize;
