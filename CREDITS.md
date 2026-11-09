@@ -47,6 +47,7 @@ The first column must be the exact package or crate name.
 | @base-ui/react             | 1.9     | MIT               | https://github.com/mui/base-ui                         |
 | @hugeicons/react           | 1.1     | MIT               | https://github.com/hugeicons/hugeicons                 |
 | @hugeicons/core-free-icons | 4.4     | MIT               | https://github.com/hugeicons/hugeicons                 |
+| lucide-react               | 1.70    | ISC               | https://github.com/lucide-icons/lucide                 |
 | @fontsource-variable/inter | 5.3     | OFL-1.1           | https://github.com/fontsource/font-files               |
 | class-variance-authority   | 0.7     | Apache-2.0        | https://github.com/joe-bell/cva                        |
 | cn                         | 0.5     | MIT               | https://github.com/shadcn-ui/cn                        |
