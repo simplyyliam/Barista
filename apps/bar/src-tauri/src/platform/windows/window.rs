@@ -2,16 +2,23 @@
 //! window messages we care about into plain `WindowEvent`s for the rest of the app.
 
 use super::appbar;
-use crate::bar::Rect;
+use crate::bar::{covers, Rect};
+use crate::radius::{snapped_by_geometry, WindowState};
+use std::ffi::c_void;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
 use windows::core::w;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
+use windows::Win32::Graphics::Gdi::{
+    GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+};
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, RegisterWindowMessageW, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    GWL_EXSTYLE, HWND_TOPMOST, SWP_NOACTIVATE, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
-    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_WINDOWPOSCHANGED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW,
+    SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
+    SWP_NOACTIVATE, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE, WM_DISPLAYCHANGE, WM_DPICHANGED,
+    WM_WINDOWPOSCHANGED, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
 /// What happened to the screen or the shell, in our own words.
@@ -115,4 +122,226 @@ unsafe extern "system" fn subclass_proc(
         _ => {}
     }
     result
+}
+
+fn rect_from(r: RECT) -> Rect {
+    Rect { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
+}
+
+/// The monitor the window is mostly on: its full rectangle and its work area (physical pixels).
+fn monitor_rects(hwnd: HWND) -> Option<(Rect, Rect)> {
+    let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
+    // SAFETY: `info` has its size filled in and lives through the call.
+    let ok = unsafe {
+        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        GetMonitorInfoW(monitor, &mut info).as_bool()
+    };
+    ok.then(|| (rect_from(info.rcMonitor), rect_from(info.rcWork)))
+}
+
+/// The window's outer rectangle in physical pixels.
+fn window_rect(hwnd: HWND) -> Option<Rect> {
+    let mut r = RECT::default();
+    // SAFETY: `r` is a valid out-pointer.
+    unsafe { GetWindowRect(hwnd, &mut r) }.ok()?;
+    Some(rect_from(r))
+}
+
+/// The visible frame, without the invisible resize border and shadow that `GetWindowRect`
+/// includes. Snapped windows are flush with the work area only when measured this way.
+fn frame_bounds(hwnd: HWND) -> Option<Rect> {
+    let mut r = RECT::default();
+    // SAFETY: Windows writes one RECT into the buffer we pass, and we pass its exact size.
+    let result = unsafe {
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            (&mut r as *mut RECT).cast::<c_void>(),
+            size_of::<RECT>() as u32,
+        )
+    };
+    match result {
+        Ok(()) => Some(rect_from(r)),
+        Err(_) => window_rect(hwnd),
+    }
+}
+
+/// Is the window docked to a half or quarter of the screen? Windows has no call for this, so we
+/// compare the window's frame with the monitor's work area (see `radius::snapped_by_geometry`).
+pub fn is_snapped(hwnd: HWND) -> bool {
+    // SAFETY: plain query.
+    if unsafe { IsZoomed(hwnd).as_bool() || IsIconic(hwnd).as_bool() } {
+        return false; // maximized and minimized windows are not "snapped"
+    }
+    match (frame_bounds(hwnd), monitor_rects(hwnd)) {
+        (Some(frame), Some((_, work))) => snapped_by_geometry(&frame, &work),
+        _ => false,
+    }
+}
+
+/// What the window is doing, for the corner radius. Order matters:
+///
+/// 1. **Fullscreen**: it covers the whole monitor (not just the work area) and has no title bar
+///    (a maximized window keeps its caption, even when an auto-hidden taskbar lets it cover the
+///    whole monitor).
+/// 2. **Maximized**: Windows says so.
+/// 3. **Snapped**: docked to a half or quarter.
+/// 4. Otherwise a normal window. `None` when the window can't be queried (it is gone).
+pub fn window_state(hwnd: HWND) -> Option<WindowState> {
+    let rect = window_rect(hwnd)?;
+    let (monitor, _) = monitor_rects(hwnd)?;
+    // SAFETY: plain query.
+    let style = unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) } as u32;
+    let has_caption = style & WS_CAPTION.0 == WS_CAPTION.0;
+    Some(if covers(&rect, &monitor) && !has_caption {
+        WindowState::Fullscreen
+    } else if unsafe { IsZoomed(hwnd).as_bool() } {
+        WindowState::Maximized
+    } else if is_snapped(hwnd) {
+        WindowState::Snapped
+    } else {
+        WindowState::Normal
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::core::w;
+    use windows::Win32::UI::HiDpi::{
+        SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DestroyWindow, SetWindowLongPtrW, SW_MAXIMIZE, SW_RESTORE,
+        SWP_NOZORDER, WS_OVERLAPPEDWINDOW, WS_POPUP, WS_VISIBLE,
+    };
+
+    /// A real top-level window (the system's own "STATIC" class, so nothing to register), shown
+    /// without taking focus. Destroyed when dropped.
+    struct TestWindow(HWND);
+
+    impl TestWindow {
+        fn new() -> Option<TestWindow> {
+            // The app's manifest makes it per-monitor DPI aware, so every rectangle is in physical
+            // pixels. A test binary has no such manifest: do the same for this thread, or
+            // Windows would hand out scaled coordinates that do not match DWM's.
+            // SAFETY: plain call, only changes this thread's DPI mode.
+            unsafe {
+                SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            }
+            // SAFETY: plain window creation with a predefined class and no parent.
+            let hwnd = unsafe {
+                CreateWindowExW(
+                    WS_EX_TOOLWINDOW,
+                    w!("STATIC"),
+                    w!("barista test window"),
+                    WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                    200,
+                    200,
+                    600,
+                    400,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            }
+            .ok()?;
+            // SAFETY: valid window handle.
+            unsafe {
+                let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+            }
+            Some(TestWindow(hwnd))
+        }
+
+        fn place(&self, r: Rect) {
+            // SAFETY: valid window handle.
+            unsafe {
+                let _ = SetWindowPos(
+                    self.0,
+                    None,
+                    r.left,
+                    r.top,
+                    r.width(),
+                    r.height(),
+                    SWP_NOACTIVATE | SWP_NOZORDER,
+                );
+            }
+        }
+
+        /// Places the *visible frame* (without the invisible resize border) at `r`, which is how
+        /// Windows places a snapped window.
+        fn place_frame(&self, r: Rect) {
+            self.place(r);
+            let (outer, frame) = (window_rect(self.0).unwrap(), frame_bounds(self.0).unwrap());
+            self.place(Rect {
+                left: r.left - (frame.left - outer.left),
+                top: r.top - (frame.top - outer.top),
+                right: r.right + (outer.right - frame.right),
+                bottom: r.bottom + (outer.bottom - frame.bottom),
+            });
+        }
+    }
+
+    impl Drop for TestWindow {
+        fn drop(&mut self) {
+            // SAFETY: we created this window and destroy it once.
+            unsafe {
+                let _ = DestroyWindow(self.0);
+            }
+        }
+    }
+
+    #[test]
+    fn window_state_follows_the_real_window() {
+        let Some(win) = TestWindow::new() else {
+            eprintln!("no desktop to create a window on: skipping");
+            return;
+        };
+        let (monitor, work) = monitor_rects(win.0).expect("monitor");
+        let (w, h) = (work.width(), work.height());
+
+        win.place(Rect { left: work.left + 100, top: work.top + 100, right: work.left + 700, bottom: work.top + 500 });
+        assert_eq!(window_state(win.0), Some(WindowState::Normal));
+        assert!(!is_snapped(win.0));
+
+        // Left half, right half and a quarter of the work area.
+        win.place_frame(Rect { left: work.left, top: work.top, right: work.left + w / 2, bottom: work.bottom });
+        assert_eq!(window_state(win.0), Some(WindowState::Snapped), "left half");
+        win.place_frame(Rect { left: work.left + w / 2, top: work.top, right: work.right, bottom: work.bottom });
+        assert_eq!(window_state(win.0), Some(WindowState::Snapped), "right half");
+        win.place_frame(Rect { left: work.left, top: work.top, right: work.left + w / 2, bottom: work.top + h / 2 });
+        assert_eq!(window_state(win.0), Some(WindowState::Snapped), "quarter");
+
+        // Maximized.
+        // SAFETY: valid window handle.
+        unsafe {
+            let _ = ShowWindow(win.0, SW_MAXIMIZE);
+        }
+        assert_eq!(window_state(win.0), Some(WindowState::Maximized));
+        assert!(!is_snapped(win.0), "a maximized window is not snapped");
+        // SAFETY: valid window handle.
+        unsafe {
+            let _ = ShowWindow(win.0, SW_RESTORE);
+        }
+        win.place(Rect { left: work.left + 100, top: work.top + 100, right: work.left + 700, bottom: work.top + 500 });
+        assert_eq!(window_state(win.0), Some(WindowState::Normal), "restored");
+
+        // Full screen: no title bar, covers the whole monitor.
+        // SAFETY: valid window handle; replacing the style bits of our own window.
+        unsafe {
+            SetWindowLongPtrW(win.0, GWL_STYLE, (WS_POPUP | WS_VISIBLE).0 as isize);
+        }
+        win.place(monitor);
+        assert_eq!(window_state(win.0), Some(WindowState::Fullscreen));
+    }
+
+    #[test]
+    fn a_window_that_is_gone_has_no_state() {
+        let win = TestWindow::new();
+        let Some(win) = win else { return };
+        let hwnd = win.0;
+        drop(win);
+        assert_eq!(window_state(hwnd), None);
+    }
 }

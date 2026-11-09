@@ -23,12 +23,19 @@ export const commands = {
 	 *  The click is sent to the app that owns the item (it gets `item.click`).
 	 */
 	itemClicked: (id: string, button: MouseButton) => typedError<null, string>(__TAURI_INVOKE("item_clicked", { id, button })),
+	/**
+	 *  The corner radius of the window that calls this, in logical pixels (the same value is set
+	 *  as the CSS variable `--window-radius` on that window). `radius` is `None` until the window
+	 *  is known to the radius tracker.
+	 */
+	getWindowRadius: () => __TAURI_INVOKE<WindowRadius_Serialize>("get_window_radius"),
 };
 
 /** Events */
 export const events = {
 	barChanged: makeEvent<BarChanged, BarChanged>("bar-changed"),
 	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
+	windowRadiusChanged: makeEvent<WindowRadiusChanged_Serialize, WindowRadiusChanged_Deserialize>("window-radius-changed"),
 };
 
 /* Types */
@@ -113,6 +120,64 @@ export type StatusItemView_Serialize = {
 	icon: string | null,
 	label: string | null,
 	tooltip: string | null,
+};
+
+/**  What the frontend gets from `getWindowRadius` and the `window-radius-changed` event. */
+export type WindowRadius = WindowRadius_Serialize | WindowRadius_Deserialize;
+
+/**
+ *  A window's corner radius changed (it changed state, or Windhawk's settings changed). Sent
+ *  only to that window, only when its value really differs from the last one. `label` is the
+ *  window it is for, in case a listener receives events for several windows.
+ */
+export type WindowRadiusChanged = WindowRadiusChanged_Serialize | WindowRadiusChanged_Deserialize;
+
+/**
+ *  A window's corner radius changed (it changed state, or Windhawk's settings changed). Sent
+ *  only to that window, only when its value really differs from the last one. `label` is the
+ *  window it is for, in case a listener receives events for several windows.
+ */
+export type WindowRadiusChanged_Deserialize = {
+	label: string,
+	radius: WindowRadius_Deserialize,
+};
+
+/**
+ *  A window's corner radius changed (it changed state, or Windhawk's settings changed). Sent
+ *  only to that window, only when its value really differs from the last one. `label` is the
+ *  window it is for, in case a listener receives events for several windows.
+ */
+export type WindowRadiusChanged_Serialize = {
+	label: string,
+	radius: WindowRadius_Serialize,
+};
+
+/**  What the frontend gets from `getWindowRadius` and the `window-radius-changed` event. */
+export type WindowRadius_Deserialize = {
+	/**
+	 *  Corner radius in logical pixels (the number for CSS `border-radius`). `None` only before
+	 *  the window's state could be read: the UI should then use its own default.
+	 */
+	radius?: number | null,
+	/**
+	 *  True when the radius is not what stock Windows 11 would use for this window state, i.e.
+	 *  Windhawk is changing it.
+	 */
+	customized: boolean,
+};
+
+/**  What the frontend gets from `getWindowRadius` and the `window-radius-changed` event. */
+export type WindowRadius_Serialize = {
+	/**
+	 *  Corner radius in logical pixels (the number for CSS `border-radius`). `None` only before
+	 *  the window's state could be read: the UI should then use its own default.
+	 */
+	radius: number | null,
+	/**
+	 *  True when the radius is not what stock Windows 11 would use for this window state, i.e.
+	 *  Windhawk is changing it.
+	 */
+	customized: boolean,
 };
 
 /* Tauri Specta runtime */

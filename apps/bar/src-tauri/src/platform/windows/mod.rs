@@ -8,3 +8,4 @@ pub mod fullscreen;
 pub mod monitors;
 pub mod pipe;
 pub mod window;
+pub mod windhawk;

@@ -51,6 +51,17 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - New for the UI: `commands.getItems()` -> `StatusItemView[]` (`id` is the key `"s3/counter"`, `appName`, `icon` as a
     `data:` URL, `label`, `tooltip`), `commands.itemClicked(id, button)` (`"left" | "right" | "middle"`),
     `events.itemsChanged` (full list of visible items, replaces what the UI holds). Show icons with `<img src>` only, never inline the SVG.
+- Extra on the v0.2 branch (2026-11-09): window corner radius from Windows 11 + Windhawk's `custom-corner-radius` mod (ADR 0008).
+  `radius.rs` (rules), `platform/windows/windhawk.rs` (registry read + `RegNotifyChangeKeyValue` watcher),
+  `window_state`/`is_snapped` in `platform/windows/window.rs`, `window_radius.rs` (per-window tracking by label).
+  Checked live on this machine (mod active, radius 26): the bar reports `radius: 26, customized: true` once, no flicker.
+  The "settings change updates instantly" part is covered by tests on a scratch key under HKCU (changing HKLM needs admin).
+  - New for the UI: `commands.getWindowRadius()` (for the window that calls it), `events.windowRadiusChanged`
+    (`{ label, radius: { radius: number | null, customized } }`, sent only to that window, only on change), and the CSS
+    variable `--window-radius` on each window's `<html>`: `border-radius: var(--window-radius, 8px)`. Child radius in CSS:
+    `max(0px, calc(var(--window-radius) - 12px))`. Not checked until the UI is in: that the variable shows up in the page.
+  - New windows register with `window_radius::register(app, label, Mode::Tracked | Mode::Normal)` (Rust side, e.g. when the
+    settings window or a popover is created). The popover should use `Mode::Normal`.
 - **Next:** Liam reviews the v0.1 and v0.2 PRs and builds the bar layout and item rendering in `apps/bar/src/`. Then v0.3 (menus).
 
 ## Fix next

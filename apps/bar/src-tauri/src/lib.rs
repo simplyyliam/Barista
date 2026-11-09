@@ -6,9 +6,11 @@ mod controller;
 mod events;
 mod ipc;
 mod platform;
+mod radius;
 mod registry;
 mod settings;
 mod tray;
+mod window_radius;
 
 use std::sync::Arc;
 use tauri::Manager;
@@ -27,9 +29,10 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_bar_info,
             commands::set_monitor,
             commands::get_items,
-            commands::item_clicked
+            commands::item_clicked,
+            commands::get_window_radius
         ])
-        .events(collect_events![events::BarChanged, events::ItemsChanged])
+        .events(collect_events![events::BarChanged, events::ItemsChanged, events::WindowRadiusChanged])
 }
 
 /// Writes bindings.ts (on debug runs and in `cargo test`, i.e. `pnpm gen`).
@@ -51,10 +54,18 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        // A page load wipes the CSS variable, so put the radius back.
+        .on_page_load(|webview, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Finished {
+                window_radius::reapply_css(webview.app_handle(), webview.label());
+            }
+        })
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
             controller::start(app.handle())?;
+            // The bar can be moved around by Windows (monitor changes), so follow its real state.
+            window_radius::register(app.handle(), "main", window_radius::Mode::Tracked)?;
             let registry = Arc::new(registry::Registry::new());
             app.manage(registry.clone());
             ipc::start(registry.clone());

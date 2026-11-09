@@ -3,6 +3,8 @@
 
 use crate::bar::BarInfo;
 use crate::controller;
+use crate::radius::WindowRadius;
+use crate::window_radius;
 use crate::registry::{ClickError, Registry, StatusItemView};
 use barista_protocol::MouseButton;
 use std::sync::Arc;
@@ -54,4 +56,13 @@ pub fn item_clicked(
         ClickError::NotFound => "that item is gone".to_string(),
         ClickError::Unreachable => "the app is not responding".to_string(),
     })
+}
+
+/// The corner radius of the window that calls this, in logical pixels (the same value is set
+/// as the CSS variable `--window-radius` on that window). `radius` is `None` until the window
+/// is known to the radius tracker.
+#[tauri::command]
+#[specta::specta]
+pub fn get_window_radius(window: tauri::WebviewWindow) -> WindowRadius {
+    window_radius::current(window.label())
 }
