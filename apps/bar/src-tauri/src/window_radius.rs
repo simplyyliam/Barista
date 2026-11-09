@@ -159,44 +159,64 @@ fn start_watcher(state: &'static State) {
 fn refresh_settings() {
     let Some(state) = STATE.get() else { return };
     let settings = windhawk::read_settings();
-    let mut inner = lock(state);
-    inner.settings = settings;
-    let labels: Vec<String> = inner.windows.keys().cloned().collect();
-    for label in labels {
-        recompute_locked(state, &mut inner, &label);
+    let changed: Vec<String> = {
+        let mut inner = lock(state);
+        inner.settings = settings;
+        let labels: Vec<String> = inner.windows.keys().cloned().collect();
+        labels
+            .into_iter()
+            .filter(|label| update_locked(&mut inner, label))
+            .collect()
+    };
+    for label in changed {
+        announce(state, &label);
     }
 }
 
 /// Recomputes one window. Cheap enough to call on every resize or move.
 pub fn recompute(label: &str) {
     let Some(state) = STATE.get() else { return };
-    // The lock is held while sending, so two threads (window events and the registry watcher)
-    // can never deliver their results out of order.
-    let mut inner = lock(state);
-    recompute_locked(state, &mut inner, label);
+    let changed = update_locked(&mut lock(state), label);
+    if changed {
+        announce(state, label);
+    }
 }
 
-fn recompute_locked(state: &State, inner: &mut Inner, label: &str) {
+/// Works out the window's radius and stores it. True when it differs from what was stored.
+/// Only touches our own data: the lock is never held while talking to the webview.
+fn update_locked(inner: &mut Inner, label: &str) -> bool {
     let settings = inner.settings;
     let Some(entry) = inner.windows.get_mut(label) else {
-        return;
+        return false;
     };
     // The window may be gone: keep the last value then.
     let Some(window_state) = state_for(entry.mode, || {
         window::window_state(HWND(entry.hwnd as *mut _))
     }) else {
-        return;
+        return false;
     };
-    let next = radius_for(window_state, settings.as_ref());
-    if let Some(changed) = entry.tracker.update(next) {
-        // Only to this window, and with its label in the payload for listeners that get all.
-        let payload = WindowRadiusChanged {
-            label: label.to_string(),
-            radius: changed,
-        };
-        let _ = payload.emit_to(&state.app, label);
-        apply_css(&state.app, label, changed);
-    }
+    entry
+        .tracker
+        .update(radius_for(window_state, settings.as_ref()))
+        .is_some()
+}
+
+/// Tells the window about its radius: the typed event (to that window only, with its label in
+/// the payload) and the CSS variable. Sending happens outside the lock because it talks to the
+/// webview. If two threads race here, both send the *latest* value, so the window always ends
+/// on the right one.
+fn announce(state: &State, label: &str) {
+    let value = lock(state)
+        .windows
+        .get(label)
+        .map(|entry| entry.tracker.current());
+    let Some(value) = value else { return }; // unregistered meanwhile
+    let payload = WindowRadiusChanged {
+        label: label.to_string(),
+        radius: value,
+    };
+    let _ = payload.emit_to(&state.app, label);
+    apply_css(&state.app, label, value);
 }
 
 /// The value for the window `label` (`radius: None` before its first value is known).

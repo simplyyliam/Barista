@@ -3,7 +3,8 @@
 //! back to the client inside `error { message }`.
 
 use barista_protocol::{
-    ClientMessage, ErrorCode, CLIENT_MESSAGE_TYPES, MAX_APP_NAME_LEN, MAX_ICON_BYTES, MAX_ID_LEN,
+    ClientMessage, ErrorCode, CLIENT_MESSAGE_TYPES, MAX_APP_NAME_LEN, MAX_ICON_BYTES,
+    MAX_ICON_PIXELS, MAX_ID_LEN,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 
@@ -51,9 +52,10 @@ pub fn parse_message(bytes: &[u8]) -> Result<ClientMessage, ParseError> {
     }
     serde_json::from_value(value).map_err(|e| {
         // serde's message names the field that is wrong, which helps the client developer.
+        // It can quote the offending value, so cut it short (like the requestId above).
         ParseError {
             code: ErrorCode::InvalidMessage,
-            message: e.to_string(),
+            message: e.to_string().chars().take(200).collect(),
             request_id,
         }
     })
@@ -123,6 +125,23 @@ pub fn icon(value: &str) -> Result<(), String> {
         if !bytes.starts_with(PNG_MAGIC) {
             return Err("icon says PNG but the data is not a PNG".into());
         }
+        // The first chunk of every PNG is IHDR: 4 bytes length, "IHDR", then width and height
+        // (big-endian). A small file can claim a huge picture, which the webview would try to
+        // decode into gigabytes of memory, so cap the declared size.
+        let dimension = |at: usize| {
+            bytes
+                .get(at..at + 4)
+                .map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+        };
+        match (bytes.get(12..16), dimension(16), dimension(20)) {
+            (Some(b"IHDR"), Some(w), Some(h))
+                if (1..=MAX_ICON_PIXELS).contains(&w) && (1..=MAX_ICON_PIXELS).contains(&h) => {}
+            _ => {
+                return Err(format!(
+                    "PNG icon must be at most {MAX_ICON_PIXELS}x{MAX_ICON_PIXELS} pixels"
+                ))
+            }
+        }
     } else {
         let head = String::from_utf8_lossy(&bytes[..bytes.len().min(512)]);
         let head = head.trim_start_matches('\u{feff}').trim_start();
@@ -137,10 +156,19 @@ pub fn icon(value: &str) -> Result<(), String> {
 mod tests {
     use super::*;
 
-    fn png_url(extra: usize) -> String {
+    /// A PNG signature plus an IHDR of `w` x `h`, then `extra` filler bytes.
+    fn png_sized(w: u32, h: u32, extra: usize) -> String {
         let mut data = PNG_MAGIC.to_vec();
+        data.extend_from_slice(&13u32.to_be_bytes());
+        data.extend_from_slice(b"IHDR");
+        data.extend_from_slice(&w.to_be_bytes());
+        data.extend_from_slice(&h.to_be_bytes());
         data.extend(std::iter::repeat(0u8).take(extra));
         format!("{PNG_PREFIX}{}", STANDARD.encode(data))
+    }
+
+    fn png_url(extra: usize) -> String {
+        png_sized(16, 16, extra)
     }
 
     #[test]
@@ -200,6 +228,33 @@ mod tests {
     }
 
     #[test]
+    fn png_dimensions_are_capped() {
+        assert!(icon(&png_sized(1024, 1024, 0)).is_ok());
+        assert!(icon(&png_sized(1025, 16, 0)).is_err(), "too wide");
+        assert!(icon(&png_sized(16, 30000, 0)).is_err(), "too tall");
+        assert!(icon(&png_sized(0, 16, 0)).is_err(), "zero width");
+        assert!(
+            icon(&png_sized(30000, 30000, 0)).is_err(),
+            "a small file claiming a huge picture"
+        );
+        let magic_only = format!("{PNG_PREFIX}{}", STANDARD.encode(PNG_MAGIC));
+        assert!(icon(&magic_only).is_err(), "no IHDR at all");
+    }
+
+    #[test]
+    fn serde_errors_are_cut_short() {
+        let big = "x".repeat(100_000);
+        let text = format!(r#"{{"type":"item.create","id":"a","label":{big:?},"icon":5}}"#);
+        let error = parse_message(text.as_bytes()).unwrap_err();
+        assert!(error.message.chars().count() <= 200);
+        let text = format!(r#"{{"type":"item.remove","id":{big:?}}}"#);
+        assert!(
+            parse_message(text.as_bytes()).is_ok(),
+            "long ids parse; the id rule rejects them later"
+        );
+    }
+
+    #[test]
     fn parse_tells_unknown_from_invalid() {
         let e = parse_message(b"nope").unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidMessage);
@@ -217,7 +272,10 @@ mod tests {
         );
         let long = format!(r#"{{"type":"x","requestId":"{}"}}"#, "r".repeat(100));
         let ok = format!(r#"{{"type":"x","requestId":"{}#12"}}"#, "r".repeat(64));
-        assert!(parse_message(ok.as_bytes()).unwrap_err().request_id.is_some());
+        assert!(parse_message(ok.as_bytes())
+            .unwrap_err()
+            .request_id
+            .is_some());
         assert_eq!(parse_message(long.as_bytes()).unwrap_err().request_id, None);
         assert!(parse_message(br#"{"type":"item.remove","id":"a"}"#).is_ok());
     }

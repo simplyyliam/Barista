@@ -69,6 +69,12 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Code review v0.2 (medium): everything fixed except one on purpose: a client that sends `hello` and then goes silent,
   or stalls in the middle of a frame, holds its task and one of the 64 connection slots until it disconnects. The fix
   is the v0.5 heartbeat (ping/pong with a timeout); noted in `releases/v0.5.md`. Security review: nothing to report.
+- Code review of the corner-radius extra and a second look at v0.2 (medium): fixed the lock held while talking to the
+  webview (now updates are computed under the lock and sent after it), unbounded serde error text, PNG dimensions
+  (capped at 1024x1024 by reading IHDR, in the bar and the SDK), data-URL icons now fully checked in the SDK, items the bar
+  refused are dead on the SDK side, throwing click listeners no longer block others. Left on purpose: every `items-changed`
+  carries every icon (bench shows no cost; send icons once if it ever does, `releases/v0.8.md`) and a `FrameDecoder` that
+  drops already-parsed messages when a later frame in the same chunk is bad JSON (the connection is closed then anyway).
 - Dogfooding v0.2 (`examples/clock`, written from the SDK README only):
   - A plain SVG string as `icon` throws ("must be a base64 data: URL"); it is the first thing anyone tries. Accept raw SVG
     markup (a string starting with `<svg`) and probably a file path helper too.

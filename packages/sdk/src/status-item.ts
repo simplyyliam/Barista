@@ -27,6 +27,20 @@ export interface StatusItemOptions {
 type Listener<T> = (event: T) => void
 
 /**
+ * Runs a listener of the app. If it throws, the error is raised afterwards (so the app still
+ * crashes loudly like with any uncaught error), but the other listeners still run.
+ */
+function callSafely(call: () => void): void {
+  try {
+    call()
+  } catch (error) {
+    queueMicrotask(() => {
+      throw error
+    })
+  }
+}
+
+/**
  * One item in the Barista bar: an icon, a label, or both. The bar draws it; you only say what
  * it shows and react to clicks.
  *
@@ -207,15 +221,20 @@ export class StatusItem {
     return this
   }
 
+  /** @internal The bar refused to create this item, so it does not exist there. */
+  markGone(): void {
+    this.#removed = true
+  }
+
   /** @internal Called by the connection when the bar reports a click. */
   emitClick(button: MouseButton): void {
-    for (const listener of this.#clickListeners) listener({ button })
+    for (const listener of this.#clickListeners) callSafely(() => listener({ button }))
   }
 
   /** @internal Returns false when nobody listens, so the connection can report it. */
   emitError(error: BarError): boolean {
     if (this.#errorListeners.size === 0) return false
-    for (const listener of this.#errorListeners) listener(error)
+    for (const listener of this.#errorListeners) callSafely(() => listener(error))
     return true
   }
 

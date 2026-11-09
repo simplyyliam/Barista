@@ -3,6 +3,7 @@
 export const PROTOCOL_VERSION = "0.2"
 export const MAX_MESSAGE_BYTES = 1048576
 export const MAX_ICON_BYTES = 262144
+export const MAX_ICON_PIXELS = 1024
 export const MAX_ID_LEN = 64
 export const MAX_LABEL_LEN = 128
 export const MAX_TOOLTIP_LEN = 512

@@ -2,8 +2,15 @@ import { describe, expect, it } from "vitest"
 import { MAX_ICON_BYTES } from "./protocol.js"
 import { assertItemId, assertLabel, assertTooltip, toIconDataUrl } from "./validate.js"
 
-const png = (extra = 0) =>
-  Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.alloc(extra)])
+/** A PNG signature plus an IHDR of width x height, then `extra` filler bytes. */
+const png = (extra = 0, width = 16, height = 16) => {
+  const header = Buffer.alloc(16)
+  header.writeUInt32BE(13, 0)
+  header.write("IHDR", 4, "latin1")
+  header.writeUInt32BE(width, 8)
+  header.writeUInt32BE(height, 12)
+  return Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), header, Buffer.alloc(extra)])
+}
 
 describe("validation", () => {
   it("accepts good ids and rejects bad ones", () => {
@@ -34,10 +41,28 @@ describe("validation", () => {
     expect(() => toIconDataUrl(png(MAX_ICON_BYTES))).toThrow(/limit/)
   })
 
-  it("passes data URLs through and rejects other strings", () => {
+  it("passes valid data URLs through and rejects other strings", () => {
     expect(toIconDataUrl("")).toBe("")
-    const url = "data:image/png;base64,AAAA"
+    const url = `data:image/png;base64,${png(4).toString("base64")}`
     expect(toIconDataUrl(url)).toBe(url)
     expect(() => toIconDataUrl("https://example.com/a.png")).toThrow(/data: URL/)
+  })
+
+  it("checks the content of a data URL like it checks bytes", () => {
+    const notPng = `data:image/png;base64,${Buffer.from("hello").toString("base64")}`
+    expect(() => toIconDataUrl(notPng)).toThrow(/PNG or an SVG/)
+    const svgAsPng = `data:image/png;base64,${Buffer.from("<svg/>").toString("base64")}`
+    expect(() => toIconDataUrl(svgAsPng)).toThrow(/says image\/png/)
+    const big = `data:image/png;base64,${png(MAX_ICON_BYTES).toString("base64")}`
+    expect(() => toIconDataUrl(big)).toThrow(/bigger|limit/)
+    expect(() => toIconDataUrl(`data:image/png;base64,${"A".repeat(900_000)}`)).toThrow(/bigger/)
+  })
+
+  it("caps PNG dimensions", () => {
+    expect(() => toIconDataUrl(png(0, 1024, 1024))).not.toThrow()
+    expect(() => toIconDataUrl(png(0, 1025, 16))).toThrow(/pixels/)
+    expect(() => toIconDataUrl(png(0, 30000, 30000))).toThrow(/pixels/)
+    expect(() => toIconDataUrl(png(0, 0, 16))).toThrow(/pixels/)
+    expect(() => toIconDataUrl(Buffer.from("89504e470d0a1a0a", "hex"))).toThrow(/pixels/)
   })
 })

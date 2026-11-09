@@ -61,7 +61,7 @@ Errors from the bar are `BA.BarError` objects with a `code` (`"invalid_icon"`, `
 
 - **Item ids**: 1 to 64 characters from `a-z 0-9 - _ .`, unique in your app.
 - **At most 8 items** per app. **Labels** up to 128 characters, **tooltips** up to 512.
-- **Icons**: PNG or SVG, up to 256 KB. Size them for a bar about 24 px high; the bar scales them.
+- **Icons**: PNG (at most 1024x1024 pixels) or SVG, up to 256 KB. Size them for a bar about 24 px high; the bar scales them.
 - A bad argument throws right at the call (nothing is sent). Anything the bar refuses later
   arrives through `on("error")`.
 - The bar draws everything. Your app never paints into it.

@@ -381,7 +381,7 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
                 // (`Err(Step::Ok)` just means "stop here, nothing more to do").
                 Err(ClickError::Unreachable) => {
                     let message = format!("item {id:?} cannot be reached right now");
-                    if send_error(tx, rid.clone(), ErrorCode::InvalidMessage, message) {
+                    if send_error(tx, rid.clone(), ErrorCode::NotFound, message) {
                         Err(Step::Ok)
                     } else {
                         Err(Step::Disconnect)
@@ -477,6 +477,10 @@ mod tests {
 
     fn png_url(extra: usize) -> String {
         let mut data = b"\x89PNG\r\n\x1a\n".to_vec();
+        data.extend_from_slice(&13u32.to_be_bytes());
+        data.extend_from_slice(b"IHDR");
+        data.extend_from_slice(&16u32.to_be_bytes());
+        data.extend_from_slice(&16u32.to_be_bytes());
         data.extend(std::iter::repeat(0u8).take(extra));
         format!("data:image/png;base64,{}", STANDARD.encode(data))
     }

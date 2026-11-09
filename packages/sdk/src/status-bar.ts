@@ -254,6 +254,7 @@ export class StatusBar {
         if (!(item?.emitError(error) ?? false)) this.#emitError(error)
         // The bar refused the create itself: the item does not exist there, so forget it.
         if (item && itemId !== undefined && message.requestId === item.createRequestId) {
+          item.markGone() // later calls throw here, instead of earning strikes at the bar
           this.items.delete(itemId)
         }
         break

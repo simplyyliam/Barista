@@ -260,6 +260,8 @@ describe("StatusItem", () => {
       message: "full",
     })
     await until(() => !bar.items.has("a"))
+    // The dead item fails locally now, instead of sending updates the bar would count as strikes.
+    expect(() => item.setLabel("x")).toThrow(/removed/)
     await expect(StatusItem.create({ id: "a", bar })).resolves.toBeInstanceOf(StatusItem)
   })
 

@@ -17,6 +17,8 @@ pub const PROTOCOL_VERSION: &str = "0.2";
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 /// Largest icon after base64 decoding (PNG or SVG).
 pub const MAX_ICON_BYTES: usize = 256 * 1024;
+/// Largest PNG width or height. A tiny file can declare a huge picture that costs gigabytes to decode.
+pub const MAX_ICON_PIXELS: u32 = 1024;
 pub const MAX_ID_LEN: usize = 64;
 pub const MAX_LABEL_LEN: usize = 128;
 pub const MAX_TOOLTIP_LEN: usize = 512;
@@ -234,6 +236,7 @@ mod tests {
                  export const PROTOCOL_VERSION = \"{PROTOCOL_VERSION}\"\n\
                  export const MAX_MESSAGE_BYTES = {MAX_MESSAGE_BYTES}\n\
                  export const MAX_ICON_BYTES = {MAX_ICON_BYTES}\n\
+                 export const MAX_ICON_PIXELS = {MAX_ICON_PIXELS}\n\
                  export const MAX_ID_LEN = {MAX_ID_LEN}\n\
                  export const MAX_LABEL_LEN = {MAX_LABEL_LEN}\n\
                  export const MAX_TOOLTIP_LEN = {MAX_TOOLTIP_LEN}\n\

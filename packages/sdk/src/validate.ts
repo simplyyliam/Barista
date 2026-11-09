@@ -2,7 +2,13 @@
 // protocol.ts), checked early so a mistake throws at the call that caused it instead of
 // coming back later as an error message.
 
-import { MAX_ICON_BYTES, MAX_ID_LEN, MAX_LABEL_LEN, MAX_TOOLTIP_LEN } from "./protocol.js"
+import {
+  MAX_ICON_BYTES,
+  MAX_ICON_PIXELS,
+  MAX_ID_LEN,
+  MAX_LABEL_LEN,
+  MAX_TOOLTIP_LEN,
+} from "./protocol.js"
 
 /** Item ids: 1 to 64 characters from `a-z 0-9 - _ .` */
 export function assertItemId(id: string): void {
@@ -30,27 +36,49 @@ export const assertTooltip = (value: string) => assertText("tooltip", value, MAX
 const BOM = new RegExp("^\uFEFF")
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 
+/** Checks the bytes of an icon the way the bar does, and says what it is. Throws if not allowed. */
+function checkIconBytes(bytes: Buffer): "image/png" | "image/svg+xml" {
+  if (bytes.length > MAX_ICON_BYTES) {
+    throw new TypeError(`Icon is ${bytes.length} bytes, the limit is ${MAX_ICON_BYTES}`)
+  }
+  if (PNG_MAGIC.every((byte, i) => bytes[i] === byte)) {
+    // The first chunk is IHDR: 4 bytes length, "IHDR", then width and height (big-endian).
+    const isHeader = bytes.length >= 24 && bytes.toString("latin1", 12, 16) === "IHDR"
+    const [width, height] = isHeader ? [bytes.readUInt32BE(16), bytes.readUInt32BE(20)] : [0, 0]
+    if (width < 1 || height < 1 || width > MAX_ICON_PIXELS || height > MAX_ICON_PIXELS) {
+      throw new TypeError(`A PNG icon must be at most ${MAX_ICON_PIXELS}x${MAX_ICON_PIXELS} pixels`)
+    }
+    return "image/png"
+  }
+  const head = bytes.subarray(0, 512).toString("utf8").replace(BOM, "").trimStart()
+  if (head.startsWith("<svg") || head.startsWith("<?xml") || head.startsWith("<!--")) {
+    return "image/svg+xml"
+  }
+  throw new TypeError("Icon must be a PNG or an SVG image")
+}
+
 /**
  * Accepts the icon formats the SDK allows and returns a `data:` URL for the wire.
  * Bytes are sniffed: a PNG starts with the PNG signature, an SVG with `<svg` or `<?xml`.
- * A string must already be a `data:` URL. An empty string clears the icon.
+ * A string must be a base64 `data:` URL whose content passes the same checks.
+ * An empty string clears the icon. PNGs may be at most 1024x1024 pixels.
  * @internal
  */
 export function toIconDataUrl(icon: Uint8Array | string): string {
   if (typeof icon === "string") {
-    if (icon !== "" && !/^data:image\/(png|svg\+xml);base64,/.test(icon)) {
-      throw new TypeError("A string icon must be a base64 data: URL of a PNG or SVG")
+    if (icon === "") return icon
+    const match = /^data:(image\/png|image\/svg\+xml);base64,/.exec(icon)
+    if (!match) throw new TypeError("A string icon must be a base64 data: URL of a PNG or SVG")
+    // Check the size before decoding, so a huge string is never turned into a huge buffer.
+    if (icon.length > (MAX_ICON_BYTES / 3) * 4 + 64) {
+      throw new TypeError(`Icon is bigger than ${MAX_ICON_BYTES} bytes`)
     }
+    const kind = checkIconBytes(Buffer.from(icon.slice(match[0].length), "base64"))
+    if (kind !== match[1])
+      throw new TypeError(`The data: URL says ${match[1]} but the data is ${kind}`)
     return icon
   }
   if (!(icon instanceof Uint8Array)) throw new TypeError("icon must be bytes or a data: URL")
-  if (icon.length > MAX_ICON_BYTES) {
-    throw new TypeError(`Icon is ${icon.length} bytes, the limit is ${MAX_ICON_BYTES}`)
-  }
   const bytes = Buffer.from(icon.buffer, icon.byteOffset, icon.byteLength)
-  const isPng = PNG_MAGIC.every((byte, i) => bytes[i] === byte)
-  const head = bytes.subarray(0, 512).toString("utf8").replace(BOM, "").trimStart()
-  const isSvg = head.startsWith("<svg") || head.startsWith("<?xml") || head.startsWith("<!--")
-  if (!isPng && !isSvg) throw new TypeError("Icon must be a PNG or an SVG image")
-  return `data:${isPng ? "image/png" : "image/svg+xml"};base64,${bytes.toString("base64")}`
+  return `data:${checkIconBytes(bytes)};base64,${bytes.toString("base64")}`
 }
