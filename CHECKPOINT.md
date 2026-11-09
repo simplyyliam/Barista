@@ -55,7 +55,14 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `radius.rs` (rules), `platform/windows/windhawk.rs` (registry read + `RegNotifyChangeKeyValue` watcher),
   `window_state`/`is_snapped` in `platform/windows/window.rs`, `window_radius.rs` (per-window tracking by label).
   Checked live on this machine (mod active, radius 26): the bar reports `radius: 26, customized: true` once, no flicker.
-  The "settings change updates instantly" part is covered by tests on a scratch key under HKCU (changing HKLM needs admin).
+  Live check with the real bar and the real React page (WebView2 debug port, nothing in `apps/bar/src/` touched), against
+  a scratch key under HKCU (changing HKLM needs admin; a debug build reads the key named by `BARISTA_WINDHAWK_HKCU_KEY`
+  instead of HKLM, compiled out of release): `--window-radius` in the page followed radius 12 -> 30, mod disabled -> 8,
+  re-enabled -> 30, radius -1 -> 8, radius 5, in about 110-130 ms each (that includes the script's 100 ms polling and the
+  50 ms debounce), `getWindowRadius` matched each time, the variable came back after a page reload, and
+  `border-radius: var(--window-radius, 8px)` and the child formula computed 5px and 0px in the page.
+  Decisions taken (change if you disagree): Windows 10 is not special-cased (the bar follows the Windows 11 rules, so 8),
+  and the mod's radius is read as logical px.
   - New for the UI: `commands.getWindowRadius()` (for the window that calls it), `events.windowRadiusChanged`
     (`{ label, radius: { radius: number | null, customized } }`, sent only to that window, only on change), and the CSS
     variable `--window-radius` on each window's `<html>`: `border-radius: var(--window-radius, 8px)`. Child radius in CSS:

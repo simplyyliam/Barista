@@ -59,3 +59,5 @@ negative (-1 is stored as `0xFFFFFFFF`). Then the stock rules apply.
 - Windows 10 has no rounded corners; the bar still reports 8 there. Revisit if Windows 10 matters.
 - Only the registry watcher thread and window events touch the state; one lock covers sending, so updates
   never arrive out of order.
+- **Testing hook.** Changing HKLM needs admin, so in debug builds `BARISTA_WINDHAWK_HKCU_KEY` (a key under HKCU) replaces
+  the HKLM location. Release builds do not contain it. With it the real bar was driven live against a changing key.

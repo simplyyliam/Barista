@@ -176,7 +176,20 @@ impl Drop for Event {
 /// The mod's settings right now, or `None` when it is not active: no Windhawk, mod not
 /// installed, `Disabled` set, no radius, or radius -1 ("keep original").
 pub fn read_settings() -> Option<ModSettings> {
-    read_settings_at(HKEY_LOCAL_MACHINE, MODS_KEY)
+    let (root, mods_key) = location();
+    read_settings_at(root, &mods_key)
+}
+
+/// Where the mod's keys live: HKLM. Debug builds only: if `BARISTA_WINDHAWK_HKCU_KEY` names a key
+/// under HKCU (like `Software\BaristaTest\Engine\Mods`), that is used instead. Changing HKLM
+/// needs admin, so this is how a running bar is tested against settings that change live. It
+/// is compiled out of release builds.
+fn location() -> (HKEY, String) {
+    #[cfg(debug_assertions)]
+    if let Ok(key) = std::env::var("BARISTA_WINDHAWK_HKCU_KEY") {
+        return (windows::Win32::System::Registry::HKEY_CURRENT_USER, key);
+    }
+    (HKEY_LOCAL_MACHINE, MODS_KEY.to_string())
 }
 
 /// Same, with the registry location given, so tests can use a scratch key under HKCU.
@@ -214,7 +227,8 @@ impl Drop for Watcher {
 /// There is no polling: the thread sleeps in `WaitForMultipleObjects` until Windows signals
 /// `RegNotifyChangeKeyValue`, so it costs nothing while nothing changes (CLAUDE.md rule 9).
 pub fn watch(on_change: impl Fn() + Send + 'static) -> io::Result<Watcher> {
-    watch_at(HKEY_LOCAL_MACHINE, MODS_KEY, on_change)
+    let (root, mods_key) = location();
+    watch_at(root, &mods_key, on_change)
 }
 
 fn watch_at(
