@@ -8,8 +8,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **v0.2.0 shipped** (tag `v0.2.0` on the merge of PR #8, not pushed yet: Liam runs `pnpm release`). Plan releases
   v0.0 Setup, v0.1 Bar shell and v0.2 First item are done; their full notes are in
   `docs/release/history/v0.0-v0.2-checkpoint.md` (local only).
-- **Next:** v0.3 Menus (`docs/release/releases/v0.3.md`), including the tray spike and its ADR (Liam must approve it
-  before v0.6). v0.4b System panels is planned (`releases/v0.4b.md`, local only).
+- **In progress: v0.3 Menus** on `feature/v0.3-menus` (plan: `~/.claude/plans/iterative-weaving-reddy.md`).
+  Done: protocol 0.3, menu validation, registry menus + checked state + roles, placement math, menu window
+  (`menu_window.rs`), events/commands. Next: SDK `BA.Menu`, test client, inspect, tray spike, ADRs 0010-0012,
+  dogfood, reviews, e2e, bench, PR. v0.4b System panels is planned (`releases/v0.4b.md`, local only).
 - Plan: `docs/release/` (v0.0 to v1.0, v0.9 Script items, v0.10 Ship it, v1.1 Gallery, v1.2+). Plan files
   (`plan/`, `releases/`) are git-ignored; `docs/release/README.md` has the table.
 

@@ -59,6 +59,7 @@ export class StatusBar {
   readonly #decoder: FrameDecoder
   readonly #errorListeners = new Set<Listener<BarError>>()
   readonly #closeListeners = new Set<Listener<void>>()
+  readonly #quitListeners = new Set<Listener<void>>()
   #closed = false
   #requestCounter = 0
   /** @internal items by id, so clicks and errors find their item */
@@ -177,17 +178,46 @@ export class StatusBar {
    * ```
    */
   on(event: "close", listener: Listener<void>): this
-  on(event: "error" | "close", listener: Listener<never>): this {
+  /**
+   * Called when the user picks a `role: "quit"` menu entry that has no `click` of its own.
+   * Your items are already removed. Without a listener the SDK closes the connection and
+   * ends the process (`process.exit(0)`); with one, quitting is up to you.
+   *
+   * @example
+   * ```ts
+   * bar.on("quit", async () => {
+   *   await saveState()
+   *   bar.close()
+   *   process.exit(0)
+   * })
+   * ```
+   */
+  on(event: "quit", listener: Listener<void>): this
+  on(event: "error" | "close" | "quit", listener: Listener<never>): this {
     if (event === "error") this.#errorListeners.add(listener as Listener<BarError>)
-    else this.#closeListeners.add(listener as Listener<void>)
+    else if (event === "close") this.#closeListeners.add(listener as Listener<void>)
+    else this.#quitListeners.add(listener as Listener<void>)
     return this
   }
 
   /** Stops a listener added with {@link StatusBar.on}. */
-  off(event: "error" | "close", listener: Listener<never>): this {
+  off(event: "error" | "close" | "quit", listener: Listener<never>): this {
     if (event === "error") this.#errorListeners.delete(listener as Listener<BarError>)
-    else this.#closeListeners.delete(listener as Listener<void>)
+    else if (event === "close") this.#closeListeners.delete(listener as Listener<void>)
+    else this.#quitListeners.delete(listener as Listener<void>)
     return this
+  }
+
+  /** @internal The user asked the app to quit from a menu (`role: "quit"`). */
+  quit(): void {
+    for (const item of [...this.items.values()]) item.remove()
+    if (this.#quitListeners.size > 0) {
+      for (const listener of this.#quitListeners) listener()
+      return
+    }
+    this.close()
+    // Give the socket a moment to send the removes before the process goes.
+    setTimeout(() => process.exit(0), 50)
   }
 
   /**
@@ -246,6 +276,9 @@ export class StatusBar {
     switch (message.type) {
       case "item.click":
         this.items.get(message.id)?.emitClick(message.button)
+        break
+      case "menu.click":
+        this.items.get(message.id)?.emitMenuClick(message.menuItemId, message.checked ?? undefined)
         break
       case "error": {
         const error = new BarError(message.code, message.message)

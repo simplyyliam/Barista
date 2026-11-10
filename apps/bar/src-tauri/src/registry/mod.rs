@@ -9,7 +9,7 @@ pub mod anchor;
 pub mod menu;
 
 use barista_protocol::{
-    BarMessage, ErrorCode, ItemInfo, MenuItem, MouseButton, MAX_ITEMS_PER_CLIENT,
+    BarMessage, ErrorCode, ItemInfo, MenuTemplateItem, MouseButton, MAX_ITEMS_PER_CLIENT,
 };
 use menu::{MenuClickError, MenuEntry};
 use serde::{Deserialize, Serialize};
@@ -85,7 +85,7 @@ struct Item {
     tooltip: Option<String>,
     visible: bool,
     /// Empty = no menu (clicks go to the app as `item.click`).
-    menu: Vec<MenuItem>,
+    menu: Vec<MenuTemplateItem>,
     /// Goes up on every menu change (new menu or a checked flip), so the open menu can tell
     /// when it must redraw.
     menu_rev: u64,
@@ -340,7 +340,7 @@ impl Registry {
         &self,
         session: SessionId,
         id: &str,
-        menu: Vec<MenuItem>,
+        menu: Vec<MenuTemplateItem>,
     ) -> Result<(), RegistryError> {
         let mut state = self.lock();
         let item = state
@@ -673,9 +673,9 @@ mod tests {
         );
     }
 
-    fn menu_of(ids: &[&str]) -> Vec<MenuItem> {
+    fn menu_of(ids: &[&str]) -> Vec<MenuTemplateItem> {
         ids.iter()
-            .map(|id| MenuItem {
+            .map(|id| MenuTemplateItem {
                 id: Some((*id).into()),
                 kind: Some(barista_protocol::MenuItemType::Checkbox),
                 ..Default::default()

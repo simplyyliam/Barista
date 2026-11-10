@@ -3,7 +3,7 @@
 //! back to the client inside `error { message }`.
 
 use barista_protocol::{
-    ClientMessage, ErrorCode, MenuItem, MenuItemType, CLIENT_MESSAGE_TYPES, MAX_ACCELERATOR_LEN,
+    ClientMessage, ErrorCode, MenuTemplateItem, MenuItemType, CLIENT_MESSAGE_TYPES, MAX_ACCELERATOR_LEN,
     MAX_APP_NAME_LEN, MAX_ICON_BYTES, MAX_ICON_PIXELS, MAX_ID_LEN, MAX_LABEL_LEN, MAX_MENU_DEPTH,
     MAX_MENU_ICON_BYTES, MAX_MENU_ITEMS,
 };
@@ -161,7 +161,7 @@ fn icon_up_to(value: &str, max_bytes: usize) -> Result<(), String> {
 /// A menu template: depth at most 3, at most 50 entries in the whole tree, ids on every entry
 /// but separators (same charset as item ids) and unique in the whole tree, plus the usual text
 /// and icon rules. Errors name the entry, so the developer can find it.
-pub fn menu(items: &[MenuItem]) -> Result<(), String> {
+pub fn menu(items: &[MenuTemplateItem]) -> Result<(), String> {
     let mut seen = HashSet::new();
     let mut count = 0;
     menu_level(items, 1, &mut seen, &mut count)
@@ -169,7 +169,7 @@ pub fn menu(items: &[MenuItem]) -> Result<(), String> {
 
 // `'a` says: the ids in `seen` borrow from `items`, so no id string is copied.
 fn menu_level<'a>(
-    items: &'a [MenuItem],
+    items: &'a [MenuTemplateItem],
     depth: usize,
     seen: &mut HashSet<&'a str>,
     count: &mut usize,
@@ -225,23 +225,23 @@ fn menu_level<'a>(
 mod tests {
     use super::*;
 
-    fn entry(id: &str) -> MenuItem {
-        MenuItem {
+    fn entry(id: &str) -> MenuTemplateItem {
+        MenuTemplateItem {
             id: Some(id.into()),
             label: Some(id.into()),
             ..Default::default()
         }
     }
 
-    fn sub(id: &str, items: Vec<MenuItem>) -> MenuItem {
-        MenuItem {
+    fn sub(id: &str, items: Vec<MenuTemplateItem>) -> MenuTemplateItem {
+        MenuTemplateItem {
             submenu: Some(items),
             ..entry(id)
         }
     }
 
-    fn separator() -> MenuItem {
-        MenuItem {
+    fn separator() -> MenuTemplateItem {
+        MenuTemplateItem {
             kind: Some(MenuItemType::Separator),
             ..Default::default()
         }
@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn good_menus_pass() {
         assert!(menu(&[]).is_ok());
-        let checkbox = MenuItem {
+        let checkbox = MenuTemplateItem {
             kind: Some(MenuItemType::Checkbox),
             checked: Some(true),
             accelerator: Some("Ctrl+S".into()),
@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn menu_ids_are_required_valid_and_unique() {
-        let no_id = MenuItem {
+        let no_id = MenuTemplateItem {
             label: Some("x".into()),
             ..Default::default()
         };
@@ -292,32 +292,32 @@ mod tests {
 
     #[test]
     fn menu_fields_are_checked() {
-        let long = MenuItem {
+        let long = MenuTemplateItem {
             accelerator: Some("x".repeat(33)),
             ..entry("a")
         };
         assert!(menu(&[long]).is_err());
-        let control = MenuItem {
+        let control = MenuTemplateItem {
             label: Some("a\u{7}".into()),
             ..entry("a")
         };
         assert!(menu(&[control]).is_err());
-        let big_icon = MenuItem {
+        let big_icon = MenuTemplateItem {
             icon: Some(png_url(20 * 1024)),
             ..entry("a")
         };
         assert!(menu(&[big_icon]).unwrap_err().contains("16 KB"));
-        let checked_normal = MenuItem {
+        let checked_normal = MenuTemplateItem {
             checked: Some(true),
             ..entry("a")
         };
         assert!(menu(&[checked_normal]).is_err());
-        let empty_sub = MenuItem {
+        let empty_sub = MenuTemplateItem {
             kind: Some(MenuItemType::Submenu),
             ..entry("a")
         };
         assert!(menu(&[empty_sub]).is_err());
-        let normal_with_sub = MenuItem {
+        let normal_with_sub = MenuTemplateItem {
             kind: Some(MenuItemType::Normal),
             ..sub("a", vec![])
         };

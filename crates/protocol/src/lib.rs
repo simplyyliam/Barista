@@ -72,7 +72,7 @@ pub enum MenuRole {
 /// `type` defaults to `submenu` when `submenu` is set, otherwise `normal`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
-pub struct MenuItem {
+pub struct MenuTemplateItem {
     /// Required on everything except separators; unique in the whole menu.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
@@ -98,10 +98,10 @@ pub struct MenuItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub submenu: Option<Vec<MenuItem>>,
+    pub submenu: Option<Vec<MenuTemplateItem>>,
 }
 
-impl MenuItem {
+impl MenuTemplateItem {
     /// The type with the `submenu` default applied.
     pub fn kind(&self) -> MenuItemType {
         match self.kind {
@@ -201,7 +201,7 @@ pub enum ClientMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
         id: String,
-        menu: Vec<MenuItem>,
+        menu: Vec<MenuTemplateItem>,
     },
     /// Asks for every item in the bar (used by `examples/inspect` and the bench). Debug builds,
     /// or a bar started with `BARISTA_DEBUG` set; otherwise `unknown_type`.
@@ -352,7 +352,11 @@ mod tests {
                  export const MAX_LABEL_LEN = {MAX_LABEL_LEN}\n\
                  export const MAX_TOOLTIP_LEN = {MAX_TOOLTIP_LEN}\n\
                  export const MAX_APP_NAME_LEN = {MAX_APP_NAME_LEN}\n\
-                 export const MAX_ITEMS_PER_CLIENT = {MAX_ITEMS_PER_CLIENT}\n"
+                 export const MAX_ITEMS_PER_CLIENT = {MAX_ITEMS_PER_CLIENT}\n\
+                 export const MAX_MENU_DEPTH = {MAX_MENU_DEPTH}\n\
+                 export const MAX_MENU_ITEMS = {MAX_MENU_ITEMS}\n\
+                 export const MAX_ACCELERATOR_LEN = {MAX_ACCELERATOR_LEN}\n\
+                 export const MAX_MENU_ICON_BYTES = {MAX_MENU_ICON_BYTES}\n"
             ))
             .export_to(OUTPUT, &types, specta_serde::Format)
             .expect("failed to export protocol types");

@@ -6,7 +6,7 @@
 //! The bar owns the checked state (ADR 0011), so every client gets the same radio rules and the
 //! UI can redraw right away without waiting for the app.
 
-use barista_protocol::{MenuItem, MenuItemType, MenuRole};
+use barista_protocol::{MenuTemplateItem, MenuItemType, MenuRole};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -38,21 +38,21 @@ pub enum MenuClickError {
     NotClickable,
 }
 
-fn separator() -> MenuItem {
-    MenuItem {
+fn separator() -> MenuTemplateItem {
+    MenuTemplateItem {
         kind: Some(MenuItemType::Separator),
         ..Default::default()
     }
 }
 
-fn is_separator(item: &MenuItem) -> bool {
+fn is_separator(item: &MenuTemplateItem) -> bool {
     item.kind() == MenuItemType::Separator
 }
 
 /// Moves top-level role entries to their standard place, with a separator between the groups:
 /// `About`, `Settings` | the app's own entries | `Quit`. Roles inside submenus stay where the
 /// app put them.
-pub fn arrange(items: Vec<MenuItem>) -> Vec<MenuItem> {
+pub fn arrange(items: Vec<MenuTemplateItem>) -> Vec<MenuTemplateItem> {
     if !items.iter().any(|i| i.role.is_some()) {
         return items;
     }
@@ -87,7 +87,7 @@ pub fn arrange(items: Vec<MenuItem>) -> Vec<MenuItem> {
 }
 
 /// What the UI draws. `app_name` fills in role labels the app left out.
-pub fn view(items: &[MenuItem], app_name: &str) -> Vec<MenuEntry> {
+pub fn view(items: &[MenuTemplateItem], app_name: &str) -> Vec<MenuEntry> {
     let mut out: Vec<MenuEntry> = Vec::with_capacity(items.len());
     for item in items.iter().filter(|i| i.visible != Some(false)) {
         let kind = item.kind();
@@ -129,14 +129,14 @@ pub fn view(items: &[MenuItem], app_name: &str) -> Vec<MenuEntry> {
 }
 
 /// Applies a click on entry `id`. Returns the new `checked` for checkbox and radio entries.
-pub fn click(items: &mut [MenuItem], id: &str) -> Result<Option<bool>, MenuClickError> {
+pub fn click(items: &mut [MenuTemplateItem], id: &str) -> Result<Option<bool>, MenuClickError> {
     click_in(items, id, true).unwrap_or(Err(MenuClickError::NotFound))
 }
 
 /// `None` = not in this level or below. `reachable` is false under a disabled or hidden
 /// submenu: the user can't see those entries, so they can't be clicked either.
 fn click_in(
-    level: &mut [MenuItem],
+    level: &mut [MenuTemplateItem],
     id: &str,
     reachable: bool,
 ) -> Option<Result<Option<bool>, MenuClickError>> {
@@ -155,7 +155,7 @@ fn click_in(
 }
 
 fn apply(
-    level: &mut [MenuItem],
+    level: &mut [MenuTemplateItem],
     i: usize,
     reachable: bool,
 ) -> Result<Option<bool>, MenuClickError> {
@@ -173,7 +173,7 @@ fn apply(
         }
         MenuItemType::Radio => {
             // Electron's rule: a radio group is a run of radio entries next to each other.
-            let is_radio = |e: &MenuItem| e.kind() == MenuItemType::Radio;
+            let is_radio = |e: &MenuTemplateItem| e.kind() == MenuItemType::Radio;
             let start = level[..i]
                 .iter()
                 .rposition(|e| !is_radio(e))
@@ -194,30 +194,30 @@ fn apply(
 mod tests {
     use super::*;
 
-    fn entry(id: &str) -> MenuItem {
-        MenuItem {
+    fn entry(id: &str) -> MenuTemplateItem {
+        MenuTemplateItem {
             id: Some(id.into()),
             label: Some(id.into()),
             ..Default::default()
         }
     }
 
-    fn typed(id: &str, kind: MenuItemType) -> MenuItem {
-        MenuItem {
+    fn typed(id: &str, kind: MenuItemType) -> MenuTemplateItem {
+        MenuTemplateItem {
             kind: Some(kind),
             ..entry(id)
         }
     }
 
-    fn role(id: &str, role: MenuRole) -> MenuItem {
-        MenuItem {
+    fn role(id: &str, role: MenuRole) -> MenuTemplateItem {
+        MenuTemplateItem {
             id: Some(id.into()),
             role: Some(role),
             ..Default::default()
         }
     }
 
-    fn ids(items: &[MenuItem]) -> Vec<&str> {
+    fn ids(items: &[MenuTemplateItem]) -> Vec<&str> {
         items
             .iter()
             .map(|i| i.id.as_deref().unwrap_or("-"))
@@ -243,7 +243,7 @@ mod tests {
 
     #[test]
     fn view_fills_role_labels_and_drops_hidden_entries() {
-        let hidden = MenuItem {
+        let hidden = MenuTemplateItem {
             visible: Some(false),
             ..entry("h")
         };
@@ -278,7 +278,7 @@ mod tests {
             typed("r1", MenuItemType::Radio),
             typed("r2", MenuItemType::Radio),
             separator(),
-            MenuItem {
+            MenuTemplateItem {
                 checked: Some(true),
                 ..typed("other", MenuItemType::Radio)
             },
@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     fn clicks_find_entries_in_submenus() {
-        let presets = MenuItem {
+        let presets = MenuTemplateItem {
             submenu: Some(vec![
                 typed("p25", MenuItemType::Radio),
                 typed("p50", MenuItemType::Radio),
@@ -306,11 +306,11 @@ mod tests {
 
     #[test]
     fn unclickable_entries_are_refused() {
-        let disabled = MenuItem {
+        let disabled = MenuTemplateItem {
             enabled: Some(false),
             ..entry("off")
         };
-        let locked = MenuItem {
+        let locked = MenuTemplateItem {
             enabled: Some(false),
             submenu: Some(vec![entry("inner")]),
             ..entry("locked")
