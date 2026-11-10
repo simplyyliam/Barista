@@ -9,11 +9,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   v0.0 Setup, v0.1 Bar shell and v0.2 First item are done; their full notes are in
   `docs/release/history/v0.0-v0.2-checkpoint.md` (local only).
 - **In progress: v0.3 Menus** on `feature/v0.3-menus` (plan: `~/.claude/plans/iterative-weaving-reddy.md`).
-  Done: protocol 0.3, menu validation, registry menus + checked state + roles, placement math, menu window
-  (`menu_window.rs`), events/commands. Next: SDK `BA.Menu`, test client, inspect, tray spike, ADRs 0010-0012,
-  dogfood, reviews, e2e, bench, PR. v0.4b System panels is planned (`releases/v0.4b.md`, local only).
-- Plan: `docs/release/` (v0.0 to v1.0, v0.9 Script items, v0.10 Ship it, v1.1 Gallery, v1.2+). Plan files
-  (`plan/`, `releases/`) are git-ignored; `docs/release/README.md` has the table.
+  Built: protocol 0.3, menu validation, registry menus + checked state + roles, placement math, reused menu window
+  (`menu_window.rs`), events/commands, SDK `BA.Menu`, focus-timer test client, `inspect --menu-click`, tray spike
+  (`docs/research/tray-bridging.md`, local) + ADRs 0010-0012. Left: reviews, e2e, bench, PR.
+- v0.4b System panels is planned (`releases/v0.4b.md`, local only).
 
 ## Facts a new session needs
 
@@ -25,6 +24,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Website: `apps/web` (Next.js 16 + Fumadocs, static export, ADR 0004). Docs search off until v0.10.
 - UI already has: `getBarInfo`/`setMonitor`/`barChanged`, `getItems`/`itemClicked`/`itemsChanged`,
   `getWindowRadius`/`windowRadiusChanged` (+ `--window-radius`), `getBarAppearance`/`barAppearanceChanged` (+ `data-tone`).
+- New for the UI (v0.3, not wired yet): window `menu` (loads `index.html`; App must render the menu there by window
+  label), `menuOpen`/`menuChanged`/`menuClose`, `menuItemClicked`, `menuResized` (returns submenu side), `closeMenu`,
+  `getOpenMenu`, `setItemBounds`.
 - New windows: register with `window_radius::register(app, label, Mode::Tracked | Mode::Normal)` (popover = `Normal`), and
   create them with the same `additionalBrowserArgs` as `tauri.conf.json` (else WebView2 error 0x8007139F).
 - `debug.listItems` / `debug.click` (and `pnpm inspect`) work in debug builds or with `BARISTA_DEBUG` set.
@@ -33,6 +35,16 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Never set the real wallpaper in a test (it can't be restored); `wallpaper_live` only reads.
 
 ## Fix next
+
+- From dogfooding the focus timer (v0.3 menus):
+  - Changing one entry (Start enabled, "Resume" label) means rebuilding the whole menu and calling `setMenu` again.
+    Want `item.updateMenuItem(id, { enabled, label, checked })` or setters on `MenuItem` that sync by themselves.
+  - `click(entry, { checked })`: `checked` is optional even for a checkbox, so apps write `checked ?? !x`.
+    `entry.checked` is already mirrored; document that and maybe drop `checked` from the event.
+  - No way to refresh a menu right before it opens (`item.on("open")`), e.g. "12:34 left" in a label (noted in v0.4).
+  - `inspect` keys change every connection (`s22/timer`, `s48/timer`); accept `appName/itemId` too.
+  - Accelerators are text only; "CmdOrCtrl+Enter" next to Start suggests a hotkey that doesn't exist. Say so in docs.
+  - Fixed while dogfooding: role entries default their id to the role (`quit`), separators don't use up ids.
 
 - Silent client (sends `hello`, then nothing) holds a connection slot until it disconnects: fixed by the v0.5 heartbeat.
 - SDK papercuts from dogfooding `examples/clock`:
