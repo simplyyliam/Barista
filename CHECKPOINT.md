@@ -12,7 +12,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   Built: protocol 0.3, menu validation, registry menus + checked state + roles, placement math, reused menu window
   (`menu_window.rs`), events/commands, SDK `BA.Menu`, focus-timer test client, `inspect --menu-click`, tray spike
   (`docs/research/tray-bridging.md`, local) + ADRs 0010-0012. Code review + security review done and fixed, e2e passed
-  (real mouse clicks on the bar), bench in `docs/perf/0.3.md`. PR "v0.3 Menus" open; waiting for Liam's review, the menu
+  (real mouse clicks on the bar; keyboard-only through a throwaway handler injected over WebView2 remote debugging,
+  real keystrokes; edge placement and submenu flip on the real 150 % screen), bench in `docs/perf/0.3.md`. PR "v0.3 Menus" open; waiting for Liam's review, the menu
   UI, and approval of ADR 0012 (tray) before v0.6.
 - v0.4b System panels is planned (`releases/v0.4b.md`, local only).
 
@@ -33,6 +34,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   create them with the same `additionalBrowserArgs` as `tauri.conf.json` (else WebView2 error 0x8007139F).
 - `debug.listItems` / `debug.click` (and `pnpm inspect`) work in debug builds or with `BARISTA_DEBUG` set.
 - Memory budget counts private memory (62 MB vs 120 MB); `--disable-gpu --renderer-process-limit=1` keeps it there.
+- Driving the menu window without the UI: start `pnpm dev` with
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then evaluate JS in the `menu` / `main` page over
+  CDP (`window.__TAURI_INTERNALS__.invoke(...)`). Debug only, never committed.
 - `pnpm bench` refuses to run while a bar is running; it needs a release build. Since v0.3 it also times menus
   (`scripts/menu-visible.ps1` polls the menu window's visibility).
 - Stopping `pnpm dev` from a background task leaves vite (port 1420) and a self-restarting bar behind: kill them by
