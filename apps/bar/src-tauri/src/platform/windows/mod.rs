@@ -9,5 +9,5 @@ pub mod monitors;
 pub mod pipe;
 pub mod wallpaper;
 pub mod wallpaper_watch;
-pub mod window;
 pub mod windhawk;
+pub mod window;

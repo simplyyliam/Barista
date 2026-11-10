@@ -40,9 +40,7 @@ pub enum Mode {
     Tracked,
     /// Always a normal window: the radius is the mod's radius, or 8 without it, with no state
     /// detection at all. For windows that are never maximized or snapped, like a transparent
-    /// popover.
-    // Nothing registers a window in this mode before popovers exist (v0.4).
-    #[allow(dead_code)]
+    /// popover or the menu.
     Normal,
 }
 
