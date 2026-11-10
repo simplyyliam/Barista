@@ -3,10 +3,12 @@
 //! back to the client inside `error { message }`.
 
 use barista_protocol::{
-    ClientMessage, ErrorCode, CLIENT_MESSAGE_TYPES, MAX_APP_NAME_LEN, MAX_ICON_BYTES,
-    MAX_ICON_PIXELS, MAX_ID_LEN,
+    ClientMessage, ErrorCode, MenuItem, MenuItemType, CLIENT_MESSAGE_TYPES, MAX_ACCELERATOR_LEN,
+    MAX_APP_NAME_LEN, MAX_ICON_BYTES, MAX_ICON_PIXELS, MAX_ID_LEN, MAX_LABEL_LEN, MAX_MENU_DEPTH,
+    MAX_MENU_ICON_BYTES, MAX_MENU_ITEMS,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
+use std::collections::HashSet;
 
 /// Why a frame could not become a [`ClientMessage`].
 #[derive(Debug, PartialEq, Eq)]
@@ -101,6 +103,10 @@ const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
 /// An icon is a PNG or SVG `data:` URL, at most 256 KB once decoded. An empty string is
 /// allowed (it means "no icon" / "clear the icon").
 pub fn icon(value: &str) -> Result<(), String> {
+    icon_up_to(value, MAX_ICON_BYTES)
+}
+
+fn icon_up_to(value: &str, max_bytes: usize) -> Result<(), String> {
     if value.is_empty() {
         return Ok(());
     }
@@ -112,14 +118,14 @@ pub fn icon(value: &str) -> Result<(), String> {
         return Err("icon must be a base64 data: URL of a PNG or SVG".into());
     };
     // Check the size before decoding, so we never allocate for a huge payload.
-    if payload.len() > MAX_ICON_BYTES / 3 * 4 + 4 {
-        return Err(format!("icon is bigger than {} KB", MAX_ICON_BYTES / 1024));
+    if payload.len() > max_bytes / 3 * 4 + 4 {
+        return Err(format!("icon is bigger than {} KB", max_bytes / 1024));
     }
     let bytes = STANDARD
         .decode(payload)
         .map_err(|_| "icon is not valid base64".to_string())?;
-    if bytes.len() > MAX_ICON_BYTES {
-        return Err(format!("icon is bigger than {} KB", MAX_ICON_BYTES / 1024));
+    if bytes.len() > max_bytes {
+        return Err(format!("icon is bigger than {} KB", max_bytes / 1024));
     }
     if is_png {
         if !bytes.starts_with(PNG_MAGIC) {
@@ -152,9 +158,171 @@ pub fn icon(value: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// A menu template: depth at most 3, at most 50 entries in the whole tree, ids on every entry
+/// but separators (same charset as item ids) and unique in the whole tree, plus the usual text
+/// and icon rules. Errors name the entry, so the developer can find it.
+pub fn menu(items: &[MenuItem]) -> Result<(), String> {
+    let mut seen = HashSet::new();
+    let mut count = 0;
+    menu_level(items, 1, &mut seen, &mut count)
+}
+
+// `'a` says: the ids in `seen` borrow from `items`, so no id string is copied.
+fn menu_level<'a>(
+    items: &'a [MenuItem],
+    depth: usize,
+    seen: &mut HashSet<&'a str>,
+    count: &mut usize,
+) -> Result<(), String> {
+    if depth > MAX_MENU_DEPTH {
+        return Err(format!(
+            "menus can be nested at most {MAX_MENU_DEPTH} levels deep"
+        ));
+    }
+    for item in items {
+        *count += 1;
+        if *count > MAX_MENU_ITEMS {
+            return Err(format!("a menu can have at most {MAX_MENU_ITEMS} entries"));
+        }
+        let kind = item.kind();
+        let name = item.id.as_deref().unwrap_or("(separator)");
+        match &item.id {
+            None if kind == MenuItemType::Separator => {}
+            None => return Err("every menu entry except separators needs an id".into()),
+            Some(id) => {
+                item_id(id).map_err(|m| format!("menu entry {id:?}: {m}"))?;
+                if !seen.insert(id) {
+                    return Err(format!("menu id {id:?} is used twice"));
+                }
+            }
+        }
+        let field = |f: &str| format!("menu entry {name:?}: {f}");
+        if let Some(label) = &item.label {
+            text("label", label, MAX_LABEL_LEN).map_err(|m| field(&m))?;
+        }
+        if let Some(accelerator) = &item.accelerator {
+            text("accelerator", accelerator, MAX_ACCELERATOR_LEN).map_err(|m| field(&m))?;
+        }
+        if let Some(icon) = &item.icon {
+            icon_up_to(icon, MAX_MENU_ICON_BYTES).map_err(|m| field(&m))?;
+        }
+        if item.checked.is_some() && !matches!(kind, MenuItemType::Checkbox | MenuItemType::Radio) {
+            return Err(field("only checkbox and radio entries can be checked"));
+        }
+        match (kind, &item.submenu) {
+            (MenuItemType::Submenu, Some(sub)) => menu_level(sub, depth + 1, seen, count)?,
+            (MenuItemType::Submenu, None) => {
+                return Err(field("a submenu entry needs a submenu list"))
+            }
+            (_, Some(_)) => return Err(field("only submenu entries can have a submenu")),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn entry(id: &str) -> MenuItem {
+        MenuItem {
+            id: Some(id.into()),
+            label: Some(id.into()),
+            ..Default::default()
+        }
+    }
+
+    fn sub(id: &str, items: Vec<MenuItem>) -> MenuItem {
+        MenuItem {
+            submenu: Some(items),
+            ..entry(id)
+        }
+    }
+
+    fn separator() -> MenuItem {
+        MenuItem {
+            kind: Some(MenuItemType::Separator),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn good_menus_pass() {
+        assert!(menu(&[]).is_ok());
+        let checkbox = MenuItem {
+            kind: Some(MenuItemType::Checkbox),
+            checked: Some(true),
+            accelerator: Some("Ctrl+S".into()),
+            icon: Some(png_url(0)),
+            ..entry("sound")
+        };
+        let three_deep = sub("b", vec![sub("c", vec![entry("d")])]);
+        let ok = [entry("a"), separator(), checkbox, separator(), three_deep];
+        assert_eq!(menu(&ok), Ok(()));
+    }
+
+    #[test]
+    fn menu_depth_is_capped_at_three() {
+        let four = [sub("a", vec![sub("b", vec![sub("c", vec![entry("d")])])])];
+        assert!(menu(&four).unwrap_err().contains("levels deep"));
+    }
+
+    #[test]
+    fn menu_size_is_capped_including_submenus() {
+        let fifty: Vec<_> = (0..50).map(|i| entry(&format!("e{i}"))).collect();
+        assert!(menu(&fifty).is_ok());
+        let mut nested: Vec<_> = (0..49).map(|i| entry(&format!("e{i}"))).collect();
+        nested.push(sub("s", vec![entry("x")]));
+        assert!(menu(&nested).unwrap_err().contains("at most 50"));
+    }
+
+    #[test]
+    fn menu_ids_are_required_valid_and_unique() {
+        let no_id = MenuItem {
+            label: Some("x".into()),
+            ..Default::default()
+        };
+        assert!(menu(&[no_id]).unwrap_err().contains("needs an id"));
+        assert!(menu(&[entry("Bad Id")]).is_err());
+        let twice = [entry("a"), sub("s", vec![entry("a")])];
+        assert!(menu(&twice).unwrap_err().contains("twice"));
+        assert!(menu(&[separator(), separator()]).is_ok());
+    }
+
+    #[test]
+    fn menu_fields_are_checked() {
+        let long = MenuItem {
+            accelerator: Some("x".repeat(33)),
+            ..entry("a")
+        };
+        assert!(menu(&[long]).is_err());
+        let control = MenuItem {
+            label: Some("a\u{7}".into()),
+            ..entry("a")
+        };
+        assert!(menu(&[control]).is_err());
+        let big_icon = MenuItem {
+            icon: Some(png_url(20 * 1024)),
+            ..entry("a")
+        };
+        assert!(menu(&[big_icon]).unwrap_err().contains("16 KB"));
+        let checked_normal = MenuItem {
+            checked: Some(true),
+            ..entry("a")
+        };
+        assert!(menu(&[checked_normal]).is_err());
+        let empty_sub = MenuItem {
+            kind: Some(MenuItemType::Submenu),
+            ..entry("a")
+        };
+        assert!(menu(&[empty_sub]).is_err());
+        let normal_with_sub = MenuItem {
+            kind: Some(MenuItemType::Normal),
+            ..sub("a", vec![])
+        };
+        assert!(menu(&[normal_with_sub]).is_err());
+    }
 
     /// A PNG signature plus an IHDR of `w` x `h`, then `extra` filler bytes.
     fn png_sized(w: u32, h: u32, extra: usize) -> String {
