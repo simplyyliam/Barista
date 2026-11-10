@@ -11,7 +11,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **In progress: v0.3 Menus** on `feature/v0.3-menus` (plan: `~/.claude/plans/iterative-weaving-reddy.md`).
   Built: protocol 0.3, menu validation, registry menus + checked state + roles, placement math, reused menu window
   (`menu_window.rs`), events/commands, SDK `BA.Menu`, focus-timer test client, `inspect --menu-click`, tray spike
-  (`docs/research/tray-bridging.md`, local) + ADRs 0010-0012. Left: reviews, e2e, bench, PR.
+  (`docs/research/tray-bridging.md`, local) + ADRs 0010-0012. Code review + security review done and fixed, e2e passed
+  (real mouse clicks on the bar), bench in `docs/perf/0.3.md`. PR "v0.3 Menus" open; waiting for Liam's review, the menu
+  UI, and approval of ADR 0012 (tray) before v0.6.
 - v0.4b System panels is planned (`releases/v0.4b.md`, local only).
 
 ## Facts a new session needs
@@ -31,7 +33,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   create them with the same `additionalBrowserArgs` as `tauri.conf.json` (else WebView2 error 0x8007139F).
 - `debug.listItems` / `debug.click` (and `pnpm inspect`) work in debug builds or with `BARISTA_DEBUG` set.
 - Memory budget counts private memory (62 MB vs 120 MB); `--disable-gpu --renderer-process-limit=1` keeps it there.
-- `pnpm bench` refuses to run while a bar is running; it needs a release build.
+- `pnpm bench` refuses to run while a bar is running; it needs a release build. Since v0.3 it also times menus
+  (`scripts/menu-visible.ps1` polls the menu window's visibility).
+- Stopping `pnpm dev` from a background task leaves vite (port 1420) and a self-restarting bar behind: kill them by
+  command line (`vite.js`, `target\debugarista.exe`) before starting again.
 - Never set the real wallpaper in a test (it can't be restored); `wallpaper_live` only reads.
 
 ## Fix next

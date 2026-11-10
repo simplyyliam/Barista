@@ -1,12 +1,14 @@
 // pnpm bench [version]: starts the release bar, lets it settle, then measures idle CPU and
 // memory of the bar plus its WebView2 child processes. With a version (pnpm bench 0.1) the
 // result is also written to docs/perf/<version>.md. Since v0.2 it also measures item latency
-// over the pipe and the bar's CPU while the test client ticks a label every second.
+// over the pipe and the bar's CPU while the test client ticks a label every second. Since v0.3
+// it also times menus: setMenu, a pick reaching the app, and click -> menu window visible.
 // BENCH_SECONDS changes the sampling time of each CPU measurement (default 60).
 import { execFileSync, spawn } from "node:child_process"
 import { existsSync, writeFileSync } from "node:fs"
 import net from "node:net"
 import os from "node:os"
+import { createInterface } from "node:readline"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
@@ -148,7 +150,7 @@ async function measureLatency() {
   await client.ready
   const welcome = await client.ask({
     type: "hello",
-    protocolVersion: "0.2",
+    protocolVersion: "0.3",
     appName: "bench",
     pid: process.pid,
     sdk: { name: "bench", version: "0" },
@@ -177,11 +179,84 @@ async function measureLatency() {
   return { connectMs, create, update }
 }
 
+async function measureMenus() {
+  const client = pipeClient()
+  await client.ready
+  const welcome = await client.ask({
+    type: "hello",
+    protocolVersion: "0.3",
+    appName: "bench-menu",
+    pid: process.pid,
+    sdk: { name: "bench", version: "0" },
+  })
+  const key = `${welcome.sessionId}/probe`
+  const menu = [
+    { id: "start", label: "Start", accelerator: "Ctrl+S" },
+    { id: "sounds", label: "Sounds", type: "checkbox" },
+    { type: "separator" },
+    { id: "more", label: "More", submenu: [{ id: "a", label: "A" }] },
+    { id: "quit", role: "quit" },
+  ]
+  client.write({ type: "item.create", id: "probe", label: "m" })
+  const setMenu = []
+  for (let n = 0; n < 30; n++) {
+    // Alternate menu / no menu, so every round is a real change.
+    const on = n % 2 === 0
+    setMenu.push(
+      await timeUntil(client, { type: "item.setMenu", id: "probe", menu: on ? menu : [] }, (i) =>
+        i.some((x) => x.id === key && x.hasMenu === on),
+      ),
+    )
+  }
+  client.write({ type: "item.setMenu", id: "probe", menu })
+  const pick = []
+  for (let n = 0; n < 30; n++) {
+    const t0 = performance.now()
+    const reply = await client.ask({ type: "debug.menuClick", id: key, menuItemId: "sounds" })
+    if (reply.type !== "menu.click") throw new Error(`bench pick failed: ${JSON.stringify(reply)}`)
+    pick.push(performance.now() - t0)
+  }
+
+  const shown = []
+  const ps = spawn(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", `${root}scripts/menu-visible.ps1`],
+    { stdio: ["pipe", "pipe", "ignore"] },
+  )
+  const lines = createInterface({ input: ps.stdout })
+  const queue = []
+  lines.on("line", (line) => queue.push(line))
+  const next = async () => {
+    while (queue.length === 0) await sleep(1)
+    return queue.shift()
+  }
+  if ((await next()) === "ready") {
+    const click = () => client.write({ type: "debug.click", id: key, button: "left" })
+    for (let n = 0; n < 10; n++) {
+      ps.stdin.write("show\n")
+      await next() // armed
+      click()
+      shown.push(Number(await next()))
+      ps.stdin.write("hide\n")
+      await next() // armed
+      click() // the same icon again closes it
+      await next()
+      await sleep(300)
+    }
+  }
+  ps.stdin.end()
+  client.close()
+  return { setMenu, pick, shown }
+}
+
 console.log(`Sampling idle CPU ${seconds}s...`)
 const idle = await sampleCpu()
 
 console.log("Measuring item latency (30 rounds)...")
 const latency = await measureLatency()
+
+console.log("Measuring menus (30 setMenu, 30 picks, 10 opens)...")
+const menus = await measureMenus()
 
 console.log(
   `Starting the test client, sampling CPU ${seconds}s with a label ticking every second...`,
@@ -228,6 +303,26 @@ const rows = [
     "< 100 ms",
     Math.max(...latency.update) < 100,
   ],
+  [
+    "item.setMenu until it is in the registry (median / worst of 30)",
+    `${median(menus.setMenu).toFixed(1)} / ${Math.max(...menus.setMenu).toFixed(1)} ms`,
+    "< 100 ms",
+    Math.max(...menus.setMenu) < 100,
+  ],
+  [
+    "Menu pick until the app gets menu.click (median / worst of 30)",
+    `${median(menus.pick).toFixed(1)} / ${Math.max(...menus.pick).toFixed(1)} ms`,
+    "< 20 ms",
+    Math.max(...menus.pick) < 20,
+  ],
+  menus.shown.length === 0
+    ? ["Click to menu window visible", "not measured (no menu window found)", "< 50 ms", true]
+    : [
+        "Click to menu window visible (median / worst of 10)",
+        `${median(menus.shown).toFixed(1)} / ${Math.max(...menus.shown).toFixed(1)} ms`,
+        "< 50 ms",
+        Math.max(...menus.shown) < 50,
+      ],
   ["Memory, private (bar + WebView2)", `${privateMb.toFixed(0)} MB`, "< 120 MB", privateMb < 120],
   ["Memory, working set sum (reference)", `${memoryMb.toFixed(0)} MB`, "counts shared pages", true],
 ]
@@ -238,7 +333,7 @@ const table = [
     ([what, result, budget, ok]) => `| ${what} | ${result} | ${budget} | ${ok ? "ok" : "over"} |`,
   ),
   "| Memory growth over 8 h | not measured | < 5 MB | |",
-  "| Click to menu / popover, cold start | from v0.3 | see budget file | |",
+  "| Click to popover.show | from v0.4 | < 20 ms | |",
 ].join("\n")
 
 console.log(
@@ -255,6 +350,7 @@ ${table}
 - ${last.processes} processes counted (the bar and its WebView2 children), ${cores} logical cores.
 - CPU: total over ${elapsed.toFixed(0)} s after ${settleSeconds} s of settling, divided by cores. The ticking row is the same with \`examples/test-client\` running (one label update per second).
 - Latency is measured over the pipe with a minimal client: the time from sending the message until \`debug.listItems\` shows it. The UI sees it about one frame (16 ms) later, because \`items-changed\` is coalesced; the render time is the UI's.
+- Menus: the window time is from the click (sent over the pipe as \`debug.click\`) until Windows reports the menu window visible; React drawing the entries comes on top once the UI exists.
 - Machine: ${os.cpus()[0].model.trim()}, ${(os.totalmem() / 1024 ** 3).toFixed(0)} GB RAM.
 `
   writeFileSync(`${root}docs/perf/${version}.md`, md)
