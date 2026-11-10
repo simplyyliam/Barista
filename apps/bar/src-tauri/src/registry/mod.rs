@@ -5,7 +5,13 @@
 //! single string key, `"<session>/<id>"` (for example `"s3/counter"`). Item ids can't contain `/`
 //! (see `ipc::validate`), so that key is unambiguous.
 
-use barista_protocol::{BarMessage, ErrorCode, ItemInfo, MouseButton, MAX_ITEMS_PER_CLIENT};
+pub mod anchor;
+pub mod menu;
+
+use barista_protocol::{
+    BarMessage, ErrorCode, ItemInfo, MenuItem, MouseButton, MAX_ITEMS_PER_CLIENT,
+};
+use menu::{MenuClickError, MenuEntry};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
@@ -78,6 +84,27 @@ struct Item {
     label: Option<String>,
     tooltip: Option<String>,
     visible: bool,
+    /// Empty = no menu (clicks go to the app as `item.click`).
+    menu: Vec<MenuItem>,
+    /// Goes up on every menu change (new menu or a checked flip), so the open menu can tell
+    /// when it must redraw.
+    menu_rev: u64,
+}
+
+/// What an open menu needs: what to draw and a revision to spot changes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MenuSnapshot {
+    pub entries: Vec<MenuEntry>,
+    pub rev: u64,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum MenuItemClickError {
+    /// No such item, or it has no menu.
+    NotFound,
+    Menu(MenuClickError),
+    /// The click was applied but the client's queue is full or gone.
+    Unreachable,
 }
 
 #[derive(Default)]
@@ -101,6 +128,21 @@ pub struct Registry {
 /// `"s3"` -> 3
 fn parse_session(text: &str) -> Option<SessionId> {
     text.strip_prefix('s')?.parse().ok()
+}
+
+/// `"s3/counter"` -> (3, "counter")
+fn parse_key(key: &str) -> Option<(SessionId, &str)> {
+    let (session, id) = key.split_once('/')?;
+    Some((parse_session(session)?, id))
+}
+
+impl State {
+    fn item_mut(&mut self, key: &str) -> Option<&mut Item> {
+        let (session, id) = parse_key(key)?;
+        self.items
+            .iter_mut()
+            .find(|i| i.session == session && i.id == id)
+    }
 }
 
 fn clear_if_empty(value: String) -> Option<String> {
@@ -189,6 +231,8 @@ impl Registry {
             label: label.and_then(clear_if_empty),
             tooltip: tooltip.and_then(clear_if_empty),
             visible: true,
+            menu: Vec::new(),
+            menu_rev: 0,
         });
         drop(state);
         self.changed.notify_one();
@@ -285,15 +329,94 @@ impl Registry {
                     label: i.label.clone(),
                     tooltip: i.tooltip.clone(),
                     visible: i.visible,
+                    has_menu: !i.menu.is_empty(),
                 })
             })
             .collect()
     }
 
+    /// Gives an item a menu (already validated). An empty list removes it.
+    pub fn set_menu(
+        &self,
+        session: SessionId,
+        id: &str,
+        menu: Vec<MenuItem>,
+    ) -> Result<(), RegistryError> {
+        let mut state = self.lock();
+        let item = state
+            .items
+            .iter_mut()
+            .find(|i| i.session == session && i.id == id)
+            .ok_or(RegistryError::NotFound)?;
+        let menu = menu::arrange(menu);
+        if item.menu == menu {
+            return Ok(());
+        }
+        item.menu = menu;
+        item.menu_rev += 1;
+        drop(state);
+        self.changed.notify_one();
+        Ok(())
+    }
+
+    /// Whether a click with `button` on `key` should open its menu instead of reaching the app.
+    /// Middle clicks still go to the app.
+    pub fn opens_menu(&self, key: &str, button: MouseButton) -> bool {
+        button != MouseButton::Middle && self.menu(key).is_some()
+    }
+
+    /// The menu of a visible item, ready to draw. `None` if the item is gone, hidden or has no menu.
+    pub fn menu(&self, key: &str) -> Option<MenuSnapshot> {
+        let mut state = self.lock();
+        let item = state.item_mut(key)?;
+        if item.menu.is_empty() || !item.visible {
+            return None;
+        }
+        let (session, menu, rev) = (item.session, item.menu.clone(), item.menu_rev);
+        let app_name = &state.sessions.get(&session)?.app_name;
+        Some(MenuSnapshot {
+            entries: menu::view(&menu, app_name),
+            rev,
+        })
+    }
+
+    /// The user picked entry `menu_item_id` in the menu of `key`. Flips checkbox/radio state
+    /// here, then sends `menu.click` (with the new `checked`) to the app.
+    pub fn menu_click(&self, key: &str, menu_item_id: &str) -> Result<(), MenuItemClickError> {
+        let mut state = self.lock();
+        let item = state.item_mut(key).ok_or(MenuItemClickError::NotFound)?;
+        if item.menu.is_empty() {
+            return Err(MenuItemClickError::NotFound);
+        }
+        let checked =
+            menu::click(&mut item.menu, menu_item_id).map_err(MenuItemClickError::Menu)?;
+        if checked.is_some() {
+            item.menu_rev += 1;
+        }
+        let (session, id) = (item.session, item.id.clone());
+        let sent = state.sessions.get(&session).is_some_and(|s| {
+            s.outbox
+                .try_send(BarMessage::MenuClick {
+                    id,
+                    menu_item_id: menu_item_id.to_string(),
+                    checked,
+                })
+                .is_ok()
+        });
+        drop(state);
+        if checked.is_some() {
+            self.changed.notify_one();
+        }
+        if sent {
+            Ok(())
+        } else {
+            Err(MenuItemClickError::Unreachable)
+        }
+    }
+
     /// Sends `item.click` to the client that owns `key` (`"s3/counter"`).
     pub fn click(&self, key: &str, button: MouseButton) -> Result<(), ClickError> {
-        let (session_text, id) = key.split_once('/').ok_or(ClickError::NotFound)?;
-        let session = parse_session(session_text).ok_or(ClickError::NotFound)?;
+        let (session, id) = parse_key(key).ok_or(ClickError::NotFound)?;
         let state = self.lock();
         if !state
             .items
@@ -547,6 +670,93 @@ mod tests {
             tokio::time::timeout(std::time::Duration::from_millis(50), reg.wait_changed())
                 .await
                 .is_err()
+        );
+    }
+
+    fn menu_of(ids: &[&str]) -> Vec<MenuItem> {
+        ids.iter()
+            .map(|id| MenuItem {
+                id: Some((*id).into()),
+                kind: Some(barista_protocol::MenuItemType::Checkbox),
+                ..Default::default()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn menus_open_instead_of_item_click_except_middle() {
+        let reg = Registry::new();
+        let (s, _rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        assert!(!reg.opens_menu("s1/a", MouseButton::Left));
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        assert!(reg.opens_menu("s1/a", MouseButton::Left));
+        assert!(reg.opens_menu("s1/a", MouseButton::Right));
+        assert!(!reg.opens_menu("s1/a", MouseButton::Middle));
+        // Hidden items have no menu to open.
+        reg.update(
+            s,
+            "a",
+            ItemPatch {
+                visible: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(reg.menu("s1/a").is_none());
+    }
+
+    #[test]
+    fn menu_click_flips_state_bumps_rev_and_reaches_the_owner() {
+        let reg = Registry::new();
+        let (s, mut rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        let rev = reg.menu("s1/a").unwrap().rev;
+        reg.menu_click("s1/a", "m").unwrap();
+        let after = reg.menu("s1/a").unwrap();
+        assert!(after.entries[0].checked);
+        assert!(after.rev > rev);
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            BarMessage::MenuClick {
+                id: "a".into(),
+                menu_item_id: "m".into(),
+                checked: Some(true)
+            }
+        );
+        assert_eq!(
+            reg.menu_click("s1/a", "zzz"),
+            Err(MenuItemClickError::Menu(MenuClickError::NotFound))
+        );
+        assert_eq!(
+            reg.menu_click("s9/a", "m"),
+            Err(MenuItemClickError::NotFound)
+        );
+    }
+
+    #[test]
+    fn same_menu_again_is_not_a_change() {
+        let reg = Registry::new();
+        let (s, _rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        let rev = reg.menu("s1/a").unwrap().rev;
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        assert_eq!(reg.menu("s1/a").unwrap().rev, rev);
+        assert_eq!(reg.set_menu(s, "b", vec![]), Err(RegistryError::NotFound));
+    }
+
+    #[test]
+    fn a_dead_client_menu_click_is_unreachable() {
+        let reg = Registry::new();
+        let (s, rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        drop(rx);
+        assert_eq!(
+            reg.menu_click("s1/a", "m"),
+            Err(MenuItemClickError::Unreachable)
         );
     }
 }
