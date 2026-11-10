@@ -3,18 +3,21 @@
 Keep this file short: where we are, the next step, and facts a new session needs.
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
-## Where we are (2026-11-09)
+## Where we are (2026-11-10)
 
 - **v0.2.0 shipped** (tag `v0.2.0` on the merge of PR #8, not pushed yet: Liam runs `pnpm release`). Plan releases
   v0.0 Setup, v0.1 Bar shell and v0.2 First item are done; their full notes are in
   `docs/release/history/v0.0-v0.2-checkpoint.md` (local only).
-- **In progress: v0.3 Menus** on `feature/v0.3-menus` (plan: `~/.claude/plans/iterative-weaving-reddy.md`).
-  Built: protocol 0.3, menu validation, registry menus + checked state + roles, placement math, reused menu window
-  (`menu_window.rs`), events/commands, SDK `BA.Menu`, focus-timer test client, `inspect --menu-click`, tray spike
-  (`docs/research/tray-bridging.md`, local) + ADRs 0010-0012. Code review + security review done and fixed, e2e passed
-  (real mouse clicks on the bar; keyboard-only through a throwaway handler injected over WebView2 remote debugging,
-  real keystrokes; edge placement and submenu flip on the real 150 % screen), bench in `docs/perf/0.3.md`. PR "v0.3 Menus" open; waiting for Liam's review, the menu
-  UI, and approval of ADR 0012 (tray) before v0.6.
+- **v0.3 Menus backend merged** in PR #10; it is not tagged or published yet. Protocol 0.3, menu validation,
+  registry menus + checked state + roles, placement math, reused menu window (`menu_window.rs`), events/commands,
+  SDK `BA.Menu`, focus-timer test client, `inspect --menu-click`, tray spike (`docs/research/tray-bridging.md`,
+  local) + ADRs 0010-0012 are in. Code review + security review were fixed; e2e passed (real mouse clicks,
+  keyboard interaction, edge placement and submenu flip on the real 150 % screen); bench in `docs/perf/0.3.md`.
+  **Liam's menu UI is still pending**; finish it before tagging/publishing v0.3. ADR 0012 (tray) needs approval
+  before v0.6.
+- **Current example:** `examples/integrations/` demonstrates Spotify playback, GitHub activity and on-demand
+  Claude commit summaries through `@barista/sdk`. Service credentials/configuration are environment variables;
+  its menus need the v0.3 UI before their actions are visible.
 - v0.4b System panels is planned (`releases/v0.4b.md`, local only).
 
 ## Facts a new session needs
