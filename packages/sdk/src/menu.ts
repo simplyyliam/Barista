@@ -185,7 +185,13 @@ export class Menu {
     scan(template, 1)
 
     let next = 0
-    const freshId = () => {
+    let separators = 0
+    // Roles default to their own name ("quit"), so you can find them without setting an id.
+    const freshId = (options: MenuItemOptions) => {
+      if (options.role && !used.has(options.role)) {
+        used.add(options.role)
+        return options.role
+      }
       let id: string
       do id = `menu-${++next}`
       while (used.has(id))
@@ -196,7 +202,12 @@ export class Menu {
       new Menu(
         level.map((options) => {
           const submenu = options.submenu ? build(options.submenu) : undefined
-          return new MenuItem(options.id ?? freshId(), options, submenu)
+          // Separators never go over the wire with an id, so they get a local one that can't
+          // collide (ids can't contain ":").
+          const id =
+            options.id ??
+            (options.type === "separator" ? `separator:${++separators}` : freshId(options))
+          return new MenuItem(id, options, submenu)
         }),
       )
     return build(template)

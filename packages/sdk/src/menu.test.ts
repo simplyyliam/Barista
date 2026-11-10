@@ -34,6 +34,23 @@ describe("Menu.fromTemplate", () => {
     expect(menu.items.map((i) => i.id)).toEqual(["menu-2", "menu-1", "menu-3"])
   })
 
+  it("names roles after themselves and keeps separators out of the numbering", () => {
+    const menu = Menu.fromTemplate([
+      { type: "separator" },
+      { label: "x" },
+      { role: "about" },
+      { id: "quit", label: "mine" },
+      { role: "quit" },
+    ])
+    expect(menu.items.map((i) => i.id)).toEqual([
+      "separator:1",
+      "menu-1",
+      "about",
+      "quit",
+      "menu-2",
+    ])
+  })
+
   it("enforces the bar's rules", () => {
     const deep: MenuItemOptions[] = [
       {
