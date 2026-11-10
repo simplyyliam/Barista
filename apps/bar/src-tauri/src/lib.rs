@@ -6,6 +6,7 @@ mod commands;
 mod controller;
 mod events;
 mod ipc;
+mod menu_window;
 mod platform;
 mod radius;
 mod registry;
@@ -32,9 +33,22 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_items,
             commands::item_clicked,
             commands::get_window_radius,
-            commands::get_bar_appearance
+            commands::get_bar_appearance,
+            commands::menu_item_clicked,
+            commands::menu_resized,
+            commands::close_menu,
+            commands::get_open_menu,
+            commands::set_item_bounds
         ])
-        .events(collect_events![events::BarChanged, events::ItemsChanged, events::WindowRadiusChanged, appearance::BarAppearanceChanged])
+        .events(collect_events![
+            events::BarChanged,
+            events::ItemsChanged,
+            events::WindowRadiusChanged,
+            events::MenuOpen,
+            events::MenuChanged,
+            events::MenuClose,
+            appearance::BarAppearanceChanged
+        ])
 }
 
 /// Writes bindings.ts (on debug runs and in `cargo test`, i.e. `pnpm gen`).
@@ -54,17 +68,32 @@ fn export_bindings(builder: &Builder<tauri::Wry>) -> Result<(), Box<dyn std::err
 fn open_radius_test_windows(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     use tauri::{WebviewUrl, WebviewWindowBuilder};
     for (label, title, mode) in [
-        ("settings", "barista-test-settings", window_radius::Mode::Tracked),
-        ("popover", "barista-test-popover", window_radius::Mode::Normal),
+        (
+            "settings",
+            "barista-test-settings",
+            window_radius::Mode::Tracked,
+        ),
+        (
+            "popover",
+            "barista-test-popover",
+            window_radius::Mode::Normal,
+        ),
     ] {
-        let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
-            .title(title)
-            .inner_size(700.0, 450.0)
-            .position(150.0, 150.0);
+        let mut builder =
+            WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+                .title(title)
+                .inner_size(700.0, 450.0)
+                .position(150.0, 150.0);
         // WebView2 only lets windows that share a data folder use the *same* browser arguments,
         // so extra windows must repeat the main window's (`additionalBrowserArgs`). A window
         // created later (popover, settings) has to do the same, or its webview fails to start.
-        if let Some(args) = app.config().app.windows.first().and_then(|w| w.additional_browser_args.clone()) {
+        if let Some(args) = app
+            .config()
+            .app
+            .windows
+            .first()
+            .and_then(|w| w.additional_browser_args.clone())
+        {
             builder = builder.additional_browser_args(&args);
         }
         if label == "popover" {
@@ -103,6 +132,7 @@ pub fn run() {
             }
             let registry = Arc::new(registry::Registry::new());
             app.manage(registry.clone());
+            menu_window::init(app.handle(), registry.clone())?;
             ipc::start(registry.clone());
             events::forward_changes(app.handle().clone(), registry);
             Ok(())

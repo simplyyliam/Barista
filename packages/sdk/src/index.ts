@@ -11,10 +11,11 @@
  * ```
  *
  * Every name is also exported with a `BA` prefix (`BAStatusItem`) for people who prefer
- * named imports. Menus and popovers arrive in later releases.
+ * named imports. Popovers arrive in a later release.
  */
 
 import { connect, StatusBar } from "./status-bar.js"
+import { Menu, MenuItem } from "./menu.js"
 import { StatusItem } from "./status-item.js"
 
 // Generated from crates/protocol by `pnpm gen`: message types, PROTOCOL_VERSION, limits.
@@ -25,6 +26,9 @@ export { BarError, connect, StatusBar } from "./status-bar.js"
 export type { ConnectOptions } from "./status-bar.js"
 export { StatusItem } from "./status-item.js"
 export type { ClickEvent, StatusItemOptions } from "./status-item.js"
+// The SDK's Menu and MenuItem classes; the wire shape is `MenuTemplateItem` from protocol.ts.
+export { Menu, MenuItem } from "./menu.js"
+export type { MenuClickEvent, MenuItemOptions } from "./menu.js"
 
 // Prefixed names, same things: `import { BAStatusItem } from "@barista/sdk"`.
 export const BAStatusBar = StatusBar
@@ -32,3 +36,7 @@ export type BAStatusBar = StatusBar
 export const BAStatusItem = StatusItem
 export type BAStatusItem = StatusItem
 export const BAConnect = connect
+export const BAMenu = Menu
+export type BAMenu = Menu
+export const BAMenuItem = MenuItem
+export type BAMenuItem = MenuItem

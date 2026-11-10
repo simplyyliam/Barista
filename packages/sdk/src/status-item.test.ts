@@ -300,3 +300,50 @@ describe("StatusItem", () => {
     expect(items.map((i) => i.id)).toEqual(["a", "b"])
   })
 })
+
+describe("menus", () => {
+  it("sends the menu and runs click callbacks with the new checked state", async () => {
+    const { fake, bar } = await setup()
+    const item = await StatusItem.create({ id: "timer", bar })
+    const picks: Array<[string, boolean | undefined]> = []
+    const menu = item.setMenu([
+      { id: "start", label: "Start", click: (entry) => picks.push([entry.id, undefined]) },
+      {
+        id: "sounds",
+        label: "Sounds",
+        type: "checkbox",
+        click: (entry, { checked }) => picks.push([entry.id, checked]),
+      },
+    ])
+    const sent = await fake.messages(3)
+    expect(sent[2]).toMatchObject({ type: "item.setMenu", id: "timer" })
+    expect((sent[2] as { menu: unknown[] }).menu).toHaveLength(2)
+    expect(item.menu).toBe(menu)
+
+    fake.send({ type: "menu.click", id: "timer", menuItemId: "sounds", checked: true })
+    fake.send({ type: "menu.click", id: "timer", menuItemId: "start" })
+    await until(() => picks.length === 2)
+    expect(picks).toEqual([
+      ["sounds", true],
+      ["start", undefined],
+    ])
+    expect(menu?.getItemById("sounds")?.checked).toBe(true)
+
+    item.setMenu(null)
+    const [, , , cleared] = await fake.messages(4)
+    expect(cleared).toMatchObject({ type: "item.setMenu", menu: [] })
+  })
+
+  it("a quit entry without click removes the items and calls quit listeners", async () => {
+    const { fake, bar } = await setup()
+    const item = await StatusItem.create({ id: "timer", bar })
+    item.setMenu([{ id: "quit", role: "quit" }])
+    let quit = false
+    bar.on("quit", () => (quit = true))
+    await fake.messages(3)
+    fake.send({ type: "menu.click", id: "timer", menuItemId: "quit" })
+    await until(() => quit)
+    const [, , , removed] = await fake.messages(4)
+    expect(removed).toMatchObject({ type: "item.remove", id: "timer" })
+  })
+})

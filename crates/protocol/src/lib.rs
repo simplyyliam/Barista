@@ -11,7 +11,7 @@ use specta::Type;
 
 /// `major.minor`. The bar accepts any client with the same major version.
 /// New optional fields bump the minor; removing or renaming a field bumps the major.
-pub const PROTOCOL_VERSION: &str = "0.2";
+pub const PROTOCOL_VERSION: &str = "0.3";
 
 /// Largest frame (the JSON part) either side accepts.
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
@@ -24,17 +24,93 @@ pub const MAX_LABEL_LEN: usize = 128;
 pub const MAX_TOOLTIP_LEN: usize = 512;
 pub const MAX_APP_NAME_LEN: usize = 64;
 pub const MAX_ITEMS_PER_CLIENT: usize = 8;
+/// A top-level menu is depth 1, its submenus 2, theirs 3.
+pub const MAX_MENU_DEPTH: usize = 3;
+/// Every entry in the whole tree counts, separators too.
+pub const MAX_MENU_ITEMS: usize = 50;
+pub const MAX_ACCELERATOR_LEN: usize = 32;
+/// Menu icons are drawn at 16 px, so they stay small.
+pub const MAX_MENU_ICON_BYTES: usize = 16 * 1024;
 
 /// Every `type` a client may send. The bar uses it to tell `unknown_type` (a newer client)
 /// from `invalid_message` (a known type with wrong fields). A test keeps it in sync.
-pub const CLIENT_MESSAGE_TYPES: [&str; 6] = [
+pub const CLIENT_MESSAGE_TYPES: [&str; 8] = [
     "hello",
     "item.create",
     "item.update",
     "item.remove",
+    "item.setMenu",
     "debug.listItems",
     "debug.click",
+    "debug.menuClick",
 ];
+
+/// What kind of menu entry. Electron's names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum MenuItemType {
+    #[default]
+    Normal,
+    Checkbox,
+    Radio,
+    Separator,
+    Submenu,
+}
+
+/// Standard entries the bar places and labels itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum MenuRole {
+    /// The bar asks the app to quit (the SDK closes it unless the app handles the click).
+    Quit,
+    About,
+    Settings,
+}
+
+/// One entry of a menu template, as the client sends it (Electron-style). Click handlers stay
+/// in the SDK: only the `id` goes over the wire and comes back in `menu.click`.
+/// `type` defaults to `submenu` when `submenu` is set, otherwise `normal`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuTemplateItem {
+    /// Required on everything except separators; unique in the whole menu.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<MenuItemType>,
+    /// Only for `checkbox` and `radio`. The bar keeps it up to date after clicks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checked: Option<bool>,
+    /// Default `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    /// Default `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible: Option<bool>,
+    /// Shown as text next to the label, like `Ctrl+S`. The bar does not register it as a hotkey.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accelerator: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<MenuRole>,
+    /// A small `data:` URL (PNG or SVG), drawn at 16 px.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub submenu: Option<Vec<MenuTemplateItem>>,
+}
+
+impl MenuTemplateItem {
+    /// The type with the `submenu` default applied.
+    pub fn kind(&self) -> MenuItemType {
+        match self.kind {
+            Some(kind) => kind,
+            None if self.submenu.is_some() => MenuItemType::Submenu,
+            None => MenuItemType::Normal,
+        }
+    }
+}
 
 /// Which SDK a client was built with (shown in the bar's debug info).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
@@ -64,6 +140,9 @@ pub struct ItemInfo {
     pub label: Option<String>,
     pub tooltip: Option<String>,
     pub visible: bool,
+    /// Whether the item has a menu (since 0.3; older bars leave it out).
+    #[serde(default)]
+    pub has_menu: bool,
 }
 
 /// Client -> bar. Every request may carry a `requestId`; errors echo it.
@@ -115,6 +194,15 @@ pub enum ClientMessage {
         request_id: Option<String>,
         id: String,
     },
+    /// Gives an item a menu (replacing any old one). An empty list removes the menu, so clicks
+    /// go back to `item.click`. Since 0.3.
+    #[serde(rename = "item.setMenu")]
+    ItemSetMenu {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        id: String,
+        menu: Vec<MenuTemplateItem>,
+    },
     /// Asks for every item in the bar (used by `examples/inspect` and the bench). Debug builds,
     /// or a bar started with `BARISTA_DEBUG` set; otherwise `unknown_type`.
     #[serde(rename = "debug.listItems")]
@@ -131,6 +219,15 @@ pub enum ClientMessage {
         id: String,
         button: MouseButton,
     },
+    /// Fakes a click on a menu entry of any item, as if the user picked it. `id` is the item's
+    /// key (`s3/counter`). Same availability as `debug.listItems`.
+    #[serde(rename = "debug.menuClick")]
+    DebugMenuClick {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        id: String,
+        menu_item_id: String,
+    },
 }
 
 impl ClientMessage {
@@ -141,8 +238,10 @@ impl ClientMessage {
             | Self::ItemCreate { request_id, .. }
             | Self::ItemUpdate { request_id, .. }
             | Self::ItemRemove { request_id, .. }
+            | Self::ItemSetMenu { request_id, .. }
             | Self::DebugListItems { request_id }
-            | Self::DebugClick { request_id, .. } => request_id.as_deref(),
+            | Self::DebugClick { request_id, .. }
+            | Self::DebugMenuClick { request_id, .. } => request_id.as_deref(),
         }
     }
 }
@@ -168,6 +267,16 @@ pub enum BarMessage {
     /// The user clicked one of the client's items. `id` is the client's own item id.
     #[serde(rename = "item.click")]
     ItemClick { id: String, button: MouseButton },
+    /// The user picked an entry in one of the client's menus. `id` is the item, `menu_item_id`
+    /// the entry. For checkbox and radio entries, `checked` is the new state (the bar flips it).
+    /// Since 0.3.
+    #[serde(rename = "menu.click")]
+    MenuClick {
+        id: String,
+        menu_item_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        checked: Option<bool>,
+    },
     /// Reply to `debug.listItems`.
     #[serde(rename = "debug.items")]
     DebugItems {
@@ -196,6 +305,8 @@ pub enum ErrorCode {
     LimitReached,
     /// The icon is not a valid PNG/SVG data URL or is too big.
     InvalidIcon,
+    /// `item.setMenu` breaks a menu rule (depth, size, missing or repeated ids). Since 0.3.
+    InvalidMenu,
     /// Too many invalid messages in a short time; the bar closes the connection.
     TooManyErrors,
 }
@@ -241,7 +352,11 @@ mod tests {
                  export const MAX_LABEL_LEN = {MAX_LABEL_LEN}\n\
                  export const MAX_TOOLTIP_LEN = {MAX_TOOLTIP_LEN}\n\
                  export const MAX_APP_NAME_LEN = {MAX_APP_NAME_LEN}\n\
-                 export const MAX_ITEMS_PER_CLIENT = {MAX_ITEMS_PER_CLIENT}\n"
+                 export const MAX_ITEMS_PER_CLIENT = {MAX_ITEMS_PER_CLIENT}\n\
+                 export const MAX_MENU_DEPTH = {MAX_MENU_DEPTH}\n\
+                 export const MAX_MENU_ITEMS = {MAX_MENU_ITEMS}\n\
+                 export const MAX_ACCELERATOR_LEN = {MAX_ACCELERATOR_LEN}\n\
+                 export const MAX_MENU_ICON_BYTES = {MAX_MENU_ICON_BYTES}\n"
             ))
             .export_to(OUTPUT, &types, specta_serde::Format)
             .expect("failed to export protocol types");
@@ -415,6 +530,7 @@ mod tests {
                 label: Some("1".into()),
                 tooltip: None,
                 visible: true,
+                has_menu: false,
             }],
         };
         let text = serde_json::to_string(&items).unwrap();
@@ -437,6 +553,8 @@ mod tests {
             r#"{"type":"item.remove","id":"a"}"#,
             r#"{"type":"debug.listItems"}"#,
             r#"{"type":"debug.click","id":"a","button":"left"}"#,
+            r#"{"type":"item.setMenu","id":"a","menu":[]}"#,
+            r#"{"type":"debug.menuClick","id":"s1/a","menuItemId":"b"}"#,
         ];
         for sample in samples {
             let msg: ClientMessage = serde_json::from_str(sample).unwrap();
@@ -447,5 +565,60 @@ mod tests {
             );
         }
         assert_eq!(samples.len(), CLIENT_MESSAGE_TYPES.len());
+    }
+
+    #[test]
+    fn menu_template_has_the_documented_shape() {
+        let text = r#"{"type":"item.setMenu","id":"timer","menu":[
+            {"id":"start","label":"Start","accelerator":"Ctrl+S"},
+            {"id":"sound","label":"Sounds","type":"checkbox","checked":true},
+            {"type":"separator"},
+            {"id":"more","label":"More","submenu":[{"id":"about","label":"About","role":"about"}]},
+            {"id":"quit","label":"Quit","role":"quit"}
+        ]}"#;
+        let msg: ClientMessage = serde_json::from_str(text).unwrap();
+        let ClientMessage::ItemSetMenu { menu, .. } = &msg else {
+            panic!("wrong variant")
+        };
+        assert_eq!(menu.len(), 5);
+        assert_eq!(menu[0].kind(), MenuItemType::Normal);
+        assert_eq!(menu[1].kind(), MenuItemType::Checkbox);
+        assert_eq!(menu[2].kind(), MenuItemType::Separator);
+        assert_eq!(menu[3].kind(), MenuItemType::Submenu);
+        assert_eq!(menu[4].role, Some(MenuRole::Quit));
+        let v = round_trip_client(msg);
+        assert_eq!(v["menu"][1]["type"], "checkbox");
+        assert!(v["menu"][0].get("type").is_none());
+    }
+
+    #[test]
+    fn menu_click_round_trips() {
+        let click = BarMessage::MenuClick {
+            id: "timer".into(),
+            menu_item_id: "sound".into(),
+            checked: Some(false),
+        };
+        let v = serde_json::to_value(&click).unwrap();
+        assert_eq!(
+            v,
+            json!({"type":"menu.click","id":"timer","menuItemId":"sound","checked":false})
+        );
+        assert_eq!(serde_json::from_value::<BarMessage>(v).unwrap(), click);
+        let plain = serde_json::to_value(BarMessage::MenuClick {
+            id: "t".into(),
+            menu_item_id: "s".into(),
+            checked: None,
+        })
+        .unwrap();
+        assert!(plain.get("checked").is_none());
+    }
+
+    #[test]
+    fn a_0_2_client_is_still_accepted() {
+        // Backward compatible within major 0: a v0.2 SDK talks to this bar unchanged.
+        assert!(is_compatible("0.2"));
+        let old_items = r#"{"type":"debug.items","requestId":null,"items":[{"id":"s1/a",
+            "appName":"A","pid":1,"hasIcon":false,"label":null,"tooltip":null,"visible":true}]}"#;
+        assert!(serde_json::from_str::<BarMessage>(old_items).is_ok());
     }
 }

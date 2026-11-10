@@ -20,7 +20,7 @@ export function assertItemId(id: string): void {
   }
 }
 
-function assertText(field: string, value: string, max: number): void {
+export function assertText(field: string, value: string, max: number): void {
   if (typeof value !== "string") throw new TypeError(`${field} must be a string`)
   if ([...value].length > max) throw new TypeError(`${field} is longer than ${max} characters`)
   // eslint-disable-next-line no-control-regex

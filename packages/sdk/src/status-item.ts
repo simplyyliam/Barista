@@ -1,3 +1,4 @@
+import { Menu, type MenuItemOptions } from "./menu.js"
 import type { MouseButton } from "./protocol.js"
 import { BarError, connect, type StatusBar } from "./status-bar.js"
 import { assertItemId, assertLabel, assertTooltip, toIconDataUrl } from "./validate.js"
@@ -65,6 +66,7 @@ export class StatusItem {
   readonly #clickListeners = new Set<Listener<ClickEvent>>()
   readonly #errorListeners = new Set<Listener<BarError>>()
   #removed = false
+  #menu: Menu | undefined
 
   /** @internal The request id of the `item.create`, to recognise a refused create. */
   readonly createRequestId: string
@@ -169,6 +171,51 @@ export class StatusItem {
   }
 
   /**
+   * Gives the item a menu: clicking the item then opens it (a middle click still fires
+   * `on("click")`). Pass a {@link Menu}, a template, or `null` to remove the menu. Call it
+   * again after changing entries (labels, `enabled`...) to show the change. Throws a
+   * `TypeError` if the template breaks a rule (see {@link Menu.fromTemplate}).
+   *
+   * @example
+   * ```ts
+   * item.setMenu([
+   *   { label: "Start", click: () => timer.start() },
+   *   { id: "sounds", label: "Sounds", type: "checkbox", checked: true },
+   *   { type: "separator" },
+   *   { role: "quit" },
+   * ])
+   * ```
+   */
+  setMenu(menu: Menu | MenuItemOptions[] | null): Menu | null {
+    if (this.#removed) throw new Error(`Item ${JSON.stringify(this.id)} was removed`)
+    const built = menu === null ? null : menu instanceof Menu ? menu : Menu.fromTemplate(menu)
+    this.#bar.send({
+      type: "item.setMenu",
+      requestId: this.#bar.requestIdFor(this.id),
+      id: this.id,
+      menu: built?.toCheckedWire() ?? [],
+    })
+    this.#menu = built ?? undefined
+    return built
+  }
+
+  /**
+   * The menu set with {@link StatusItem.setMenu}, if any.
+   *
+   * @example
+   * ```ts
+   * const pause = item.menu?.getItemById("pause")
+   * if (pause) {
+   *   pause.enabled = true
+   *   item.setMenu(item.menu!) // show the change
+   * }
+   * ```
+   */
+  get menu(): Menu | undefined {
+    return this.#menu
+  }
+
+  /**
    * Takes the item out of the bar for good. Create it again to bring it back.
    *
    * @example
@@ -229,6 +276,21 @@ export class StatusItem {
   /** @internal Called by the connection when the bar reports a click. */
   emitClick(button: MouseButton): void {
     for (const listener of this.#clickListeners) callSafely(() => listener({ button }))
+  }
+
+  /**
+   * @internal The bar reports a pick in this item's menu: run its `click`, or the default for
+   * a role without one (quit).
+   */
+  emitMenuClick(menuItemId: string, checked: boolean | undefined): void {
+    const item = this.#menu?.applyClick(menuItemId, checked)
+    if (!item) return
+    if (item.click) {
+      const click = item.click
+      callSafely(() => click(item, checked === undefined ? {} : { checked }))
+    } else if (item.role === "quit") {
+      this.#bar.quit()
+    }
   }
 
   /** @internal Returns false when nobody listens, so the connection can report it. */

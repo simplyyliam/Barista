@@ -51,8 +51,13 @@ fn run(on_change: fn()) {
         let mut keys: Vec<(HKEY, HANDLE)> = Vec::new();
         for path in KEYS {
             let mut key = HKEY::default();
-            let status =
-                RegOpenKeyExW(HKEY_CURRENT_USER, &HSTRING::from(path), None, KEY_NOTIFY, &mut key);
+            let status = RegOpenKeyExW(
+                HKEY_CURRENT_USER,
+                &HSTRING::from(path),
+                None,
+                KEY_NOTIFY,
+                &mut key,
+            );
             if status != ERROR_SUCCESS {
                 continue;
             }
@@ -87,7 +92,13 @@ fn run(on_change: fn()) {
             // Arm every key again (a registry notification fires once), then wait.
             for (key, event) in &keys {
                 let _ = ResetEvent(*event);
-                let _ = RegNotifyChangeKeyValue(*key, false, REG_NOTIFY_CHANGE_LAST_SET, Some(*event), true);
+                let _ = RegNotifyChangeKeyValue(
+                    *key,
+                    false,
+                    REG_NOTIFY_CHANGE_LAST_SET,
+                    Some(*event),
+                    true,
+                );
             }
             let signalled = WaitForMultipleObjects(&waits, false, INFINITE);
             let index = signalled.0 as usize; // WAIT_OBJECT_0 is 0
@@ -109,7 +120,9 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::{Duration, Instant};
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_APARTMENTTHREADED};
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+    };
     use windows::Win32::UI::Shell::{DesktopWallpaper, IDesktopWallpaper};
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
@@ -125,18 +138,30 @@ mod tests {
             HITS.fetch_add(1, Ordering::SeqCst);
         });
         std::thread::sleep(Duration::from_millis(300)); // let it arm
-        // SAFETY: COM calls on this thread after initialising it; the path comes from Windows.
+                                                        // SAFETY: COM calls on this thread after initialising it; the path comes from Windows.
         unsafe {
             let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok();
-            let w: IDesktopWallpaper = CoCreateInstance(&DesktopWallpaper, None, CLSCTX_ALL).unwrap();
+            let w: IDesktopWallpaper =
+                CoCreateInstance(&DesktopWallpaper, None, CLSCTX_ALL).unwrap();
             let current = w.GetWallpaper(windows::core::PCWSTR::null()).unwrap();
-            w.SetWallpaper(windows::core::PCWSTR::null(), windows::core::PCWSTR(current.0)).unwrap();
+            w.SetWallpaper(
+                windows::core::PCWSTR::null(),
+                windows::core::PCWSTR(current.0),
+            )
+            .unwrap();
         }
         let started = Instant::now();
         while HITS.load(Ordering::SeqCst) == 0 && started.elapsed() < Duration::from_secs(5) {
             std::thread::sleep(Duration::from_millis(50));
         }
-        eprintln!("watcher fired {} time(s), first after ~{:?}", HITS.load(Ordering::SeqCst), started.elapsed());
-        assert!(HITS.load(Ordering::SeqCst) > 0, "the watcher did not notice the change");
+        eprintln!(
+            "watcher fired {} time(s), first after ~{:?}",
+            HITS.load(Ordering::SeqCst),
+            started.elapsed()
+        );
+        assert!(
+            HITS.load(Ordering::SeqCst) > 0,
+            "the watcher did not notice the change"
+        );
     }
 }

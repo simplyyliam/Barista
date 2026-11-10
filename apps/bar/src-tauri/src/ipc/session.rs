@@ -9,7 +9,10 @@
 
 use super::frame::{read_frame, write_frame, FrameError};
 use super::validate;
-use crate::registry::{ClickError, ItemPatch, Outbox, Registry, RegistryError, SessionId};
+use crate::menu_window;
+use crate::registry::{
+    ClickError, ItemPatch, MenuItemClickError, Outbox, Registry, RegistryError, SessionId,
+};
 use barista_protocol::{
     is_compatible, BarMessage, ClientMessage, ErrorCode, MAX_ITEMS_PER_CLIENT, MAX_LABEL_LEN,
     MAX_TOOLTIP_LEN, PROTOCOL_VERSION,
@@ -350,7 +353,16 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
                 .remove(session, &id)
                 .map_err(|e| registry_reject(&rid, e, &id))
         })(),
-        ClientMessage::DebugListItems { .. } | ClientMessage::DebugClick { .. }
+        ClientMessage::ItemSetMenu { id, menu, .. } => (|| {
+            validate::item_id(&id).map_err(|m| reject(&rid, ErrorCode::InvalidMessage, m))?;
+            validate::menu(&menu).map_err(|m| reject(&rid, ErrorCode::InvalidMenu, m))?;
+            registry
+                .set_menu(session, &id, menu)
+                .map_err(|e| registry_reject(&rid, e, &id))
+        })(),
+        ClientMessage::DebugListItems { .. }
+        | ClientMessage::DebugClick { .. }
+        | ClientMessage::DebugMenuClick { .. }
             if !debug_enabled() =>
         {
             // Pretend these messages do not exist.
@@ -372,7 +384,7 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
         }
         ClientMessage::DebugClick { id, button, .. } => {
             // `id` is the registry key (`s3/counter`), so a test tool can click any item.
-            match registry.click(&id, button) {
+            match menu_window::route_click(registry, &id, button) {
                 Ok(()) => Ok(()),
                 Err(ClickError::NotFound) => {
                     Err(reject(&rid, ErrorCode::NotFound, format!("no item {id:?}")))
@@ -389,6 +401,17 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
                 }
             }
         }
+        ClientMessage::DebugMenuClick {
+            id, menu_item_id, ..
+        } => match menu_window::menu_item_clicked(registry, &id, &menu_item_id) {
+            // An unreachable target is not the sender's fault (as with debug.click).
+            Ok(()) | Err(MenuItemClickError::Unreachable) => Ok(()),
+            Err(e) => Err(reject(
+                &rid,
+                ErrorCode::NotFound,
+                format!("cannot click {menu_item_id:?} in {id:?}: {e:?}"),
+            )),
+        },
     };
     result.map_or_else(|step| step, |()| Step::Ok)
 }
@@ -731,14 +754,87 @@ mod tests {
         tool.hello().await;
         let mut unreachable = 0;
         for _ in 0..200 {
-            tool.send(json!({"type":"debug.click","id":"s1/a","button":"left"})).await;
+            tool.send(json!({"type":"debug.click","id":"s1/a","button":"left"}))
+                .await;
             // A reply only exists once the target's queue is full.
-            if tokio::time::timeout(Duration::from_millis(5), tool.recv()).await.is_ok() {
+            if tokio::time::timeout(Duration::from_millis(5), tool.recv())
+                .await
+                .is_ok()
+            {
                 unreachable += 1;
             }
         }
-        assert!(unreachable > 10, "expected many unreachable errors, got {unreachable}");
+        assert!(
+            unreachable > 10,
+            "expected many unreachable errors, got {unreachable}"
+        );
         // More than STRIKE_LIMIT errors came back and the sender is still connected.
         assert_eq!(tool.items().await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn set_menu_then_menu_click_reaches_the_client_with_checked() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.hello().await;
+        c.send(json!({"type":"item.create","id":"timer"})).await;
+        c.send(json!({"type":"item.setMenu","id":"timer","menu":[
+            {"id":"start","label":"Start"},
+            {"id":"sounds","label":"Sounds","type":"checkbox"}
+        ]}))
+        .await;
+        assert!(c.items().await[0].has_menu);
+        c.send(json!({"type":"debug.menuClick","id":"s1/timer","menuItemId":"sounds"}))
+            .await;
+        assert_eq!(
+            c.recv().await,
+            BarMessage::MenuClick {
+                id: "timer".into(),
+                menu_item_id: "sounds".into(),
+                checked: Some(true)
+            }
+        );
+        // A click on an item with a menu opens the menu; the app gets no item.click.
+        c.send(json!({"type":"debug.click","id":"s1/timer","button":"left"}))
+            .await;
+        c.send(json!({"type":"debug.menuClick","id":"s1/timer","menuItemId":"start"}))
+            .await;
+        assert_eq!(
+            c.recv().await,
+            BarMessage::MenuClick {
+                id: "timer".into(),
+                menu_item_id: "start".into(),
+                checked: None
+            }
+        );
+        // An empty menu removes it again.
+        c.send(json!({"type":"item.setMenu","id":"timer","menu":[]}))
+            .await;
+        assert!(!c.items().await[0].has_menu);
+    }
+
+    #[tokio::test]
+    async fn bad_menus_are_refused_with_invalid_menu() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.hello().await;
+        c.send(json!({"type":"item.create","id":"a"})).await;
+        c.send(
+            json!({"type":"item.setMenu","requestId":"r1","id":"a","menu":[
+                {"id":"x","label":"X"},{"id":"x","label":"Again"}
+            ]}),
+        )
+        .await;
+        assert_eq!(
+            c.expect_error().await,
+            (ErrorCode::InvalidMenu, Some("r1".into()))
+        );
+        c.send(json!({"type":"item.setMenu","id":"nope","menu":[]}))
+            .await;
+        assert_eq!(c.expect_error().await.0, ErrorCode::NotFound);
+        c.send(json!({"type":"debug.menuClick","id":"s1/a","menuItemId":"x"}))
+            .await;
+        assert_eq!(c.expect_error().await.0, ErrorCode::NotFound);
+        assert!(!c.items().await[0].has_menu);
     }
 }

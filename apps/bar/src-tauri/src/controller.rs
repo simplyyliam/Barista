@@ -73,7 +73,9 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         applying: AtomicBool::new(false),
         again: AtomicBool::new(false),
     };
-    CONTROLLER.set(controller).map_err(|_| "bar already started")?;
+    CONTROLLER
+        .set(controller)
+        .map_err(|_| "bar already started")?;
     let c = get().expect("just set");
 
     window::set_no_focus_styles(hwnd);
@@ -92,7 +94,12 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
 }
 
 fn placeholder_monitor() -> Monitor {
-    let rect = Rect { left: 0, top: 0, right: 1920, bottom: 1080 };
+    let rect = Rect {
+        left: 0,
+        top: 0,
+        right: 1920,
+        bottom: 1080,
+    };
     Monitor {
         id: String::new(),
         name: "no monitor".into(),
@@ -179,8 +186,12 @@ impl Controller {
     }
 
     fn info_of(state: &State) -> BarInfo {
-        let height_px = bar_rect(&state.current.rect, state.current.scale, state.settings.bar_height)
-            .height();
+        let height_px = bar_rect(
+            &state.current.rect,
+            state.current.scale,
+            state.settings.bar_height,
+        )
+        .height();
         BarInfo {
             height: state.settings.bar_height,
             height_px,

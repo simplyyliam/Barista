@@ -2,6 +2,7 @@
 //   pnpm inspect                     list every item
 //   pnpm inspect --watch             list again every 250 ms until Ctrl+C
 //   pnpm inspect --click s1/counter  click an item (add "right" or "middle" for another button)
+//   pnpm inspect --menu-click s1/timer sounds   pick an entry in an item's menu
 //
 // It speaks the protocol by hand (about 20 lines) because `debug.*` messages are not part of
 // the public SDK.
@@ -56,6 +57,7 @@ function print(items: ItemInfo[]): void {
       item.appName.padEnd(14),
       `pid ${item.pid}`.padEnd(10),
       item.hasIcon ? "icon" : "    ",
+      item.hasMenu ? "menu" : "    ",
       JSON.stringify(item.label ?? ""),
       item.visible ? "" : "(hidden)",
     ]
@@ -65,31 +67,44 @@ function print(items: ItemInfo[]): void {
 
 const args = process.argv.slice(2)
 const clickAt = args.indexOf("--click")
+const menuClickAt = args.indexOf("--menu-click")
 const watch = args.includes("--watch")
 
-if (clickAt >= 0) {
+/** Sends one debug request, then reports success (no error within 200 ms) or the error. */
+function request(message: ClientMessage, done: string) {
+  let timer: NodeJS.Timeout | undefined
+  const socket = open((reply, send) => {
+    if (reply.type === "welcome") {
+      send(message)
+      timer = setTimeout(() => {
+        console.log(done)
+        socket.end()
+      }, 200)
+    } else if (reply.type === "error") {
+      clearTimeout(timer)
+      console.error(`${reply.code}: ${reply.message}`)
+      process.exitCode = 1
+      socket.end()
+    }
+  })
+}
+
+if (menuClickAt >= 0) {
+  const id = args[menuClickAt + 1]
+  const menuItemId = args[menuClickAt + 2]
+  if (!id || !menuItemId) {
+    console.error("usage: pnpm inspect --menu-click <item id, like s1/timer> <menu entry id>")
+    process.exit(1)
+  }
+  request({ type: "debug.menuClick", id, menuItemId }, `picked ${menuItemId} in ${id}`)
+} else if (clickAt >= 0) {
   const id = args[clickAt + 1]
   const button = (args[clickAt + 2] ?? "left") as "left" | "right" | "middle"
   if (!id) {
     console.error("usage: pnpm inspect --click <item id, like s1/counter> [left|right|middle]")
     process.exit(1)
   }
-  let timer: NodeJS.Timeout | undefined
-  const socket = open((message, send) => {
-    if (message.type === "welcome") {
-      send({ type: "debug.click", id, button })
-      // A request that fails comes back as an error; give it a moment, then say it went out.
-      timer = setTimeout(() => {
-        console.log(`click (${button}) sent to ${id}`)
-        socket.end()
-      }, 200)
-    } else if (message.type === "error") {
-      clearTimeout(timer)
-      console.error(`${message.code}: ${message.message}`)
-      process.exitCode = 1
-      socket.end()
-    }
-  })
+  request({ type: "debug.click", id, button }, `click (${button}) sent to ${id}`)
 } else {
   let timer: NodeJS.Timeout | undefined
   const socket = open((message, send) => {

@@ -8,10 +8,14 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **v0.2.0 shipped** (tag `v0.2.0` on the merge of PR #8, not pushed yet: Liam runs `pnpm release`). Plan releases
   v0.0 Setup, v0.1 Bar shell and v0.2 First item are done; their full notes are in
   `docs/release/history/v0.0-v0.2-checkpoint.md` (local only).
-- **Next:** v0.3 Menus (`docs/release/releases/v0.3.md`), including the tray spike and its ADR (Liam must approve it
-  before v0.6). v0.4b System panels is planned (`releases/v0.4b.md`, local only).
-- Plan: `docs/release/` (v0.0 to v1.0, v0.9 Script items, v0.10 Ship it, v1.1 Gallery, v1.2+). Plan files
-  (`plan/`, `releases/`) are git-ignored; `docs/release/README.md` has the table.
+- **In progress: v0.3 Menus** on `feature/v0.3-menus` (plan: `~/.claude/plans/iterative-weaving-reddy.md`).
+  Built: protocol 0.3, menu validation, registry menus + checked state + roles, placement math, reused menu window
+  (`menu_window.rs`), events/commands, SDK `BA.Menu`, focus-timer test client, `inspect --menu-click`, tray spike
+  (`docs/research/tray-bridging.md`, local) + ADRs 0010-0012. Code review + security review done and fixed, e2e passed
+  (real mouse clicks on the bar; keyboard-only through a throwaway handler injected over WebView2 remote debugging,
+  real keystrokes; edge placement and submenu flip on the real 150 % screen), bench in `docs/perf/0.3.md`. PR "v0.3 Menus" open; waiting for Liam's review, the menu
+  UI, and approval of ADR 0012 (tray) before v0.6.
+- v0.4b System panels is planned (`releases/v0.4b.md`, local only).
 
 ## Facts a new session needs
 
@@ -23,14 +27,33 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Website: `apps/web` (Next.js 16 + Fumadocs, static export, ADR 0004). Docs search off until v0.10.
 - UI already has: `getBarInfo`/`setMonitor`/`barChanged`, `getItems`/`itemClicked`/`itemsChanged`,
   `getWindowRadius`/`windowRadiusChanged` (+ `--window-radius`), `getBarAppearance`/`barAppearanceChanged` (+ `data-tone`).
+- New for the UI (v0.3, not wired yet): window `menu` (loads `index.html`; App must render the menu there by window
+  label), `menuOpen`/`menuChanged`/`menuClose`, `menuItemClicked`, `menuResized` (returns submenu side), `closeMenu`,
+  `getOpenMenu`, `setItemBounds`.
 - New windows: register with `window_radius::register(app, label, Mode::Tracked | Mode::Normal)` (popover = `Normal`), and
   create them with the same `additionalBrowserArgs` as `tauri.conf.json` (else WebView2 error 0x8007139F).
 - `debug.listItems` / `debug.click` (and `pnpm inspect`) work in debug builds or with `BARISTA_DEBUG` set.
 - Memory budget counts private memory (62 MB vs 120 MB); `--disable-gpu --renderer-process-limit=1` keeps it there.
-- `pnpm bench` refuses to run while a bar is running; it needs a release build.
+- Driving the menu window without the UI: start `pnpm dev` with
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then evaluate JS in the `menu` / `main` page over
+  CDP (`window.__TAURI_INTERNALS__.invoke(...)`). Debug only, never committed.
+- `pnpm bench` refuses to run while a bar is running; it needs a release build. Since v0.3 it also times menus
+  (`scripts/menu-visible.ps1` polls the menu window's visibility).
+- Stopping `pnpm dev` from a background task leaves vite (port 1420) and a self-restarting bar behind: kill them by
+  command line (`vite.js`, `target\debugarista.exe`) before starting again.
 - Never set the real wallpaper in a test (it can't be restored); `wallpaper_live` only reads.
 
 ## Fix next
+
+- From dogfooding the focus timer (v0.3 menus):
+  - Changing one entry (Start enabled, "Resume" label) means rebuilding the whole menu and calling `setMenu` again.
+    Want `item.updateMenuItem(id, { enabled, label, checked })` or setters on `MenuItem` that sync by themselves.
+  - `click(entry, { checked })`: `checked` is optional even for a checkbox, so apps write `checked ?? !x`.
+    `entry.checked` is already mirrored; document that and maybe drop `checked` from the event.
+  - No way to refresh a menu right before it opens (`item.on("open")`), e.g. "12:34 left" in a label (noted in v0.4).
+  - `inspect` keys change every connection (`s22/timer`, `s48/timer`); accept `appName/itemId` too.
+  - Accelerators are text only; "CmdOrCtrl+Enter" next to Start suggests a hotkey that doesn't exist. Say so in docs.
+  - Fixed while dogfooding: role entries default their id to the role (`quit`), separators don't use up ids.
 
 - Silent client (sends `hello`, then nothing) holds a connection slot until it disconnects: fixed by the v0.5 heartbeat.
 - SDK papercuts from dogfooding `examples/clock`:

@@ -18,7 +18,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW,
     SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
     SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
-    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
 /// What happened to the screen or the shell, in our own words.
@@ -65,8 +66,46 @@ pub fn set_no_focus_styles(hwnd: HWND) {
 pub fn place(hwnd: HWND, r: Rect) {
     // SAFETY: plain call; failure (window gone during exit) is harmless, so it is ignored.
     let _ = unsafe {
-        SetWindowPos(hwnd, Some(HWND_TOPMOST), r.left, r.top, r.width(), r.height(), SWP_NOACTIVATE)
+        SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            r.left,
+            r.top,
+            r.width(),
+            r.height(),
+            SWP_NOACTIVATE,
+        )
     };
+}
+
+/// Menu window look: square corners (the UI draws its own, Windows 11 would round them again)
+/// and out of Alt+Tab. Unlike the bar it may take focus, so arrow keys reach the menu.
+pub fn set_menu_styles(hwnd: HWND) {
+    use windows::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+    };
+    // SAFETY: the attribute value is a plain u32 that lives for the whole call. Older Windows
+    // (10) does not know the attribute and just returns an error, which is fine.
+    unsafe {
+        let pref = DWMWCP_DONOTROUND;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            std::ptr::addr_of!(pref).cast(),
+            std::mem::size_of_val(&pref) as u32,
+        );
+        let old = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, old | WS_EX_TOOLWINDOW.0 as isize);
+    }
+}
+
+/// The mouse position's x in physical screen pixels, if Windows can tell.
+pub fn cursor_x() -> Option<i32> {
+    use windows::Win32::Foundation::POINT;
+    use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
+    let mut p = POINT::default();
+    // SAFETY: GetCursorPos only writes into our local POINT.
+    unsafe { GetCursorPos(&mut p) }.ok().map(|()| p.x)
 }
 
 pub fn set_visible(hwnd: HWND, visible: bool) {
@@ -98,7 +137,8 @@ pub fn register_tone_hotkey(raw_hwnd: isize) {
     };
     let modifiers = MOD_CONTROL | MOD_ALT | MOD_SHIFT | MOD_NOREPEAT;
     // SAFETY: the window is ours and lives for the whole run; id 1 is only used here.
-    let result = unsafe { RegisterHotKey(Some(hwnd_from(raw_hwnd)), 1, modifiers, u32::from(b'T')) };
+    let result =
+        unsafe { RegisterHotKey(Some(hwnd_from(raw_hwnd)), 1, modifiers, u32::from(b'T')) };
     if let Err(e) = result {
         eprintln!("barista: tone hotkey not registered: {e}");
     }
@@ -148,12 +188,20 @@ unsafe extern "system" fn subclass_proc(
 }
 
 fn rect_from(r: RECT) -> Rect {
-    Rect { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
+    Rect {
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+    }
 }
 
 /// The monitor the window is mostly on: its full rectangle and its work area (physical pixels).
 fn monitor_rects(hwnd: HWND) -> Option<(Rect, Rect)> {
-    let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
+    let mut info = MONITORINFO {
+        cbSize: size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
     // SAFETY: `info` has its size filled in and lives through the call.
     let ok = unsafe {
         let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
@@ -235,8 +283,8 @@ mod tests {
         SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DestroyWindow, SetWindowLongPtrW, SW_MAXIMIZE, SW_RESTORE,
-        SWP_NOZORDER, WS_OVERLAPPEDWINDOW, WS_POPUP, WS_VISIBLE,
+        CreateWindowExW, DestroyWindow, SetWindowLongPtrW, SWP_NOZORDER, SW_MAXIMIZE, SW_RESTORE,
+        WS_OVERLAPPEDWINDOW, WS_POPUP, WS_VISIBLE,
     };
 
     /// A real top-level window (the system's own "STATIC" class, so nothing to register), shown
@@ -324,16 +372,40 @@ mod tests {
         let (monitor, work) = monitor_rects(win.0).expect("monitor");
         let (w, h) = (work.width(), work.height());
 
-        win.place(Rect { left: work.left + 100, top: work.top + 100, right: work.left + 700, bottom: work.top + 500 });
+        win.place(Rect {
+            left: work.left + 100,
+            top: work.top + 100,
+            right: work.left + 700,
+            bottom: work.top + 500,
+        });
         assert_eq!(window_state(win.0), Some(WindowState::Normal));
         assert!(!is_snapped(win.0));
 
         // Left half, right half and a quarter of the work area.
-        win.place_frame(Rect { left: work.left, top: work.top, right: work.left + w / 2, bottom: work.bottom });
+        win.place_frame(Rect {
+            left: work.left,
+            top: work.top,
+            right: work.left + w / 2,
+            bottom: work.bottom,
+        });
         assert_eq!(window_state(win.0), Some(WindowState::Snapped), "left half");
-        win.place_frame(Rect { left: work.left + w / 2, top: work.top, right: work.right, bottom: work.bottom });
-        assert_eq!(window_state(win.0), Some(WindowState::Snapped), "right half");
-        win.place_frame(Rect { left: work.left, top: work.top, right: work.left + w / 2, bottom: work.top + h / 2 });
+        win.place_frame(Rect {
+            left: work.left + w / 2,
+            top: work.top,
+            right: work.right,
+            bottom: work.bottom,
+        });
+        assert_eq!(
+            window_state(win.0),
+            Some(WindowState::Snapped),
+            "right half"
+        );
+        win.place_frame(Rect {
+            left: work.left,
+            top: work.top,
+            right: work.left + w / 2,
+            bottom: work.top + h / 2,
+        });
         assert_eq!(window_state(win.0), Some(WindowState::Snapped), "quarter");
 
         // Maximized.
@@ -347,7 +419,12 @@ mod tests {
         unsafe {
             let _ = ShowWindow(win.0, SW_RESTORE);
         }
-        win.place(Rect { left: work.left + 100, top: work.top + 100, right: work.left + 700, bottom: work.top + 500 });
+        win.place(Rect {
+            left: work.left + 100,
+            top: work.top + 100,
+            right: work.left + 700,
+            bottom: work.top + 500,
+        });
         assert_eq!(window_state(win.0), Some(WindowState::Normal), "restored");
 
         // Full screen: no title bar, covers the whole monitor.

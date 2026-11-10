@@ -20,7 +20,8 @@ export const commands = {
 	getItems: () => __TAURI_INVOKE<StatusItemView_Serialize[]>("get_items"),
 	/**
 	 *  The user clicked an item. `id` is the item's `id` from `getItems()` / `itemsChanged`.
-	 *  The click is sent to the app that owns the item (it gets `item.click`).
+	 *  If the item has a menu, a left or right click opens it (or closes it if it is open) and the
+	 *  app is not told; otherwise the app gets `item.click`.
 	 */
 	itemClicked: (id: string, button: MouseButton) => typedError<null, string>(__TAURI_INVOKE("item_clicked", { id, button })),
 	/**
@@ -34,6 +35,31 @@ export const commands = {
 	 *  Call once when the UI starts; `barAppearanceChanged` keeps it fresh.
 	 */
 	getBarAppearance: () => __TAURI_INVOKE<BarAppearance>("get_bar_appearance"),
+	/**
+	 *  The user picked entry `menu_item_id` in the menu of item `item_id`. Checkbox and radio
+	 *  entries flip in the bar (a `menu-changed` follows), the app gets `menu.click`, and the menu
+	 *  closes. Clicks on separators, submenus or disabled entries are refused.
+	 */
+	menuItemClicked: (itemId: string, menuItemId: string) => typedError<null, string>(__TAURI_INVOKE("menu_item_clicked", { itemId, menuItemId })),
+	/**
+	 *  The menu window measured itself (logical px): its full `width` and `height` (with any
+	 *  open submenu) and the main panel's `rootWidth`. The bar moves and sizes the window to fit
+	 *  on screen and answers which side an open submenu goes on.
+	 */
+	menuResized: (width: number | null, height: number | null, rootWidth: number | null) => __TAURI_INVOKE<MenuPlacement>("menu_resized", { width, height, rootWidth }),
+	/**  Closes the open menu (Esc, or the UI decided). Does nothing if none is open. */
+	closeMenu: () => __TAURI_INVOKE<void>("close_menu"),
+	/**
+	 *  The menu showing right now, if any. The menu window calls this once when it loads, then
+	 *  follows `menuOpen` / `menuChanged` / `menuClose`.
+	 */
+	getOpenMenu: () => __TAURI_INVOKE<MenuOpen_Serialize | null>("get_open_menu"),
+	/**
+	 *  Where each item is drawn in the bar (logical px, relative to the bar window), so menus open
+	 *  right under their icon. Send it whenever the items move (a ResizeObserver is enough).
+	 *  Without it, menus open under the mouse.
+	 */
+	setItemBounds: (bounds: ItemBounds[]) => __TAURI_INVOKE<void>("set_item_bounds", { bounds }),
 };
 
 /** Events */
@@ -41,6 +67,9 @@ export const events = {
 	barAppearanceChanged: makeEvent<BarAppearanceChanged, BarAppearanceChanged>("bar-appearance-changed"),
 	barChanged: makeEvent<BarChanged, BarChanged>("bar-changed"),
 	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
+	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
+	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
+	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
 	windowRadiusChanged: makeEvent<WindowRadiusChanged_Serialize, WindowRadiusChanged_Deserialize>("window-radius-changed"),
 };
 
@@ -69,6 +98,19 @@ export type BarInfo = {
 };
 
 /**
+ *  Where an item sits inside the bar window, in logical pixels (CSS pixels, what the UI
+ *  measures with `getBoundingClientRect`).
+ */
+export type ItemBounds = {
+	/**  The item's `id` from `getItems()` / `itemsChanged`. */
+	id: string,
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+};
+
+/**
  *  The set of items in the bar changed. Carries the full list (visible items, in order), so
  *  the UI just replaces what it has. Sent at most about once per frame (see `forward_changes`).
  */
@@ -85,6 +127,123 @@ export type ItemsChanged_Deserialize = StatusItemView_Deserialize[];
  *  the UI just replaces what it has. Sent at most about once per frame (see `forward_changes`).
  */
 export type ItemsChanged_Serialize = StatusItemView_Serialize[];
+
+/**  Where a menu hangs from. */
+export type MenuAnchor = {
+	/**  The item's rect on screen, in physical pixels. */
+	item: Rect,
+	monitorId: string,
+	scale: number | null,
+	/**  Draw an open submenu on this side (it would leave the screen on the other one). */
+	submenuSide: SubmenuSide,
+};
+
+/**
+ *  The open menu's entries changed (the app sent a new menu, or a checkbox flipped). Redraw
+ *  without moving or closing.
+ */
+export type MenuChanged = MenuChanged_Serialize | MenuChanged_Deserialize;
+
+/**
+ *  The open menu's entries changed (the app sent a new menu, or a checkbox flipped). Redraw
+ *  without moving or closing.
+ */
+export type MenuChanged_Deserialize = {
+	itemId: string,
+	menu: MenuEntry_Deserialize[],
+};
+
+/**
+ *  The open menu's entries changed (the app sent a new menu, or a checkbox flipped). Redraw
+ *  without moving or closing.
+ */
+export type MenuChanged_Serialize = {
+	itemId: string,
+	menu: MenuEntry_Serialize[],
+};
+
+/**  The menu closed (blur, Esc, a pick, the same icon again, or its app went away). */
+export type MenuClose = {
+	itemId: string,
+};
+
+/**  One menu entry as the UI draws it. Separators have no `id`. */
+export type MenuEntry = MenuEntry_Serialize | MenuEntry_Deserialize;
+
+/**  One menu entry as the UI draws it. Separators have no `id`. */
+export type MenuEntry_Deserialize = {
+	id?: string | null,
+	kind: MenuItemType,
+	label: string,
+	/**  Draw a check mark (checkbox) or dot (radio). */
+	checked: boolean,
+	/**  False = draw greyed out and ignore clicks. */
+	enabled: boolean,
+	/**  Text like `Ctrl+S`, drawn on the right. Only shown, never registered as a hotkey. */
+	accelerator?: string | null,
+	role?: MenuRole | null,
+	/**  A small `data:` URL, drawn at 16 px. */
+	icon?: string | null,
+	/**  Entries of a `submenu` entry; empty for the others. */
+	submenu: MenuEntry_Deserialize[],
+};
+
+/**  One menu entry as the UI draws it. Separators have no `id`. */
+export type MenuEntry_Serialize = {
+	id: string | null,
+	kind: MenuItemType,
+	label: string,
+	/**  Draw a check mark (checkbox) or dot (radio). */
+	checked: boolean,
+	/**  False = draw greyed out and ignore clicks. */
+	enabled: boolean,
+	/**  Text like `Ctrl+S`, drawn on the right. Only shown, never registered as a hotkey. */
+	accelerator: string | null,
+	role: MenuRole | null,
+	/**  A small `data:` URL, drawn at 16 px. */
+	icon: string | null,
+	/**  Entries of a `submenu` entry; empty for the others. */
+	submenu: MenuEntry_Serialize[],
+};
+
+/**  What kind of menu entry. Electron's names. */
+export type MenuItemType = "normal" | "checkbox" | "radio" | "separator" | "submenu";
+
+/**
+ *  A menu opened (or replaced another one): draw `menu` in the menu window. Sent to every
+ *  window; the menu window draws it, the bar can highlight `itemId`.
+ */
+export type MenuOpen = MenuOpen_Serialize | MenuOpen_Deserialize;
+
+/**
+ *  A menu opened (or replaced another one): draw `menu` in the menu window. Sent to every
+ *  window; the menu window draws it, the bar can highlight `itemId`.
+ */
+export type MenuOpen_Deserialize = {
+	itemId: string,
+	menu: MenuEntry_Deserialize[],
+	anchor: MenuAnchor,
+};
+
+/**
+ *  A menu opened (or replaced another one): draw `menu` in the menu window. Sent to every
+ *  window; the menu window draws it, the bar can highlight `itemId`.
+ */
+export type MenuOpen_Serialize = {
+	itemId: string,
+	menu: MenuEntry_Serialize[],
+	anchor: MenuAnchor,
+};
+
+/**  Reply to `menuResized`: which side the UI should draw an open submenu on. */
+export type MenuPlacement = {
+	submenuSide: SubmenuSide,
+};
+
+/**  Standard entries the bar places and labels itself. */
+export type MenuRole = 
+/**  The bar asks the app to quit (the SDK closes it unless the app handles the click). */
+"quit" | "about" | "settings";
 
 export type Monitor = {
 	/**  Stable across restarts and replugging (the display's device path). */
@@ -135,6 +294,9 @@ export type StatusItemView_Serialize = {
 	label: string | null,
 	tooltip: string | null,
 };
+
+/**  Which side an open submenu goes on, so it stays on screen. */
+export type SubmenuSide = "right" | "left";
 
 /**  How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round. */
 export type Tone = "light" | "dark";

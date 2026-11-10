@@ -6,7 +6,7 @@ use specta::Type;
 
 /// A rectangle in **physical pixels** (what Windows works in). Logical pixels only exist in
 /// settings and in `BarInfo.height`; `bar_rect` converts once (CLAUDE.md rule 8).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Rect {
     pub left: i32,
     pub top: i32,
@@ -87,7 +87,12 @@ mod tests {
     use super::*;
 
     fn rect(l: i32, t: i32, r: i32, b: i32) -> Rect {
-        Rect { left: l, top: t, right: r, bottom: b }
+        Rect {
+            left: l,
+            top: t,
+            right: r,
+            bottom: b,
+        }
     }
 
     fn monitor(id: &str, primary: bool) -> Monitor {

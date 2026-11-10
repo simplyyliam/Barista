@@ -40,22 +40,62 @@ item.on("click", ({ button }) => console.log(button)) // "left" | "right" | "mid
 
 ## API
 
-| Call                            | What it does                                                     |
-| ------------------------------- | ---------------------------------------------------------------- |
-| `BA.connect(options?)`          | Connects once and shares the connection. Returns a `StatusBar`.  |
-| `BA.StatusItem.create(options)` | Adds an item. Options: `id`, `icon?`, `label?`, `tooltip?`.      |
-| `item.setIcon(icon)`            | New icon (PNG/SVG bytes or `data:` URL). `""` removes it.        |
-| `item.setLabel(text)`           | New label. `""` removes it.                                      |
-| `item.setTooltip(text)`         | New tooltip. `""` removes it.                                    |
-| `item.setVisible(boolean)`      | Hide or show without removing.                                   |
-| `item.remove()`                 | Takes the item out of the bar.                                   |
-| `item.on("click", fn)`          | `fn({ button })` when the user clicks.                           |
-| `item.on("error", fn)`          | `fn(error)` when the bar refuses something about this item.      |
-| `bar.on("close", fn)`           | The bar went away. Item calls do nothing after this.             |
-| `bar.on("error", fn)`           | Errors that no item listener took (printed with `console.warn`). |
-| `bar.close()`                   | Disconnects; the bar removes your items.                         |
+| Call                            | What it does                                                          |
+| ------------------------------- | --------------------------------------------------------------------- |
+| `BA.connect(options?)`          | Connects once and shares the connection. Returns a `StatusBar`.       |
+| `BA.StatusItem.create(options)` | Adds an item. Options: `id`, `icon?`, `label?`, `tooltip?`.           |
+| `item.setIcon(icon)`            | New icon (PNG/SVG bytes or `data:` URL). `""` removes it.             |
+| `item.setLabel(text)`           | New label. `""` removes it.                                           |
+| `item.setTooltip(text)`         | New tooltip. `""` removes it.                                         |
+| `item.setVisible(boolean)`      | Hide or show without removing.                                        |
+| `item.remove()`                 | Takes the item out of the bar.                                        |
+| `item.setMenu(menu \| null)`    | Gives the item a menu (a `BA.Menu` or a template). `null` removes it. |
+| `BA.Menu.fromTemplate(t)`       | Builds and checks a menu. `menu.getItemById(id)` finds an entry.      |
+| `item.on("click", fn)`          | `fn({ button })` when the user clicks.                                |
+| `item.on("error", fn)`          | `fn(error)` when the bar refuses something about this item.           |
+| `bar.on("close", fn)`           | The bar went away. Item calls do nothing after this.                  |
+| `bar.on("error", fn)`           | Errors that no item listener took (printed with `console.warn`).      |
+| `bar.close()`                   | Disconnects; the bar removes your items.                              |
+| `bar.on("quit", fn)`            | The user picked a `role: "quit"` entry (else the SDK exits).          |
 
 Errors from the bar are `BA.BarError` objects with a `code` (`"invalid_icon"`, `"limit_reached"`, ...).
+
+## Menus
+
+Clicking an item with a menu opens the menu under it (a middle click still fires `on("click")`).
+The template is Electron's:
+
+```ts
+item.setMenu([
+  { label: "Start", accelerator: "Ctrl+S", click: () => timer.start() },
+  {
+    id: "sounds",
+    label: "Sounds",
+    type: "checkbox",
+    checked: true,
+    click: (entry, { checked }) => console.log("sounds", checked),
+  },
+  {
+    label: "Presets",
+    submenu: [
+      { id: "p25", label: "25 min", type: "radio", checked: true },
+      { id: "p50", label: "50 min", type: "radio" },
+    ],
+  },
+  { type: "separator" },
+  { role: "about" },
+  { role: "quit" },
+])
+```
+
+- Types: `normal`, `checkbox`, `radio` (adjacent radios form a group), `separator`, `submenu`.
+- The bar flips checkboxes and radios itself and tells you the new `checked`.
+- Roles `about` and `settings` go to the top, `quit` to the bottom, labelled for you if you
+  leave out `label`. A `quit` entry without `click` removes your items and ends the process,
+  unless you listen to `bar.on("quit")`.
+- `accelerator` is shown as text only (`CmdOrCtrl` becomes `Ctrl`); it is not a hotkey.
+- At most 3 levels deep and 50 entries in total; ids unique. Changed an entry? Call
+  `item.setMenu(menu)` again.
 
 ## Rules
 
@@ -68,6 +108,6 @@ Errors from the bar are `BA.BarError` objects with a `code` (`"invalid_icon"`, `
 
 ## Not in yet
 
-Menus, popovers, and reconnecting after the bar restarts arrive in later releases. For now,
+Popovers and reconnecting after the bar restarts arrive in later releases. For now,
 if the bar is not running `connect()` rejects with "Could not reach the Barista bar", and if it
 quits your items disappear and the `close` event fires.
