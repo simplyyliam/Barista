@@ -124,8 +124,10 @@ struct Inner {
     /// The item whose menu the window shows right now (the machine may already have moved on,
     /// e.g. to closed, before the window is hidden).
     shown: Option<String>,
-    /// Item rects from the UI (`setItemBounds`), physical screen px, keyed like `s3/counter`.
-    bounds: HashMap<String, Rect>,
+    /// Item rects from the UI (`setItemBounds`), logical and bar-relative, keyed like
+    /// `s3/counter`. Converted to screen pixels only when a menu opens, with the bar's
+    /// position and scale at that moment (it may have moved monitor since).
+    bounds: HashMap<String, ItemBounds>,
     /// Rect of the item the open menu hangs from.
     item_rect: Rect,
     /// Last size the UI reported (logical px): width, height, root width.
@@ -314,12 +316,11 @@ impl MenuWindow {
     }
 
     fn show(&self, key: &str) {
-        let Some(snapshot) = self.registry.menu(key) else {
-            // Item vanished between the click and now.
-            self.lock().machine.reset();
-            return;
-        };
-        let Some((bar, work, scale)) = geometry() else {
+        // The item vanished between the click and now, or the bar has no monitor yet: close
+        // whatever is showing, so the window and the state machine agree.
+        let (Some(snapshot), Some((bar, work, scale))) = (self.registry.menu(key), geometry())
+        else {
+            self.close();
             return;
         };
         let (w, h) = guess_size(&snapshot);
@@ -329,11 +330,10 @@ impl MenuWindow {
             let cursor = crate::platform::windows::window::cursor_x();
             #[cfg(not(windows))]
             let cursor: Option<i32> = None;
-            inner.item_rect = inner
-                .bounds
-                .get(key)
-                .copied()
-                .unwrap_or_else(|| anchor::at_cursor(cursor.unwrap_or(bar.left), &bar));
+            inner.item_rect = match inner.bounds.get(key) {
+                Some(b) => anchor::to_screen(b, &bar, scale),
+                None => anchor::at_cursor(cursor.unwrap_or(bar.left), &bar),
+            };
             inner.size = (w, h, w);
             inner.rev = snapshot.rev;
             inner.shown = Some(key.to_string());
@@ -406,14 +406,10 @@ impl MenuWindow {
 
     /// `setItemBounds`: where the UI drew each item (logical, relative to the bar window).
     pub fn set_item_bounds(&self, items: Vec<ItemBounds>) {
-        let Some((bar, _, scale)) = geometry() else {
-            return;
-        };
-        let mut inner = self.lock();
-        inner.bounds = items
-            .iter()
+        self.lock().bounds = items
+            .into_iter()
             .take(256) // the UI is trusted, but a runaway loop shouldn't grow this forever
-            .map(|b| (b.id.clone(), anchor::to_screen(b, &bar, scale)))
+            .map(|b| (b.id.clone(), b))
             .collect();
     }
 
@@ -440,25 +436,26 @@ impl MenuWindow {
     /// After any registry change: redraw the open menu if it changed, close it if its item or
     /// menu is gone (client quit, `setMenu([])`, item hidden).
     pub fn sync(&self) {
-        let Some(key) = self.lock().shown.clone() else {
+        let Some((key, rev)) = self.lock().shown.clone().map(|k| {
+            let rev = self.registry.menu_rev(&k);
+            (k, rev)
+        }) else {
             return;
         };
-        match self.registry.menu(&key) {
+        // Only the cheap revision is read on every change; the menu is built when it differs.
+        match rev {
             None => self.close(),
-            Some(snapshot) => {
-                let changed = {
-                    let mut inner = self.lock();
-                    let changed = inner.rev != snapshot.rev;
-                    inner.rev = snapshot.rev;
-                    changed
+            Some(rev) if rev == self.lock().rev => {}
+            Some(_) => {
+                let Some(snapshot) = self.registry.menu(&key) else {
+                    return self.close();
                 };
-                if changed {
-                    let _ = MenuChanged {
-                        item_id: key,
-                        menu: snapshot.entries,
-                    }
-                    .emit(&self.app);
+                self.lock().rev = snapshot.rev;
+                let _ = MenuChanged {
+                    item_id: key,
+                    menu: snapshot.entries,
                 }
+                .emit(&self.app);
             }
         }
     }

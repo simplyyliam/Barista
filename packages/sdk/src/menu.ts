@@ -114,6 +114,45 @@ function toMenuIcon(icon: Uint8Array | string): string {
 }
 
 /**
+ * Checks the rules the bar enforces (depth, count, unique ids, labels, types) and returns the
+ * ids in use. Throws a `TypeError` on the first broken rule.
+ */
+function scanTemplate(template: MenuItemOptions[]): Set<string> {
+  const used = new Set<string>()
+  let count = 0
+  const scan = (level: MenuItemOptions[], depth: number) => {
+    if (depth > MAX_MENU_DEPTH) {
+      throw new TypeError(`Menus can be nested at most ${MAX_MENU_DEPTH} levels deep`)
+    }
+    for (const options of level) {
+      if (++count > MAX_MENU_ITEMS) {
+        throw new TypeError(`A menu can have at most ${MAX_MENU_ITEMS} entries`)
+      }
+      if (options.id !== undefined) {
+        assertItemId(options.id)
+        if (used.has(options.id))
+          throw new TypeError(`Menu id ${JSON.stringify(options.id)} is used twice`)
+        used.add(options.id)
+      }
+      if (options.label !== undefined) assertLabel(options.label)
+      const type = options.type ?? (options.submenu ? "submenu" : "normal")
+      if (type === "submenu" && !options.submenu) {
+        throw new TypeError("A submenu entry needs a submenu list")
+      }
+      if (options.submenu && type !== "submenu") {
+        throw new TypeError("Only submenu entries can have a submenu")
+      }
+      if (options.checked !== undefined && type !== "checkbox" && type !== "radio") {
+        throw new TypeError("Only checkbox and radio entries can be checked")
+      }
+      if (options.submenu) scan(options.submenu, depth + 1)
+    }
+  }
+  scan(template, 1)
+  return used
+}
+
+/**
  * A menu for a status item. Build it from a template, give it to {@link StatusItem.setMenu},
  * and the bar shows it when the user clicks the item.
  *
@@ -151,38 +190,8 @@ export class Menu {
    */
   static fromTemplate(template: MenuItemOptions[]): Menu {
     if (!Array.isArray(template)) throw new TypeError("A menu template must be an array")
-    const used = new Set<string>()
-    let count = 0
     // First pass: user ids and limits, so generated ids never collide with them.
-    const scan = (level: MenuItemOptions[], depth: number) => {
-      if (depth > MAX_MENU_DEPTH) {
-        throw new TypeError(`Menus can be nested at most ${MAX_MENU_DEPTH} levels deep`)
-      }
-      for (const options of level) {
-        if (++count > MAX_MENU_ITEMS) {
-          throw new TypeError(`A menu can have at most ${MAX_MENU_ITEMS} entries`)
-        }
-        if (options.id !== undefined) {
-          assertItemId(options.id)
-          if (used.has(options.id))
-            throw new TypeError(`Menu id ${JSON.stringify(options.id)} is used twice`)
-          used.add(options.id)
-        }
-        if (options.label !== undefined) assertLabel(options.label)
-        const type = options.type ?? (options.submenu ? "submenu" : "normal")
-        if (type === "submenu" && !options.submenu) {
-          throw new TypeError("A submenu entry needs a submenu list")
-        }
-        if (options.submenu && type !== "submenu") {
-          throw new TypeError("Only submenu entries can have a submenu")
-        }
-        if (options.checked !== undefined && type !== "checkbox" && type !== "radio") {
-          throw new TypeError("Only checkbox and radio entries can be checked")
-        }
-        if (options.submenu) scan(options.submenu, depth + 1)
-      }
-    }
-    scan(template, 1)
+    const used = scanTemplate(template)
 
     let next = 0
     let separators = 0
@@ -228,6 +237,24 @@ export class Menu {
       if (found) return found
     }
     return undefined
+  }
+
+  /**
+   * @internal The wire template, checked again: `MenuItem` fields are public, so the app may
+   * have changed them since `fromTemplate`.
+   */
+  toCheckedWire(): MenuTemplateItem[] {
+    const wire = this.toWire()
+    scanTemplate(wire as MenuItemOptions[])
+    const walk = (level: MenuTemplateItem[]) => {
+      for (const item of level) {
+        if (item.accelerator) assertText("accelerator", item.accelerator, MAX_ACCELERATOR_LEN)
+        if (item.icon) toMenuIcon(item.icon)
+        if (item.submenu) walk(item.submenu)
+      }
+    }
+    walk(wire)
+    return wire
   }
 
   /** @internal The template as it goes over the wire (no callbacks, separators without ids). */

@@ -193,13 +193,24 @@ export class StatusItem {
       type: "item.setMenu",
       requestId: this.#bar.requestIdFor(this.id),
       id: this.id,
-      menu: built?.toWire() ?? [],
+      menu: built?.toCheckedWire() ?? [],
     })
     this.#menu = built ?? undefined
     return built
   }
 
-  /** The menu set with {@link StatusItem.setMenu}, if any. */
+  /**
+   * The menu set with {@link StatusItem.setMenu}, if any.
+   *
+   * @example
+   * ```ts
+   * const pause = item.menu?.getItemById("pause")
+   * if (pause) {
+   *   pause.enabled = true
+   *   item.setMenu(item.menu!) // show the change
+   * }
+   * ```
+   */
   get menu(): Menu | undefined {
     return this.#menu
   }

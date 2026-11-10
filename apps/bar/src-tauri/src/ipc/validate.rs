@@ -3,9 +3,9 @@
 //! back to the client inside `error { message }`.
 
 use barista_protocol::{
-    ClientMessage, ErrorCode, MenuTemplateItem, MenuItemType, CLIENT_MESSAGE_TYPES, MAX_ACCELERATOR_LEN,
-    MAX_APP_NAME_LEN, MAX_ICON_BYTES, MAX_ICON_PIXELS, MAX_ID_LEN, MAX_LABEL_LEN, MAX_MENU_DEPTH,
-    MAX_MENU_ICON_BYTES, MAX_MENU_ITEMS,
+    ClientMessage, ErrorCode, MenuItemType, MenuTemplateItem, CLIENT_MESSAGE_TYPES,
+    MAX_ACCELERATOR_LEN, MAX_APP_NAME_LEN, MAX_ICON_BYTES, MAX_ICON_PIXELS, MAX_ID_LEN,
+    MAX_LABEL_LEN, MAX_MENU_DEPTH, MAX_MENU_ICON_BYTES, MAX_MENU_ITEMS,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use std::collections::HashSet;

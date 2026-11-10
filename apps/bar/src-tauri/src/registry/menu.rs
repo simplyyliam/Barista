@@ -6,7 +6,7 @@
 //! The bar owns the checked state (ADR 0011), so every client gets the same radio rules and the
 //! UI can redraw right away without waiting for the app.
 
-use barista_protocol::{MenuTemplateItem, MenuItemType, MenuRole};
+use barista_protocol::{MenuItemType, MenuRole, MenuTemplateItem};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -57,12 +57,27 @@ pub fn arrange(items: Vec<MenuTemplateItem>) -> Vec<MenuTemplateItem> {
         return items;
     }
     let (mut about, mut settings, mut quit, mut rest) = (vec![], vec![], vec![], vec![]);
+    let is_radio = |i: &MenuTemplateItem| i.kind() == MenuItemType::Radio;
+    // A role between two radios splits them into two groups in the app's template. Moving the
+    // role away must not merge them, so a separator takes its place.
+    let mut role_gap = false;
     for item in items {
         match item.role {
-            Some(MenuRole::About) => about.push(item),
-            Some(MenuRole::Settings) => settings.push(item),
-            Some(MenuRole::Quit) => quit.push(item),
-            None => rest.push(item),
+            Some(role) => {
+                role_gap = true;
+                match role {
+                    MenuRole::About => about.push(item),
+                    MenuRole::Settings => settings.push(item),
+                    MenuRole::Quit => quit.push(item),
+                }
+            }
+            None => {
+                if role_gap && is_radio(&item) && rest.last().is_some_and(is_radio) {
+                    rest.push(separator());
+                }
+                role_gap = false;
+                rest.push(item);
+            }
         }
     }
     // The app's own separators at the edges would double up with ours.
@@ -93,7 +108,9 @@ pub fn view(items: &[MenuTemplateItem], app_name: &str) -> Vec<MenuEntry> {
         let kind = item.kind();
         // Hiding entries can leave two separators in a row, or one at an edge: drop those.
         if kind == MenuItemType::Separator
-            && out.last().map_or(true, |e| e.kind == MenuItemType::Separator)
+            && out
+                .last()
+                .map_or(true, |e| e.kind == MenuItemType::Separator)
         {
             continue;
         }
@@ -239,6 +256,20 @@ mod tests {
         assert_eq!(ids(&arrange(vec![role("q", MenuRole::Quit)])), ["q"]);
         // No roles: untouched, separators and all.
         assert_eq!(ids(&arrange(vec![separator(), entry("a")])), ["-", "a"]);
+    }
+
+    #[test]
+    fn moving_a_role_keeps_radio_groups_apart() {
+        let menu = vec![
+            typed("a", MenuItemType::Radio),
+            role("i", MenuRole::About),
+            typed("b", MenuItemType::Radio),
+        ];
+        let mut arranged = arrange(menu);
+        assert_eq!(ids(&arranged), ["i", "-", "a", "-", "b"]);
+        click(&mut arranged, "b").unwrap();
+        // Separate groups: picking b leaves a alone, like in the SDK's copy.
+        assert_eq!(arranged[2].checked, None);
     }
 
     #[test]

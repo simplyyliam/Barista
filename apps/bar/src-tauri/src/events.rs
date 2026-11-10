@@ -22,6 +22,17 @@ pub struct ItemsChanged(pub Vec<StatusItemView>);
 /// Turns registry changes into `items-changed` events.
 pub fn forward_changes(app: tauri::AppHandle, registry: std::sync::Arc<Registry>) {
     use tauri_specta::Event;
+    // Menu-only changes (new menu, checkbox flip) don't change the bar, so they only refresh an
+    // open menu and skip `items-changed`.
+    let menus = registry.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            menus.wait_menu_changed().await;
+            if let Some(menu) = crate::menu_window::get() {
+                menu.sync();
+            }
+        }
+    });
     tauri::async_runtime::spawn(async move {
         loop {
             registry.wait_changed().await;

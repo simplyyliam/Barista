@@ -113,6 +113,8 @@ struct State {
     sessions: HashMap<SessionId, Session>,
     /// Arrival order. Drag ordering comes in v0.7.
     items: Vec<Item>,
+    /// Source of `menu_rev`s. Registry-wide, so a removed and re-created item never reuses one.
+    last_rev: u64,
 }
 
 #[derive(Default)]
@@ -123,6 +125,9 @@ pub struct Registry {
     /// Pinged after every change. `notify_one` keeps one permit if nobody is waiting yet, so
     /// a burst of changes becomes a single wake-up for the event emitter.
     changed: Notify,
+    /// Pinged when only a menu changed (new menu, checked flip). Items in the bar look the
+    /// same, so this skips `items-changed` and only refreshes an open menu.
+    menu_changed: Notify,
 }
 
 /// `"s3"` -> 3
@@ -342,27 +347,41 @@ impl Registry {
         id: &str,
         menu: Vec<MenuTemplateItem>,
     ) -> Result<(), RegistryError> {
+        let menu = menu::arrange(menu);
         let mut state = self.lock();
+        state.last_rev += 1;
+        let rev = state.last_rev;
         let item = state
             .items
             .iter_mut()
             .find(|i| i.session == session && i.id == id)
             .ok_or(RegistryError::NotFound)?;
-        let menu = menu::arrange(menu);
         if item.menu == menu {
             return Ok(());
         }
         item.menu = menu;
-        item.menu_rev += 1;
+        item.menu_rev = rev;
         drop(state);
-        self.changed.notify_one();
+        self.menu_changed.notify_one();
         Ok(())
+    }
+
+    /// Resolves when a menu changed since the last wait (see `menu_changed`).
+    pub async fn wait_menu_changed(&self) {
+        self.menu_changed.notified().await;
     }
 
     /// Whether a click with `button` on `key` should open its menu instead of reaching the app.
     /// Middle clicks still go to the app.
     pub fn opens_menu(&self, key: &str, button: MouseButton) -> bool {
-        button != MouseButton::Middle && self.menu(key).is_some()
+        button != MouseButton::Middle && self.menu_rev(key).is_some()
+    }
+
+    /// The revision of a visible item's menu, without building it. `None` = nothing to show.
+    pub fn menu_rev(&self, key: &str) -> Option<u64> {
+        let mut state = self.lock();
+        let item = state.item_mut(key)?;
+        (!item.menu.is_empty() && item.visible).then_some(item.menu_rev)
     }
 
     /// The menu of a visible item, ready to draw. `None` if the item is gone, hidden or has no menu.
@@ -372,27 +391,34 @@ impl Registry {
         if item.menu.is_empty() || !item.visible {
             return None;
         }
-        let (session, menu, rev) = (item.session, item.menu.clone(), item.menu_rev);
-        let app_name = &state.sessions.get(&session)?.app_name;
+        let (session, rev) = (item.session, item.menu_rev);
+        // Build the view while holding the lock: no clone of the template needed.
+        let menu = std::mem::take(&mut item.menu);
+        let entries = state
+            .sessions
+            .get(&session)
+            .map(|s| menu::view(&menu, &s.app_name));
+        if let Some(item) = state.item_mut(key) {
+            item.menu = menu;
+        }
         Some(MenuSnapshot {
-            entries: menu::view(&menu, app_name),
+            entries: entries?,
             rev,
         })
     }
 
-    /// The user picked entry `menu_item_id` in the menu of `key`. Flips checkbox/radio state
-    /// here, then sends `menu.click` (with the new `checked`) to the app.
+    /// The user picked entry `menu_item_id` in the menu of `key`. Applies checkbox/radio state
+    /// and sends `menu.click` (with the new `checked`) to the app. The state only changes if
+    /// the app got the message, so the bar and the app never disagree.
     pub fn menu_click(&self, key: &str, menu_item_id: &str) -> Result<(), MenuItemClickError> {
         let mut state = self.lock();
         let item = state.item_mut(key).ok_or(MenuItemClickError::NotFound)?;
-        if item.menu.is_empty() {
+        if item.menu.is_empty() || !item.visible {
             return Err(MenuItemClickError::NotFound);
         }
-        let checked =
-            menu::click(&mut item.menu, menu_item_id).map_err(MenuItemClickError::Menu)?;
-        if checked.is_some() {
-            item.menu_rev += 1;
-        }
+        // Work on a copy; it replaces the real menu only once the message is on its way.
+        let mut next = item.menu.clone();
+        let checked = menu::click(&mut next, menu_item_id).map_err(MenuItemClickError::Menu)?;
         let (session, id) = (item.session, item.id.clone());
         let sent = state.sessions.get(&session).is_some_and(|s| {
             s.outbox
@@ -403,15 +429,20 @@ impl Registry {
                 })
                 .is_ok()
         });
-        drop(state);
+        if !sent {
+            return Err(MenuItemClickError::Unreachable);
+        }
         if checked.is_some() {
-            self.changed.notify_one();
+            state.last_rev += 1;
+            let rev = state.last_rev;
+            if let Some(item) = state.item_mut(key) {
+                item.menu = next;
+                item.menu_rev = rev;
+            }
+            drop(state);
+            self.menu_changed.notify_one();
         }
-        if sent {
-            Ok(())
-        } else {
-            Err(MenuItemClickError::Unreachable)
-        }
+        Ok(())
     }
 
     /// Sends `item.click` to the client that owns `key` (`"s3/counter"`).
@@ -758,5 +789,58 @@ mod tests {
             reg.menu_click("s1/a", "m"),
             Err(MenuItemClickError::Unreachable)
         );
+    }
+
+    #[test]
+    fn an_undelivered_click_does_not_flip_the_checkbox() {
+        let reg = Registry::new();
+        let (tx, rx) = mpsc::channel(1);
+        let s = reg.add_session("App".into(), 1, tx);
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        reg.menu_click("s1/a", "m").unwrap(); // fills the one-slot queue
+        assert_eq!(
+            reg.menu_click("s1/a", "m"),
+            Err(MenuItemClickError::Unreachable)
+        );
+        assert!(
+            reg.menu("s1/a").unwrap().entries[0].checked,
+            "still the delivered state"
+        );
+        drop(rx);
+    }
+
+    #[test]
+    fn hidden_items_menus_cannot_be_clicked() {
+        let reg = Registry::new();
+        let (s, _rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        reg.update(
+            s,
+            "a",
+            ItemPatch {
+                visible: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            reg.menu_click("s1/a", "m"),
+            Err(MenuItemClickError::NotFound)
+        );
+    }
+
+    #[test]
+    fn a_recreated_item_never_reuses_a_menu_rev() {
+        let reg = Registry::new();
+        let (s, _rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        let first = reg.menu_rev("s1/a").unwrap();
+        reg.remove(s, "a").unwrap();
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.set_menu(s, "a", menu_of(&["other"])).unwrap();
+        assert_ne!(reg.menu_rev("s1/a").unwrap(), first);
     }
 }

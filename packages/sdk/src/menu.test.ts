@@ -95,3 +95,15 @@ describe("applyClick", () => {
     expect(menu.applyClick("nope", true)).toBeUndefined()
   })
 })
+
+describe("toCheckedWire", () => {
+  it("re-checks entries changed after fromTemplate", () => {
+    const menu = Menu.fromTemplate([{ id: "a", label: "ok" }])
+    expect(menu.toCheckedWire()).toEqual([{ id: "a", label: "ok" }])
+    menu.getItemById("a")!.label = "x".repeat(200)
+    expect(() => menu.toCheckedWire()).toThrow(/label/)
+    menu.getItemById("a")!.label = "ok"
+    menu.getItemById("a")!.checked = true
+    expect(() => menu.toCheckedWire()).toThrow(/checkbox and radio/)
+  })
+})
