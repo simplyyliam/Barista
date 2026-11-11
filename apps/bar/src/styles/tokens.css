@@ -19,6 +19,15 @@
   --bar-fg: #0a0a0a;
   --bar-fg-muted: rgb(10 10 10 / 0.6);
   --bar-hover: rgb(10 10 10 / 0.1);
+
+  /* Menus follow the same tone: light wallpaper -> light glass, dark text. */
+  --menu-tint: rgb(246 246 246 / 0.72); /* over the acrylic */
+  --menu-opaque: #f4f4f4; /* Windows 10: no acrylic, so no see-through */
+  --menu-fg: rgb(0 0 0 / 0.88);
+  --menu-fg-muted: rgb(0 0 0 / 0.5);
+  --menu-fg-disabled: rgb(0 0 0 / 0.28);
+  --menu-separator: rgb(0 0 0 / 0.11);
+  --menu-ring: rgb(0 0 0 / 0.1); /* hairline just inside the edge */
 }
 
 [data-tone="dark"] {
@@ -26,6 +35,14 @@
   --bar-fg: #fafafa;
   --bar-fg-muted: rgb(250 250 250 / 0.6);
   --bar-hover: rgb(250 250 250 / 0.14);
+
+  --menu-tint: rgb(34 34 34 / 0.62);
+  --menu-opaque: #2a2a2a;
+  --menu-fg: rgb(255 255 255 / 0.92);
+  --menu-fg-muted: rgb(255 255 255 / 0.5);
+  --menu-fg-disabled: rgb(255 255 255 / 0.28);
+  --menu-separator: rgb(255 255 255 / 0.13);
+  --menu-ring: rgb(255 255 255 / 0.12);
 }
 
 :root {
@@ -37,13 +54,20 @@
   --panel-separator: rgb(250 250 250 / 0.12); /* macOS menus use a ~10-15% white hairline */
 }
 
+/* Same in both tones: macOS selects a menu row with the accent colour and white text. One place
+   to change if the accent ever becomes a setting. */
+:root {
+  --menu-highlight: #0a64e8;
+  --menu-highlight-fg: #ffffff;
+}
+
 @theme inline {
   /* --- Type --- */
   /* App.png: SF Pro (not licensed for Windows). Inter is the closest free look; it is already
      bundled by @barista/ui. One token, so a font setting can swap it later. */
   --font-bar: "Inter Variable", system-ui, sans-serif;
   /* App.png: 14px text (cap height ~10px). macOS menu bar text is 13-14pt. */
-  --text-bar: 14px;
+  --text-bar: 13px;
   --text-bar--line-height: 16px;
   /* macOS menu bar items are regular weight; the app name is semibold. App.png shows regular. */
   --font-weight-bar: 400;
@@ -55,14 +79,17 @@
   /* --- Bar sizes and spacing --- */
   /* App.png: 32px tall (macOS: 24pt). Reference only; the real height is the window's. */
   --spacing-bar-h: 32px;
-  /* App.png: 24px from the screen edge to the first/last item. */
-  --spacing-bar-x: 24px;
+  /* App.png: 12px from the screen edge to the first/last item. */
+  --spacing-bar-x: 12px;
   /* App.png: 18px between the right-hand icons (32px pitch for a 14px glyph). */
   --spacing-bar-gap: 18px;
   /* App.png: 12px between the logo and the app name. */
   --spacing-bar-icon-label: 12px;
   /* App.png: 16px icon box. macOS: 16x16pt icon in a 22pt area (Bjango). */
   --spacing-bar-icon: 16px;
+  /* 22pt-style item height in the UI's CSS-pixel scale */
+  --spacing-bar-item-h: 22px; 
+  --spacing-bar-item-x: 10px;
 
   /* --- Panels --- */
   /* App.png: 340px wide, 14px below the bar, 16px content padding, 8px inset for inner blocks. */
@@ -93,4 +120,22 @@
   --color-panel-fg: var(--panel-fg);
   --color-panel-fg-muted: var(--panel-fg-muted);
   --color-panel-separator: var(--panel-separator);
+
+  /* --- Menus (context menus and submenus, widgets/menu) --- */
+  /* macOS: 22pt rows, 5pt panel padding, 13pt text. The highlight radius is the window radius
+     minus the padding, so the curves line up (ADR 0008). */
+  --spacing-menu-row: 22px;
+  --spacing-menu-pad: 5px;
+  --spacing-menu-min-w: 200px;
+  --spacing-menu-max-w: 420px;
+  --radius-menu-row: max(3px, calc(var(--window-radius, 8px) - var(--spacing-menu-pad)));
+  --color-menu-tint: var(--menu-tint);
+  --color-menu-opaque: var(--menu-opaque);
+  --color-menu-fg: var(--menu-fg);
+  --color-menu-fg-muted: var(--menu-fg-muted);
+  --color-menu-fg-disabled: var(--menu-fg-disabled);
+  --color-menu-separator: var(--menu-separator);
+  --color-menu-ring: var(--menu-ring);
+  --color-menu-highlight: var(--menu-highlight);
+  --color-menu-highlight-fg: var(--menu-highlight-fg);
 }

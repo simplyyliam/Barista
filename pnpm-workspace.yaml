@@ -4,9 +4,8 @@ packages:
   - apps/*
   - packages/*
   - examples/*
-
+verifyDepsBeforeRun: warn
 # pnpm 10 blocks dependency install scripts unless listed. esbuild ships its
 # binary as a separate package, so its install script isn't needed.
-ignoredBuiltDependencies:
-  - esbuild
-  - unrs-resolver
+allowBuilds:
+  esbuild: false

@@ -137,3 +137,18 @@ body {
   -ms-user-select: none;     /* IE 10 and Older */
   user-select: none;         /* Standard syntax for Chrome, Firefox, Opera */
 }
+
+@utility mask-blur-t {
+  mask-image: linear-gradient(
+    to top,
+    black 0%,
+    rgba(0, 0, 0, 0.8) 50%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to top,
+    black 0%,
+    rgba(0, 0, 0, 0.8) 50%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}

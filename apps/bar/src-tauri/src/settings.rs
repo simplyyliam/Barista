@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-pub const DEFAULT_BAR_HEIGHT: u32 = 32;
+pub const DEFAULT_BAR_HEIGHT: u32 = 24;
 pub const MIN_BAR_HEIGHT: u32 = 20;
 pub const MAX_BAR_HEIGHT: u32 = 64;
 

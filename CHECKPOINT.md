@@ -17,6 +17,27 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   UI, and approval of ADR 0012 (tray) before v0.6.
 - v0.4b System panels is planned (`releases/v0.4b.md`, local only).
 
+## Menu polish (2026-11-11, branch `feature/0.3/menubar-ui`, UI: full)
+
+- Two reused windows: `menu` (main panel) and `menu-sub` (submenu, `WS_EX_NOACTIVATE`), each with DWM acrylic,
+  round corners, native shadow (ADR 0013). Windows hides them at once with its own fade (a CSS fade left a ghost panel).
+- UI: `widgets/menu/{menu,root-menu,sub-menu}.tsx`, pieces in `features/menu/` (list, panel, hooks, `lib/navigation.ts`
+  with tests). Tokens: `--menu-*` in `styles/tokens.css`. `motion` is installed but unused by the menu.
+- Submenu intent: angle test + speed (`docs/research/submenu-intent.md`, local). Research also in
+  `docs/research/menu-acrylic.md` and `progressive-blur.md` (local, gitignored).
+- New commands: `menuHover`, `openSubmenu`, `closeSubmenu`, `submenuResized`, `submenuHover`, `setSubmenuHighlight`;
+  `menuResized` is now `(width, height)`. New events: `submenuShow/Hide/Placed/Highlight/Hovered`. Capability lists `menu-sub`.
+- Checked live (real bar + test client + `examples/integrations` GitHub/Spotify items, driven over WebView2 debugging):
+  keyboard (Up/Down/Home/End/Enter/Esc/Left/Right, type-to-jump), hover-switch, same-icon toggle, submenu flip, safe
+  triangle (fast vs slow moves), kill-client closes its menu, no blank submenu shell (stress), edge margin. `pnpm bench`:
+  menu visible 17 ms, idle CPU 0.02%, 70 MB private. `/code-review medium` findings fixed; `/security-review`: none.
+- Bugs found live: submenu window shown with raw Win32 must be hidden raw too (tao ignores `hide()`); a late show after
+  `close_submenu` left an empty window; submenu acrylic was flat (inactive window) -> `WM_NCACTIVATE` fixes it.
+- Close fade measured with rapid screenshots: difference from the final empty frame goes 94, 67, 53, 30, 7, 0 over ~120 ms, so
+  Windows' native fade works (not a one-frame vanish). Spotify's connected state was not exercised (needs a real sign-in).
+- Menus keep a 10 px margin from the left/right/bottom screen edges (`inset_work`), measured on the VISIBLE frame: a window with
+  a shadow has ~9 px of invisible border, so placement uses `frame_metrics` + `set_outer_rect` (it used to overshoot the edge). Progressive bar blur is research only.
+
 ## Facts a new session needs
 
 - One Cargo workspace at the root (`apps/bar/src-tauri`, `crates/protocol`). `pnpm gen` = `cargo test --workspace export_`

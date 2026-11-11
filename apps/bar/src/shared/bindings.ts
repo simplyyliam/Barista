@@ -42,11 +42,38 @@ export const commands = {
 	 */
 	menuItemClicked: (itemId: string, menuItemId: string) => typedError<null, string>(__TAURI_INVOKE("menu_item_clicked", { itemId, menuItemId })),
 	/**
-	 *  The menu window measured itself (logical px): its full `width` and `height` (with any
-	 *  open submenu) and the main panel's `rootWidth`. The bar moves and sizes the window to fit
-	 *  on screen and answers which side an open submenu goes on.
+	 *  The menu window measured its panel (logical px). The bar sizes and moves the window to fit
+	 *  on screen and, the first time after an open, shows it.
 	 */
-	menuResized: (width: number | null, height: number | null, rootWidth: number | null) => __TAURI_INVOKE<MenuPlacement>("menu_resized", { width, height, rootWidth }),
+	menuResized: (width: number | null, height: number | null) => __TAURI_INVOKE<void>("menu_resized", { width, height }),
+	/**
+	 *  The submenu window measured its panel (logical px). The bar places it next to the menu
+	 *  (flipping to the left near the screen edge) and shows it.
+	 */
+	submenuResized: (width: number | null, height: number | null) => __TAURI_INVOKE<void>("submenu_resized", { width, height }),
+	/**
+	 *  Open the submenu of entry `index` of the open menu. `trigger_top` is that row's top in
+	 *  logical px, relative to the menu window. The bar answers with `submenuShow` (draw this) and
+	 *  `submenuPlaced` (it landed here). Does nothing if the entry has no (enabled) submenu.
+	 */
+	openSubmenu: (index: number, triggerTop: number | null) => __TAURI_INVOKE<void>("open_submenu", { index, triggerTop }),
+	/**  Closes the submenu (instantly). Does nothing if none is open. */
+	closeSubmenu: () => __TAURI_INVOKE<void>("close_submenu"),
+	/**
+	 *  The mouse is over row `index` of the submenu (or left it: `null`). The bar relays it to the
+	 *  menu window as `submenuHovered`, so mouse and keyboard share one highlight.
+	 */
+	submenuHover: (index: number | null) => __TAURI_INVOKE<void>("submenu_hover", { index }),
+	/**
+	 *  Keyboard moved the highlight to row `index` of the submenu (or none). The bar relays it to
+	 *  the submenu window as `submenuHighlight`.
+	 */
+	setSubmenuHighlight: (index: number | null) => __TAURI_INVOKE<void>("set_submenu_highlight", { index }),
+	/**
+	 *  The mouse moved onto bar item `item_id`. If another item's menu is open, it switches to this
+	 *  one without a click. Does nothing when no menu is open (hover never opens a menu).
+	 */
+	menuHover: (itemId: string) => __TAURI_INVOKE<void>("menu_hover", { itemId }),
 	/**  Closes the open menu (Esc, or the UI decided). Does nothing if none is open. */
 	closeMenu: () => __TAURI_INVOKE<void>("close_menu"),
 	/**
@@ -70,6 +97,11 @@ export const events = {
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
 	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
+	submenuHide: makeEvent<SubmenuHide, SubmenuHide>("submenu-hide"),
+	submenuHighlight: makeEvent<SubmenuHighlight_Serialize, SubmenuHighlight_Deserialize>("submenu-highlight"),
+	submenuHovered: makeEvent<SubmenuHovered_Serialize, SubmenuHovered_Deserialize>("submenu-hovered"),
+	submenuPlaced: makeEvent<SubmenuPlaced, SubmenuPlaced>("submenu-placed"),
+	submenuShow: makeEvent<SubmenuShow_Serialize, SubmenuShow_Deserialize>("submenu-show"),
 	windowRadiusChanged: makeEvent<WindowRadiusChanged_Serialize, WindowRadiusChanged_Deserialize>("window-radius-changed"),
 };
 
@@ -134,8 +166,8 @@ export type MenuAnchor = {
 	item: Rect,
 	monitorId: string,
 	scale: number | null,
-	/**  Draw an open submenu on this side (it would leave the screen on the other one). */
-	submenuSide: SubmenuSide,
+	/**  True when the window has the system acrylic backdrop. False (Windows 10): draw an opaque panel. */
+	acrylic: boolean,
 };
 
 /**
@@ -235,11 +267,6 @@ export type MenuOpen_Serialize = {
 	anchor: MenuAnchor,
 };
 
-/**  Reply to `menuResized`: which side the UI should draw an open submenu on. */
-export type MenuPlacement = {
-	submenuSide: SubmenuSide,
-};
-
 /**  Standard entries the bar places and labels itself. */
 export type MenuRole = 
 /**  The bar asks the app to quit (the SDK closes it unless the app handles the click). */
@@ -293,6 +320,84 @@ export type StatusItemView_Serialize = {
 	icon: string | null,
 	label: string | null,
 	tooltip: string | null,
+};
+
+/**  The submenu closed (the main menu draws nothing for it any more). */
+export type SubmenuHide = {
+	itemId: string,
+};
+
+/**  Highlight this row in the submenu (keyboard moved it), or none (`null`). */
+export type SubmenuHighlight = SubmenuHighlight_Serialize | SubmenuHighlight_Deserialize;
+
+/**  Highlight this row in the submenu (keyboard moved it), or none (`null`). */
+export type SubmenuHighlight_Deserialize = {
+	index?: number | null,
+};
+
+/**  Highlight this row in the submenu (keyboard moved it), or none (`null`). */
+export type SubmenuHighlight_Serialize = {
+	index: number | null,
+};
+
+/**
+ *  The mouse is over this submenu row (or left the submenu: `null`). The main menu follows it,
+ *  so mouse and keyboard share one highlight.
+ */
+export type SubmenuHovered = SubmenuHovered_Serialize | SubmenuHovered_Deserialize;
+
+/**
+ *  The mouse is over this submenu row (or left the submenu: `null`). The main menu follows it,
+ *  so mouse and keyboard share one highlight.
+ */
+export type SubmenuHovered_Deserialize = {
+	index?: number | null,
+};
+
+/**
+ *  The mouse is over this submenu row (or left the submenu: `null`). The main menu follows it,
+ *  so mouse and keyboard share one highlight.
+ */
+export type SubmenuHovered_Serialize = {
+	index: number | null,
+};
+
+/**
+ *  Where the submenu window landed, in logical px relative to the menu window's top-left corner.
+ *  The main menu uses it for the "safe triangle" (diagonal mouse moves toward the submenu).
+ */
+export type SubmenuPlaced = {
+	side: SubmenuSide,
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+};
+
+/**
+ *  Draw `entries` in the submenu window (the entry `index` of the open menu was opened). The
+ *  window shows once the UI reports its size (`submenuResized`).
+ */
+export type SubmenuShow = SubmenuShow_Serialize | SubmenuShow_Deserialize;
+
+/**
+ *  Draw `entries` in the submenu window (the entry `index` of the open menu was opened). The
+ *  window shows once the UI reports its size (`submenuResized`).
+ */
+export type SubmenuShow_Deserialize = {
+	itemId: string,
+	index: number,
+	entries: MenuEntry_Deserialize[],
+};
+
+/**
+ *  Draw `entries` in the submenu window (the entry `index` of the open menu was opened). The
+ *  window shows once the UI reports its size (`submenuResized`).
+ */
+export type SubmenuShow_Serialize = {
+	itemId: string,
+	index: number,
+	entries: MenuEntry_Serialize[],
 };
 
 /**  Which side an open submenu goes on, so it stays on screen. */

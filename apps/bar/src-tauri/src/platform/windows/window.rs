@@ -15,10 +15,10 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW,
+    GetClientRect, GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW, SendMessageW,
     SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
-    SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
-    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
+    SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
+    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_NCACTIVATE, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
@@ -78,24 +78,149 @@ pub fn place(hwnd: HWND, r: Rect) {
     };
 }
 
-/// Menu window look: square corners (the UI draws its own, Windows 11 would round them again)
-/// and out of Alt+Tab. Unlike the bar it may take focus, so arrow keys reach the menu.
-pub fn set_menu_styles(hwnd: HWND) {
+/// Styles for a menu window: no taskbar button, round corners, no Windows show/hide animation
+/// (menus open instantly) and the system acrylic backdrop (ADR 0013). `no_activate` keeps a
+/// submenu window from ever taking focus. Returns whether acrylic is available (Win11 22H2+);
+/// without it the UI draws an opaque panel.
+pub fn set_menu_styles(hwnd: HWND, no_activate: bool) -> bool {
     use windows::Win32::Graphics::Dwm::{
-        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+        DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMSBT_TRANSIENTWINDOW,
+        DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_TRANSITIONS_FORCEDISABLED,
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
     };
-    // SAFETY: the attribute value is a plain u32 that lives for the whole call. Older Windows
-    // (10) does not know the attribute and just returns an error, which is fine.
+    use windows::Win32::UI::Controls::MARGINS;
+    // SAFETY: every attribute value is a plain value that lives for the whole call. Older
+    // Windows does not know an attribute and returns an error, which we treat as "not there".
     unsafe {
-        let pref = DWMWCP_DONOTROUND;
+        let round = DWMWCP_ROUND;
         let _ = DwmSetWindowAttribute(
             hwnd,
             DWMWA_WINDOW_CORNER_PREFERENCE,
-            std::ptr::addr_of!(pref).cast(),
-            std::mem::size_of_val(&pref) as u32,
+            std::ptr::addr_of!(round).cast(),
+            std::mem::size_of_val(&round) as u32,
         );
+        let no_anim: i32 = 1;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            std::ptr::addr_of!(no_anim).cast(),
+            std::mem::size_of_val(&no_anim) as u32,
+        );
+        let backdrop = DWMSBT_TRANSIENTWINDOW;
+        let acrylic = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_SYSTEMBACKDROP_TYPE,
+            std::ptr::addr_of!(backdrop).cast(),
+            std::mem::size_of_val(&backdrop) as u32,
+        )
+        .is_ok();
+        if acrylic {
+            // The backdrop only shows if the frame is extended over the whole window. Without
+            // acrylic (Windows 10) we leave the window alone: the UI draws an opaque panel.
+            let margins = MARGINS {
+                cxLeftWidth: -1,
+                cxRightWidth: -1,
+                cyTopHeight: -1,
+                cyBottomHeight: -1,
+            };
+            let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
+        }
+        let mut extra = WS_EX_TOOLWINDOW.0 as isize;
+        if no_activate {
+            extra |= WS_EX_NOACTIVATE.0 as isize;
+        }
         let old = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, old | WS_EX_TOOLWINDOW.0 as isize);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, old | extra);
+        acrylic
+    }
+}
+
+/// Makes DWM draw the window as "active" without activating it. The system acrylic turns flat
+/// on an inactive window, and the submenu window can never be active (it would take the keyboard
+/// from the main menu), so it gets the active look this way.
+pub fn appear_active(hwnd: HWND) {
+    // SAFETY: WM_NCACTIVATE with plain values; it only changes how the frame is drawn.
+    unsafe {
+        let _ = SendMessageW(hwnd, WM_NCACTIVATE, Some(WPARAM(1)), Some(LPARAM(0)));
+    }
+}
+
+/// How a menu window's frame differs from what is drawn. Windows keeps an invisible border around
+/// a window with a shadow, so the window rect is bigger than what you see (the "visible frame").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameMetrics {
+    /// Window rect to visible frame: (left, top, right, bottom) px of invisible border.
+    pub inset: (i32, i32, i32, i32),
+    /// Visible frame minus client area: (width, height) px, a thin rim around the page.
+    pub extra: (i32, i32),
+}
+
+/// Measures the frame of `hwnd`. Works while the window is hidden. `None` if Windows can't say.
+pub fn frame_metrics(hwnd: HWND) -> Option<FrameMetrics> {
+    let (mut window, mut client, mut visible) = (RECT::default(), RECT::default(), RECT::default());
+    // SAFETY: each call only writes into the local RECT it is given (the DWM call gets its size).
+    unsafe {
+        GetWindowRect(hwnd, &mut window).ok()?;
+        GetClientRect(hwnd, &mut client).ok()?;
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            std::ptr::addr_of_mut!(visible).cast(),
+            std::mem::size_of::<RECT>() as u32,
+        )
+        .ok()?;
+    }
+    let (vw, vh) = (visible.right - visible.left, visible.bottom - visible.top);
+    let inset = (
+        visible.left - window.left,
+        visible.top - window.top,
+        window.right - visible.right,
+        window.bottom - visible.bottom,
+    );
+    // A window that was never laid out reports nothing useful: don't trust it.
+    let sane = vw > 0 && vh > 0 && [inset.0, inset.1, inset.2, inset.3].iter().all(|v| (0..=64).contains(v));
+    sane.then_some(FrameMetrics {
+        inset,
+        extra: (vw - (client.right - client.left), vh - (client.bottom - client.top)),
+    })
+}
+
+/// Puts the window's outer rect exactly here, without activating it.
+pub fn set_outer_rect(hwnd: HWND, left: i32, top: i32, width: i32, height: i32) {
+    // SAFETY: plain call with values; no pointers.
+    unsafe {
+        let _ = SetWindowPos(hwnd, None, left, top, width, height, SWP_NOACTIVATE | SWP_NOZORDER);
+    }
+}
+
+/// Windows' own show/hide animation for a menu window. Off while it opens (instant), on for the
+/// moment it hides, so the whole window, glass and shadow included, fades out like a native menu.
+pub fn set_menu_transitions(hwnd: HWND, enabled: bool) {
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
+    let forced_off: i32 = (!enabled).into();
+    // SAFETY: plain i32 that lives for the whole call.
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            std::ptr::addr_of!(forced_off).cast(),
+            std::mem::size_of_val(&forced_off) as u32,
+        );
+    }
+}
+
+/// Picks the dark or the light acrylic tint for a menu window.
+pub fn set_menu_dark(hwnd: HWND, dark: bool) {
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE};
+    let value: i32 = dark.into();
+    // SAFETY: plain i32 that lives for the whole call.
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_USE_IMMERSIVE_DARK_MODE,
+            std::ptr::addr_of!(value).cast(),
+            std::mem::size_of_val(&value) as u32,
+        );
     }
 }
 

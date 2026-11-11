@@ -36,6 +36,12 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_bar_appearance,
             commands::menu_item_clicked,
             commands::menu_resized,
+            commands::submenu_resized,
+            commands::open_submenu,
+            commands::close_submenu,
+            commands::submenu_hover,
+            commands::set_submenu_highlight,
+            commands::menu_hover,
             commands::close_menu,
             commands::get_open_menu,
             commands::set_item_bounds
@@ -47,6 +53,11 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::MenuOpen,
             events::MenuChanged,
             events::MenuClose,
+            events::SubmenuShow,
+            events::SubmenuHide,
+            events::SubmenuPlaced,
+            events::SubmenuHighlight,
+            events::SubmenuHovered,
             appearance::BarAppearanceChanged
         ])
 }

@@ -65,8 +65,8 @@ pub struct MenuAnchor {
     pub item: Rect,
     pub monitor_id: String,
     pub scale: f64,
-    /// Draw an open submenu on this side (it would leave the screen on the other one).
-    pub submenu_side: SubmenuSide,
+    /// True when the window has the system acrylic backdrop. False (Windows 10): draw an opaque panel.
+    pub acrylic: bool,
 }
 
 /// A menu opened (or replaced another one): draw `menu` in the menu window. Sent to every
@@ -93,4 +93,48 @@ pub struct MenuChanged {
 #[serde(rename_all = "camelCase")]
 pub struct MenuClose {
     pub item_id: String,
+}
+
+/// Draw `entries` in the submenu window (the entry `index` of the open menu was opened). The
+/// window shows once the UI reports its size (`submenuResized`).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmenuShow {
+    pub item_id: String,
+    pub index: u32,
+    pub entries: Vec<MenuEntry>,
+}
+
+/// The submenu closed (the main menu draws nothing for it any more).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmenuHide {
+    pub item_id: String,
+}
+
+/// Where the submenu window landed, in logical px relative to the menu window's top-left corner.
+/// The main menu uses it for the "safe triangle" (diagonal mouse moves toward the submenu).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmenuPlaced {
+    pub side: SubmenuSide,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// Highlight this row in the submenu (keyboard moved it), or none (`null`).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmenuHighlight {
+    pub index: Option<u32>,
+}
+
+/// The mouse is over this submenu row (or left the submenu: `null`). The main menu follows it,
+/// so mouse and keyboard share one highlight.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmenuHovered {
+    pub index: Option<u32>,
 }

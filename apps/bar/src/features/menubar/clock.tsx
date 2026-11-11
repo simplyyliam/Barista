@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MenubarItem } from "./menubar-item";
 
 export function Clock() {
   const [time, setTime] = useState(new Date());
@@ -17,8 +18,8 @@ export function Clock() {
   }, []);
 
   return (
-    <div className="">
+    <MenubarItem>
       {time.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-    </div>
+    </MenubarItem>
   )
 }
