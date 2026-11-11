@@ -52,7 +52,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 ## Fix next
 
 - From dogfooding the v0.4 popovers (Spotify mini player in demo mode, quick-note, test client under Electron):
-  - Spotify was only run in `--demo` mode: there are no Spotify credentials here, so real sign-in and playback are untested.
+  - Spotify: I (Claude) only ran `--demo` mode, with no credentials here. Liam says the real player works (2026-11-11);
+    that is his report, not something I checked.
+  - Other monitors and scales: Liam tests those himself (2026-11-11). Until he does, real runs were on one monitor at
+    150% only; the rest is placement unit tests (100, 125, 150, 200 % and negative coordinates).
   - An Electron app needs about 15 lines of boilerplate for the window (`show: false, frame: false, skipTaskbar,
     alwaysOnTop`, deny navigation and new windows, preload, wait for `ready`). Want `electronPopover` to accept a window
     factory, or a helper that makes the window.
