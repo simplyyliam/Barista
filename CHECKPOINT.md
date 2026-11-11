@@ -71,6 +71,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - Esc is handled by the app (adapter), not the bar: another framework must do it in `PopoverWindow.onClose`.
   - Click to menu window visible is 52 / 71 ms (budget 50); `main` is 64 / 81. Private memory is 93 MB (was 74 at v0.3).
     Both are in `docs/perf/0.4.md`; not caused by v0.4 as far as measured, but worth a look before v0.5.
+  - From `/code-review` and not fixed in v0.4: a late `popover.shown` from an older show is accepted for a newer show of
+    the same item (needs a per-show token in the protocol); a `setPopover` size change while the popover is open is not
+    applied until the next open; on a swap the UI sees no "closed" for the old item before the new one opens.
+  - `pnpm dev` now also starts the test client under Electron, quick-note and the Spotify player (it uses SPOTIFY_CLIENT_ID
+    from `.env`; without it the popover says so).
   - Release scripts: `pnpm test-client` was in CLAUDE.md but missing from `package.json`; added (and `test-client:electron`).
 
 - From dogfooding the focus timer (v0.3 menus):
