@@ -52,10 +52,15 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 ## Fix next
 
 - From dogfooding the v0.4 popovers (Spotify mini player in demo mode, quick-note, test client under Electron):
-  - Spotify: I (Claude) only ran `--demo` mode, with no credentials here. Liam says the real player works (2026-11-11);
-    that is his report, not something I checked.
-  - Other monitors and scales: Liam tests those himself (2026-11-11). Until he does, real runs were on one monitor at
-    150% only; the rest is placement unit tests (100, 125, 150, 200 % and negative coordinates).
+  - Liam tested other display scales (2026-11-11): after switching scale, popovers and menus appeared in the wrong place
+    until he switched back and forth. Cause (likely): placement read the controller's cached scale and work area, which
+    are only refreshed on display/DPI events and can lag one change behind. Fix: `Controller::live_info()` re-reads
+    Windows at click time and `placement::geometry()` uses it. I could not reproduce a scale change here (one monitor,
+    and I don't change his display), so the fix is untested on a real scale switch: Liam re-tests.
+  - Spotify: I (Claude) only ran `--demo` mode, with no credentials here. Liam says the real player works with his
+    client ID in `.env` (2026-11-11); that is his report, not something I checked.
+  - Other monitors and scales: Liam tested several scales himself (see above). I ran real clicks on one monitor at 150% only;
+    the rest is placement unit tests (100, 125, 150, 200 % and negative coordinates).
   - An Electron app needs about 15 lines of boilerplate for the window (`show: false, frame: false, skipTaskbar,
     alwaysOnTop`, deny navigation and new windows, preload, wait for `ready`). Want `electronPopover` to accept a window
     factory, or a helper that makes the window.

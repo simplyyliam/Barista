@@ -206,6 +206,25 @@ impl Controller {
         Self::info_of(&self.lock())
     }
 
+    /// The same, but read from Windows right now. The cached state is only refreshed on display and
+    /// DPI events, and after a scale change it can lag one change behind, so menus and popovers
+    /// opened right after a scale change landed in the wrong place. Anything that places a window
+    /// on a click uses this. If the scale, monitor or work area really moved, the bar is re-placed
+    /// too (it still has the old size).
+    pub fn live_info(&self) -> BarInfo {
+        let look = |s: &State| (s.current.scale, s.current.rect, s.current.work_area);
+        let before = look(&self.lock());
+        self.refresh_monitors();
+        let (after, info) = {
+            let s = self.lock();
+            (look(&s), Self::info_of(&s))
+        };
+        if before != after {
+            self.apply();
+        }
+        info
+    }
+
     /// Re-reads the monitors and picks where the bar goes: the saved one if plugged in,
     /// else the primary. The saved id stays, so the bar returns when the monitor does.
     fn refresh_monitors(&self) {
