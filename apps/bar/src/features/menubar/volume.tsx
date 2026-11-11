@@ -1,7 +1,10 @@
 import { Icon, VolumeHighIcon } from "@barista/ui/icons"
+import { MenubarItem } from "./menubar-item"
 
 export function Volume() {
   return (
-    <Icon icon={VolumeHighIcon} size={16} />
+    <MenubarItem>
+      <Icon icon={VolumeHighIcon} size={16} />
+    </MenubarItem>
   )
 }

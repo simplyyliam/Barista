@@ -1,7 +1,7 @@
 import { commands, events, type StatusItemView } from "@/shared/bindings";
-import { Button } from "@barista/ui/components/ui/button";
 import { Icon } from "@barista/ui/icons";
 import { useEffect, useState } from "react";
+import { MenubarItem } from "./menubar-item";
 
 export function StatusItems() {
   const [items, setItems] = useState<StatusItemView[]>([]);
@@ -12,7 +12,7 @@ export function StatusItems() {
     return () => { off.then((stop) => stop()) }
   }, []);
   return items.map((item) => (
-    <Button
+    <MenubarItem className="gap-1.5"
       key={item.id}
       onClick={() => commands.itemClicked(item.id, "left")}
       onContextMenu={(e) => {
@@ -22,9 +22,10 @@ export function StatusItems() {
       onAuxClick={(e) => {
         if (e.button === 1) commands.itemClicked(item.id, "middle")
       }}
+
     >
       {item.icon && <Icon icon={item.icon} />}
       {item.label}
-    </Button>
+    </MenubarItem>
   ))
 }

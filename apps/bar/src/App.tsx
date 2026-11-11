@@ -1,7 +1,6 @@
-import { Menubar } from "@/widgets";
+import { Menubar, MenuWindow } from "@/widgets";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export default function App() {
-  return (
-    <Menubar/>
-  )
+  return getCurrentWindow().label === "menu" ? <MenuWindow /> : <Menubar />
 }

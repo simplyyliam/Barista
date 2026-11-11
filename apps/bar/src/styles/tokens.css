@@ -43,7 +43,7 @@
      bundled by @barista/ui. One token, so a font setting can swap it later. */
   --font-bar: "Inter Variable", system-ui, sans-serif;
   /* App.png: 14px text (cap height ~10px). macOS menu bar text is 13-14pt. */
-  --text-bar: 14px;
+  --text-bar: 13px;
   --text-bar--line-height: 16px;
   /* macOS menu bar items are regular weight; the app name is semibold. App.png shows regular. */
   --font-weight-bar: 400;
@@ -55,14 +55,17 @@
   /* --- Bar sizes and spacing --- */
   /* App.png: 32px tall (macOS: 24pt). Reference only; the real height is the window's. */
   --spacing-bar-h: 32px;
-  /* App.png: 24px from the screen edge to the first/last item. */
-  --spacing-bar-x: 24px;
+  /* App.png: 12px from the screen edge to the first/last item. */
+  --spacing-bar-x: 12px;
   /* App.png: 18px between the right-hand icons (32px pitch for a 14px glyph). */
   --spacing-bar-gap: 18px;
   /* App.png: 12px between the logo and the app name. */
   --spacing-bar-icon-label: 12px;
   /* App.png: 16px icon box. macOS: 16x16pt icon in a 22pt area (Bjango). */
   --spacing-bar-icon: 16px;
+  /* 22pt-style item height in the UI's CSS-pixel scale */
+  --spacing-bar-item-h: 22px; 
+  --spacing-bar-item-x: 10px;
 
   /* --- Panels --- */
   /* App.png: 340px wide, 14px below the bar, 16px content padding, 8px inset for inner blocks. */

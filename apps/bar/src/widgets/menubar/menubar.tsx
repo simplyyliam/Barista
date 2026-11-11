@@ -1,4 +1,4 @@
-import { Battery, Clock, StatusItems, Volume } from "@/features/menubar"
+import { Battery, Clock, DisplayDate, MenubarItemGroup, StatusItems, Volume } from "@/features/menubar"
 import { commands } from "@/shared/bindings"
 import { useState, useEffect } from "react"
 
@@ -12,14 +12,18 @@ export default function Menubar() {
 
   // Placeholder: fills the bar's height and centres its content vertically (tokens.css).
   return (
-    <div className="flex h-full items-center justify-between px-bar-x font-bar text-bar text-bar-fg">
-      <p>Barista {version}</p>
-      <div className="flex items-center justify-center gap-4">
-        <StatusItems/>
-        <Volume />
-        <Battery />
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center justify-between px-bar-x font-bar text-bar text-bar-fg">
+      <MenubarItemGroup className="justify-self-start">
+        <p>Barista {version}</p>
+      </MenubarItemGroup>
+      <MenubarItemGroup className="justify-self-center">
+        <DisplayDate/>
+      </MenubarItemGroup>
+      <MenubarItemGroup className="justify-self-end">
+        <StatusItems />
+        {/*<Volume />*/}
         <Clock />
-      </div>
+      </MenubarItemGroup>
     </div>
   )
 }
