@@ -84,8 +84,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - Only one monitor at 150% was available: other monitors and scales are covered by placement unit tests, not run for real.
   - A label that grows (quick-note shows the start of the note) shifts the icon; an open popover stays where it was placed.
   - Esc is handled by the app (adapter), not the bar: another framework must do it in `PopoverWindow.onClose`.
-  - Click to menu window visible is 52 / 71 ms (budget 50); `main` is 64 / 81. Private memory is 93 MB (was 74 at v0.3).
-    Both are in `docs/perf/0.4.md`; not caused by v0.4 as far as measured, but worth a look before v0.5.
+  - Menu latency (52 ms) and memory (93 MB) are not v0.4 regressions: the v0.3.0 tag built and benched on the same machine
+    on 2026-11-11 gives about 44 ms and 99-101 MB too. Likely cause: WebView2 updated to 157.0.4341.46 on 2026-11-10 21:17.
+    Details in `docs/perf/0.4.md` (A/B table). Menu latency sits at 42-46 ms, close to the 50 ms budget.
   - From `/code-review` and not fixed in v0.4: a late `popover.shown` from an older show is accepted for a newer show of
     the same item (needs a per-show token in the protocol); a `setPopover` size change while the popover is open is not
     applied until the next open; on a swap the UI sees no "closed" for the old item before the new one opens.
