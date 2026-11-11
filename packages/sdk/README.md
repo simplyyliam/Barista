@@ -51,7 +51,9 @@ item.on("click", ({ button }) => console.log(button)) // "left" | "right" | "mid
 | `item.remove()`                 | Takes the item out of the bar.                                        |
 | `item.setMenu(menu \| null)`    | Gives the item a menu (a `BA.Menu` or a template). `null` removes it. |
 | `BA.Menu.fromTemplate(t)`       | Builds and checks a menu. `menu.getItemById(id)` finds an entry.      |
-| `item.on("click", fn)`          | `fn({ button })` when the user clicks.                                |
+| `item.setPopover(opts \| null)`  | Gives the item a popover: your own window under the icon.             |
+| `item.on("click", fn)`          | `fn({ button, anchor? })` when the user clicks (middle click, or no menu or popover). |
+| `item.on("open" \| "close", fn)` | Right before a menu or popover shows, and when it closes.            |
 | `item.on("error", fn)`          | `fn(error)` when the bar refuses something about this item.           |
 | `bar.on("close", fn)`           | The bar went away. Item calls do nothing after this.                  |
 | `bar.on("error", fn)`           | Errors that no item listener took (printed with `console.warn`).      |
@@ -97,6 +99,32 @@ item.setMenu([
 - At most 3 levels deep and 50 entries in total; ids unique. Changed an entry? Call
   `item.setMenu(menu)` again.
 
+## Popovers
+
+A popover is your own window, shown right under the icon. The bar decides when (a left click) and
+where (it sends the final rect); your app only moves and shows its window.
+
+```ts
+import * as BA from "@barista/sdk"
+import { electronPopover } from "@barista/sdk/electron"
+import { BrowserWindow, screen } from "electron"
+
+const win = new BrowserWindow({ show: false, frame: false, skipTaskbar: true, alwaysOnTop: true })
+const item = await BA.StatusItem.create({ id: "note", label: "Note" })
+item.setPopover({ window: electronPopover(win, { screen }), width: 320, height: 380 })
+item.setMenu([{ role: "quit" }]) // right click
+```
+
+- Click rule: **left** opens the popover (else the menu, else `on("click")`), **right** opens the menu
+  (else `on("click")`), **middle** always fires `on("click")`.
+- The bar hides the popover when the user clicks the icon again, another item, or anywhere else.
+  Esc is handled by your window: the Electron adapter closes it on Esc.
+- Do not hide the window on blur yourself; the bar does it, after a short grace.
+- Any other window framework: pass a `BA.PopoverWindow` (`show(placement)`, `hide()`, `onClose(fn)`).
+  `placement` is in physical pixels, already placed and kept on screen.
+- If your window never confirms (the SDK confirms after `show` returns), the bar hides it after 1.5 s.
+- The SDK never imports Electron; `electronPopover` takes your window and `screen`.
+
 ## Rules
 
 - **Item ids**: 1 to 64 characters from `a-z 0-9 - _ .`, unique in your app.
@@ -108,6 +136,6 @@ item.setMenu([
 
 ## Not in yet
 
-Popovers and reconnecting after the bar restarts arrive in later releases. For now,
+Reconnecting after the bar restarts arrives in a later release. For now,
 if the bar is not running `connect()` rejects with "Could not reach the Barista bar", and if it
 quits your items disappear and the `close` event fires.

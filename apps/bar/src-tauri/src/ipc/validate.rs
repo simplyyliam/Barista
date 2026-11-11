@@ -5,7 +5,8 @@
 use barista_protocol::{
     ClientMessage, ErrorCode, MenuItemType, MenuTemplateItem, CLIENT_MESSAGE_TYPES,
     MAX_ACCELERATOR_LEN, MAX_APP_NAME_LEN, MAX_ICON_BYTES, MAX_ICON_PIXELS, MAX_ID_LEN,
-    MAX_LABEL_LEN, MAX_MENU_DEPTH, MAX_MENU_ICON_BYTES, MAX_MENU_ITEMS,
+    MAX_LABEL_LEN, MAX_MENU_DEPTH, MAX_MENU_ICON_BYTES, MAX_MENU_ITEMS, MAX_POPOVER_SIZE,
+    MIN_POPOVER_SIZE,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use std::collections::HashSet;
@@ -158,6 +159,21 @@ fn icon_up_to(value: &str, max_bytes: usize) -> Result<(), String> {
     Ok(())
 }
 
+/// A popover size in logical px: `0 x 0` removes it, otherwise both sides within the limits.
+/// Returns `None` for "remove".
+pub fn popover_size(width: u32, height: u32) -> Result<Option<(u32, u32)>, String> {
+    if width == 0 && height == 0 {
+        return Ok(None);
+    }
+    let ok = |v: u32| (MIN_POPOVER_SIZE..=MAX_POPOVER_SIZE).contains(&v);
+    if !ok(width) || !ok(height) {
+        return Err(format!(
+            "a popover must be {MIN_POPOVER_SIZE} to {MAX_POPOVER_SIZE} px wide and tall (or 0 x 0 to remove it)"
+        ));
+    }
+    Ok(Some((width, height)))
+}
+
 /// A menu template: depth at most 3, at most 50 entries in the whole tree, ids on every entry
 /// but separators (same charset as item ids) and unique in the whole tree, plus the usual text
 /// and icon rules. Errors name the entry, so the developer can find it.
@@ -260,6 +276,16 @@ mod tests {
         let three_deep = sub("b", vec![sub("c", vec![entry("d")])]);
         let ok = [entry("a"), separator(), checkbox, separator(), three_deep];
         assert_eq!(menu(&ok), Ok(()));
+    }
+
+    #[test]
+    fn popover_sizes() {
+        assert_eq!(popover_size(0, 0), Ok(None));
+        assert_eq!(popover_size(320, 380), Ok(Some((320, 380))));
+        assert_eq!(popover_size(48, 1024), Ok(Some((48, 1024))));
+        for (w, h) in [(47, 100), (100, 1025), (0, 100), (100, 0)] {
+            assert!(popover_size(w, h).is_err(), "{w}x{h}");
+        }
     }
 
     #[test]

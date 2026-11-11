@@ -7,7 +7,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 - **v0.3.0 shipped** (tag `v0.3.0` on the merge of PR #13, not pushed yet: Liam runs `pnpm release`). Plan releases
   v0.0 to v0.3 are done; notes in `docs/release/history/` (local only).
-- **Next: v0.4 Popovers** (`docs/release/releases/v0.4.md`). v0.4b System panels is planned (`releases/v0.4b.md`, local only).
+- **v0.4 Popovers: built on `feature/v0.4-popovers`, PR open for review** (not merged). Rust, protocol 0.4, SDK
+  (`setPopover`, `@barista/sdk/electron`, `on("open" | "close")`), examples (`test-client`, `spotify`, `quick-note`),
+  ADR 0014, bench `docs/perf/0.4.md`. v0.4b System panels is next (`releases/v0.4b.md`, local only); it reuses
+  `popover.rs`, `placement.rs` and `dismiss.rs`.
 - ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
 
 ## Facts a new session needs
@@ -36,14 +39,61 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   command line (`vite.js`, `target\debugarista.exe`) before starting again.
 - Never set the real wallpaper in a test (it can't be restored); `wallpaper_live` only reads.
 
+- New for the UI (v0.4, not wired yet): event `popoverChanged { itemId | null }` and command `getOpenPopover`: show the
+  item as "open" while a popover is up. Item clicks already go through `itemClicked`: nothing else changes for the UI.
+- Popovers: `popover.rs` (coordinator, one popover at a time, 1.5 s `popover.shown` timeout), `dismiss.rs` (the open/close
+  Machine shared with menus), `placement.rs` (bar strip, work area, item rects), `platform/windows/foreground.rs`
+  (`AllowSetForegroundWindow` + `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`). Click rule in `menu_window::route_click`.
+- Testing popovers by hand: `debug.click` (and `pnpm inspect --click`) shows the window but can NOT give it focus (Windows
+  needs real input). Use real clicks: `scripts/popover-latency.ps1` / `popover-visible.ps1`. Electron examples: run with
+  `./node_modules/.bin/electron src/main.ts`; never `await app.whenReady()` at the top level of the main file (deadlock).
+- Killing a dev bar: kill `barista.exe` by PID, then check port 1420 (vite); don't match processes by command line.
+
 ## Fix next
+
+- From dogfooding the v0.4 popovers (Spotify mini player in demo mode, quick-note, test client under Electron):
+  - Liam tested other display scales (2026-11-11): after switching scale, popovers and menus appeared in the wrong place
+    until he switched back and forth. Cause (likely): placement read the controller's cached scale and work area, which
+    are only refreshed on display/DPI events and can lag one change behind. Fix: `Controller::live_info()` re-reads
+    Windows at click time and `placement::geometry()` uses it. I could not reproduce a scale change here (one monitor,
+    and I don't change his display). Liam re-tested and confirmed the scales are fixed (2026-11-11); he waived the rest of
+    the "every monitor and scale" check. I never ran a scale switch myself: that is his report.
+  - Spotify: I (Claude) only ran `--demo` mode, with no credentials here. Liam says the real player works with his
+    client ID in `.env` (2026-11-11); that is his report, not something I checked.
+  - Other monitors and scales: Liam tested several scales himself (see above). I ran real clicks on one monitor at 150% only;
+    the rest is placement unit tests (100, 125, 150, 200 % and negative coordinates).
+  - An Electron app needs about 15 lines of boilerplate for the window (`show: false, frame: false, skipTaskbar,
+    alwaysOnTop`, deny navigation and new windows, preload, wait for `ready`). Want `electronPopover` to accept a window
+    factory, or a helper that makes the window.
+  - Electron's `ready` never fires while the main file is in a top-level `await`: the first version of the test client hung.
+    The README for the adapter should say so.
+  - `item.on("open")` can't hold the popover back: the window shows before the app finished refreshing. Maybe
+    `on("open", async)` with a short wait, or a documented "render the last state first".
+  - An app can't close its own popover on purpose (a "Save" button) except `win.hide()`; the adapter now reports the
+    `hide` event as a close, but a plain `item.closePopover()` would read better.
+  - The window frame: an Electron frameless window measures about 7 DIP bigger than the visible rect (invisible resize
+    border). It lines up visually; check with a transparent window.
+  - No automated test can check focus (needs real input). Only the manual scripts do. A small input-simulating test
+    helper would make "focus on every monitor and scale" checkable in CI.
+  - Only one monitor at 150% was available: other monitors and scales are covered by placement unit tests, not run for real.
+  - A label that grows (quick-note shows the start of the note) shifts the icon; an open popover stays where it was placed.
+  - Esc is handled by the app (adapter), not the bar: another framework must do it in `PopoverWindow.onClose`.
+  - Click to menu window visible is 52 / 71 ms (budget 50); `main` is 64 / 81. Private memory is 93 MB (was 74 at v0.3).
+    Both are in `docs/perf/0.4.md`; not caused by v0.4 as far as measured, but worth a look before v0.5.
+  - From `/code-review` and not fixed in v0.4: a late `popover.shown` from an older show is accepted for a newer show of
+    the same item (needs a per-show token in the protocol); a `setPopover` size change while the popover is open is not
+    applied until the next open; on a swap the UI sees no "closed" for the old item before the new one opens.
+  - `pnpm dev` now also starts the test client under Electron, quick-note and the Spotify player (it uses SPOTIFY_CLIENT_ID
+    from `.env`; without it the popover says so).
+  - Release scripts: `pnpm test-client` was in CLAUDE.md but missing from `package.json`; added (and `test-client:electron`).
 
 - From dogfooding the focus timer (v0.3 menus):
   - Changing one entry (Start enabled, "Resume" label) means rebuilding the whole menu and calling `setMenu` again.
     Want `item.updateMenuItem(id, { enabled, label, checked })` or setters on `MenuItem` that sync by themselves.
   - `click(entry, { checked })`: `checked` is optional even for a checkbox, so apps write `checked ?? !x`.
     `entry.checked` is already mirrored; document that and maybe drop `checked` from the event.
-  - No way to refresh a menu right before it opens (`item.on("open")`), e.g. "12:34 left" in a label (noted in v0.4).
+  - Done in v0.4: `item.on("open")` runs right before a menu opens (the menu itself is already drawn, so a changed menu
+    redraws a moment later).
   - `inspect` keys change every connection (`s22/timer`, `s48/timer`); accept `appName/itemId` too.
   - Accelerators are text only; "CmdOrCtrl+Enter" next to Start suggests a hotkey that doesn't exist. Say so in docs.
   - Fixed while dogfooding: role entries default their id to the role (`quit`), separators don't use up ids.
@@ -54,7 +104,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - No bar running = `connect()` rejects; needs wait/retry (v0.5), README should show try/catch until then.
   - `create()` resolves on send, not on accept (`limit_reached` arrives later as `error`); consider `await item.ready`.
   - README: say a label over 128 chars throws `TypeError`; mention `appName` in the quick start.
-  - `item.on("click")` should also give the item's position (popovers, v0.4).
+  - Done in v0.4: `item.on("click")` gives `anchor`; `item.on("open" | "close")` exists (menus and popovers).
 - Not tested on real hardware: no monitor at launch (starts on a placeholder monitor).
 
 ## Useful facts

@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./electron": {
+      "types": "./dist/electron.d.ts",
+      "default": "./dist/electron.js"
     }
   },
   "files": [

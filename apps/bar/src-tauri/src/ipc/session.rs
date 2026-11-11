@@ -9,7 +9,7 @@
 
 use super::frame::{read_frame, write_frame, FrameError};
 use super::validate;
-use crate::menu_window;
+use crate::{menu_window, popover};
 use crate::registry::{
     ClickError, ItemPatch, MenuItemClickError, Outbox, Registry, RegistryError, SessionId,
 };
@@ -360,6 +360,34 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
                 .set_menu(session, &id, menu)
                 .map_err(|e| registry_reject(&rid, e, &id))
         })(),
+        ClientMessage::ItemSetPopover {
+            id, width, height, ..
+        } => (|| {
+            validate::item_id(&id).map_err(|m| reject(&rid, ErrorCode::InvalidMessage, m))?;
+            let size = validate::popover_size(width, height)
+                .map_err(|m| reject(&rid, ErrorCode::InvalidPopover, m))?;
+            registry
+                .set_popover(session, &id, size)
+                .map_err(|e| registry_reject(&rid, e, &id))
+        })(),
+        // The app answers a `popover.show` / `popover.hide` of ours. The coordinator ignores
+        // answers it does not expect (a late `closed` after our `hide` is a normal race).
+        ClientMessage::PopoverShown { id, .. } => (|| {
+            validate::item_id(&id).map_err(|m| reject(&rid, ErrorCode::InvalidMessage, m))?;
+            if !registry.has_item(session, &id) {
+                return Err(registry_reject(&rid, RegistryError::NotFound, &id));
+            }
+            popover::shown(&format!("s{session}/{id}"));
+            Ok(())
+        })(),
+        ClientMessage::PopoverClosed { id, .. } => (|| {
+            validate::item_id(&id).map_err(|m| reject(&rid, ErrorCode::InvalidMessage, m))?;
+            if !registry.has_item(session, &id) {
+                return Err(registry_reject(&rid, RegistryError::NotFound, &id));
+            }
+            popover::closed(&format!("s{session}/{id}"));
+            Ok(())
+        })(),
         ClientMessage::DebugListItems { .. }
         | ClientMessage::DebugClick { .. }
         | ClientMessage::DebugMenuClick { .. }
@@ -602,6 +630,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn set_popover_validates_the_size_and_flags_the_item() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.hello().await;
+        c.send(json!({"type":"item.create","id":"a"})).await;
+        c.send(json!({"type":"item.setPopover","id":"a","width":320,"height":380}))
+            .await;
+        eventually(|| registry.has_popover("s1/a")).await;
+        assert!(c.items().await[0].has_popover);
+        // Too small, too big, and half-zero are refused with their own code, with the requestId.
+        for (w, h) in [(10, 380), (320, 5000), (0, 300)] {
+            c.send(json!({"type":"item.setPopover","id":"a","width":w,"height":h,"requestId":"p"}))
+                .await;
+            assert_eq!(
+                c.expect_error().await,
+                (ErrorCode::InvalidPopover, Some("p".into()))
+            );
+        }
+        // 0 x 0 removes it; an unknown item is not_found.
+        c.send(json!({"type":"item.setPopover","id":"a","width":0,"height":0}))
+            .await;
+        assert!(!c.items().await[0].has_popover);
+        c.send(json!({"type":"item.setPopover","id":"ghost","width":100,"height":100}))
+            .await;
+        assert_eq!(c.expect_error().await.0, ErrorCode::NotFound);
+    }
+
+    #[tokio::test]
+    async fn shown_and_closed_for_unknown_items_are_refused_known_ones_accepted() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.hello().await;
+        c.send(json!({"type":"item.create","id":"a"})).await;
+        // Nothing is open: a late answer is harmless and earns no error.
+        c.send(json!({"type":"popover.shown","id":"a"})).await;
+        c.send(json!({"type":"popover.closed","id":"a"})).await;
+        c.send(json!({"type":"popover.shown","id":"ghost","requestId":"g"}))
+            .await;
+        assert_eq!(
+            c.expect_error().await,
+            (ErrorCode::NotFound, Some("g".into()))
+        );
+        c.send(json!({"type":"popover.closed","id":"Bad Id"})).await;
+        assert_eq!(c.expect_error().await.0, ErrorCode::InvalidMessage);
+    }
+
+    #[tokio::test]
     async fn oversized_frame_is_refused_and_closed() {
         let registry = Arc::new(Registry::new());
         let mut c = connect(&registry);
@@ -702,7 +777,8 @@ mod tests {
             c.recv().await,
             BarMessage::ItemClick {
                 id: "a".into(),
-                button: MouseButton::Left
+                button: MouseButton::Left,
+                anchor: None
             }
         );
         c.send(json!({"type":"debug.click","id":"s1/a","button":"right"}))
@@ -711,7 +787,8 @@ mod tests {
             c.recv().await,
             BarMessage::ItemClick {
                 id: "a".into(),
-                button: MouseButton::Right
+                button: MouseButton::Right,
+                anchor: None
             }
         );
         c.send(json!({"type":"debug.click","id":"s1/ghost","button":"right"}))

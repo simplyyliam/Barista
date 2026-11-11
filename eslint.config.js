@@ -74,6 +74,19 @@ export default tseslint.config(
     rules: { "react-hooks/rules-of-hooks": "error" },
   },
 
+  // The pages of the Electron examples run in a browser window.
+  {
+    files: ["examples/*/src/*.js"],
+    languageOptions: { globals: globals.browser },
+  },
+
+  // Sandboxed Electron preloads must be CommonJS.
+  {
+    files: ["examples/*/src/*.cjs"],
+    languageOptions: { globals: globals.node, sourceType: "commonjs" },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+
   // The SDK never imports Tauri, and nothing outside apps/ imports from apps/.
   {
     files: ["packages/**/*.ts", "examples/**/*.ts"],
@@ -81,6 +94,28 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
+          patterns: [
+            { group: ["@tauri-apps/*"], message: "The SDK and examples never import Tauri." },
+            { group: ["**/apps/**"], message: "Nothing imports from apps/." },
+          ],
+        },
+      ],
+    },
+  },
+
+  // The core SDK never imports Electron either: the adapter takes the window as an argument.
+  {
+    files: ["packages/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "electron",
+              message: "packages/ never import Electron. Take the window as an argument.",
+            },
+          ],
           patterns: [
             { group: ["@tauri-apps/*"], message: "The SDK and examples never import Tauri." },
             { group: ["**/apps/**"], message: "Nothing imports from apps/." },

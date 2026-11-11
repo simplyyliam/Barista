@@ -11,7 +11,7 @@ use specta::Type;
 
 /// `major.minor`. The bar accepts any client with the same major version.
 /// New optional fields bump the minor; removing or renaming a field bumps the major.
-pub const PROTOCOL_VERSION: &str = "0.3";
+pub const PROTOCOL_VERSION: &str = "0.4";
 
 /// Largest frame (the JSON part) either side accepts.
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
@@ -31,15 +31,22 @@ pub const MAX_MENU_ITEMS: usize = 50;
 pub const MAX_ACCELERATOR_LEN: usize = 32;
 /// Menu icons are drawn at 16 px, so they stay small.
 pub const MAX_MENU_ICON_BYTES: usize = 16 * 1024;
+/// A popover is asked for in logical px: at least this wide and tall (`0x0` removes it)...
+pub const MIN_POPOVER_SIZE: u32 = 48;
+/// ...and at most this (the bar also clamps it to the work area).
+pub const MAX_POPOVER_SIZE: u32 = 1024;
 
 /// Every `type` a client may send. The bar uses it to tell `unknown_type` (a newer client)
 /// from `invalid_message` (a known type with wrong fields). A test keeps it in sync.
-pub const CLIENT_MESSAGE_TYPES: [&str; 8] = [
+pub const CLIENT_MESSAGE_TYPES: [&str; 11] = [
     "hello",
     "item.create",
     "item.update",
     "item.remove",
     "item.setMenu",
+    "item.setPopover",
+    "popover.shown",
+    "popover.closed",
     "debug.listItems",
     "debug.click",
     "debug.menuClick",
@@ -128,6 +135,24 @@ pub enum MouseButton {
     Middle,
 }
 
+/// A rectangle on screen in physical pixels (virtual desktop coordinates, so a second monitor
+/// to the left has negative `x`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ScreenRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+/// The bar's look, so a popover can match it. `dark` = the bar and its menus are dark.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum Tone {
+    Light,
+    Dark,
+}
+
 /// One item as the bar knows it. Used in `debug.items` replies.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -143,6 +168,9 @@ pub struct ItemInfo {
     /// Whether the item has a menu (since 0.3; older bars leave it out).
     #[serde(default)]
     pub has_menu: bool,
+    /// Whether the item has a popover (since 0.4; older bars leave it out).
+    #[serde(default)]
+    pub has_popover: bool,
 }
 
 /// Client -> bar. Every request may carry a `requestId`; errors echo it.
@@ -203,6 +231,31 @@ pub enum ClientMessage {
         id: String,
         menu: Vec<MenuTemplateItem>,
     },
+    /// Gives an item a popover: the app's own window, shown under the icon on a left click.
+    /// `width` and `height` are logical px (a request: the bar clamps to the work area);
+    /// `0` x `0` removes the popover. Since 0.4.
+    #[serde(rename = "item.setPopover")]
+    ItemSetPopover {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        id: String,
+        width: u32,
+        height: u32,
+    },
+    /// The app showed its popover window after `popover.show` (clears the bar's timeout). Since 0.4.
+    #[serde(rename = "popover.shown")]
+    PopoverShown {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        id: String,
+    },
+    /// The popover window closed on the app's side (Esc, window closed). Since 0.4.
+    #[serde(rename = "popover.closed")]
+    PopoverClosed {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        id: String,
+    },
     /// Asks for every item in the bar (used by `examples/inspect` and the bench). Debug builds,
     /// or a bar started with `BARISTA_DEBUG` set; otherwise `unknown_type`.
     #[serde(rename = "debug.listItems")]
@@ -239,6 +292,9 @@ impl ClientMessage {
             | Self::ItemUpdate { request_id, .. }
             | Self::ItemRemove { request_id, .. }
             | Self::ItemSetMenu { request_id, .. }
+            | Self::ItemSetPopover { request_id, .. }
+            | Self::PopoverShown { request_id, .. }
+            | Self::PopoverClosed { request_id, .. }
             | Self::DebugListItems { request_id }
             | Self::DebugClick { request_id, .. }
             | Self::DebugMenuClick { request_id, .. } => request_id.as_deref(),
@@ -266,7 +322,34 @@ pub enum BarMessage {
     },
     /// The user clicked one of the client's items. `id` is the client's own item id.
     #[serde(rename = "item.click")]
-    ItemClick { id: String, button: MouseButton },
+    ItemClick {
+        id: String,
+        button: MouseButton,
+        /// The item's rect on screen (since 0.4), for apps that place their own window.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        anchor: Option<ScreenRect>,
+    },
+    /// Show your popover window exactly here: `rect` is already placed and clamped by the bar
+    /// (physical px), `scale` is the monitor's DPI scale, `monitor` its id. Confirm with
+    /// `popover.shown`. Sent only after a user click. Since 0.4.
+    #[serde(rename = "popover.show")]
+    PopoverShow {
+        id: String,
+        rect: ScreenRect,
+        scale: f64,
+        monitor: String,
+        tone: Tone,
+    },
+    /// Hide your popover window (another item was clicked, the user clicked outside, or you
+    /// took too long). Since 0.4.
+    #[serde(rename = "popover.hide")]
+    PopoverHide { id: String },
+    /// The item's menu is about to show: refresh labels now. Since 0.4.
+    #[serde(rename = "menu.opened")]
+    MenuOpened { id: String },
+    /// The item's menu closed. Since 0.4.
+    #[serde(rename = "menu.closed")]
+    MenuClosed { id: String },
     /// The user picked an entry in one of the client's menus. `id` is the item, `menu_item_id`
     /// the entry. For checkbox and radio entries, `checked` is the new state (the bar flips it).
     /// Since 0.3.
@@ -307,6 +390,8 @@ pub enum ErrorCode {
     InvalidIcon,
     /// `item.setMenu` breaks a menu rule (depth, size, missing or repeated ids). Since 0.3.
     InvalidMenu,
+    /// `item.setPopover` has a size outside the allowed range. Since 0.4.
+    InvalidPopover,
     /// Too many invalid messages in a short time; the bar closes the connection.
     TooManyErrors,
 }
@@ -356,7 +441,9 @@ mod tests {
                  export const MAX_MENU_DEPTH = {MAX_MENU_DEPTH}\n\
                  export const MAX_MENU_ITEMS = {MAX_MENU_ITEMS}\n\
                  export const MAX_ACCELERATOR_LEN = {MAX_ACCELERATOR_LEN}\n\
-                 export const MAX_MENU_ICON_BYTES = {MAX_MENU_ICON_BYTES}\n"
+                 export const MAX_MENU_ICON_BYTES = {MAX_MENU_ICON_BYTES}\n\
+                 export const MIN_POPOVER_SIZE = {MIN_POPOVER_SIZE}\n\
+                 export const MAX_POPOVER_SIZE = {MAX_POPOVER_SIZE}\n"
             ))
             .export_to(OUTPUT, &types, specta_serde::Format)
             .expect("failed to export protocol types");
@@ -517,9 +604,17 @@ mod tests {
         let click = BarMessage::ItemClick {
             id: "a".into(),
             button: MouseButton::Left,
+            anchor: None,
         };
         let v = serde_json::to_value(&click).unwrap();
         assert_eq!(v, json!({"type":"item.click","id":"a","button":"left"}));
+        let anchored = BarMessage::ItemClick {
+            id: "a".into(),
+            button: MouseButton::Left,
+            anchor: Some(ScreenRect { x: -1920, y: 0, width: 24, height: 36 }),
+        };
+        let v = serde_json::to_value(&anchored).unwrap();
+        assert_eq!(v["anchor"], json!({"x":-1920,"y":0,"width":24,"height":36}));
         let items = BarMessage::DebugItems {
             request_id: Some("r".into()),
             items: vec![ItemInfo {
@@ -531,6 +626,7 @@ mod tests {
                 tooltip: None,
                 visible: true,
                 has_menu: false,
+                has_popover: false,
             }],
         };
         let text = serde_json::to_string(&items).unwrap();
@@ -555,6 +651,9 @@ mod tests {
             r#"{"type":"debug.click","id":"a","button":"left"}"#,
             r#"{"type":"item.setMenu","id":"a","menu":[]}"#,
             r#"{"type":"debug.menuClick","id":"s1/a","menuItemId":"b"}"#,
+            r#"{"type":"item.setPopover","id":"a","width":320,"height":380}"#,
+            r#"{"type":"popover.shown","id":"a"}"#,
+            r#"{"type":"popover.closed","id":"a"}"#,
         ];
         for sample in samples {
             let msg: ClientMessage = serde_json::from_str(sample).unwrap();
@@ -565,6 +664,44 @@ mod tests {
             );
         }
         assert_eq!(samples.len(), CLIENT_MESSAGE_TYPES.len());
+    }
+
+    #[test]
+    fn popover_messages_have_the_documented_shape() {
+        let show = BarMessage::PopoverShow {
+            id: "note".into(),
+            rect: ScreenRect { x: 100, y: 36, width: 480, height: 570 },
+            scale: 1.5,
+            monitor: "m1".into(),
+            tone: Tone::Dark,
+        };
+        let v = serde_json::to_value(&show).unwrap();
+        assert_eq!(
+            v,
+            json!({"type":"popover.show","id":"note","scale":1.5,"monitor":"m1","tone":"dark",
+                   "rect":{"x":100,"y":36,"width":480,"height":570}})
+        );
+        for msg in [
+            show,
+            BarMessage::PopoverHide { id: "note".into() },
+            BarMessage::MenuOpened { id: "note".into() },
+            BarMessage::MenuClosed { id: "note".into() },
+        ] {
+            let text = serde_json::to_string(&msg).unwrap();
+            assert_eq!(serde_json::from_str::<BarMessage>(&text).unwrap(), msg);
+        }
+    }
+
+    /// A 0.3 client keeps working against a 0.4 bar: same major, nothing it sends changed.
+    #[test]
+    fn a_0_3_client_is_still_compatible() {
+        assert!(is_compatible("0.3"));
+        assert!(is_compatible("0.4"));
+        assert!(!is_compatible("1.0"));
+        // An item.click from a 0.3 bar (no anchor) still parses on a 0.4 client.
+        let old: BarMessage =
+            serde_json::from_str(r#"{"type":"item.click","id":"a","button":"left"}"#).unwrap();
+        assert!(matches!(old, BarMessage::ItemClick { anchor: None, .. }));
     }
 
     #[test]

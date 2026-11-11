@@ -9,3 +9,5 @@ verifyDepsBeforeRun: warn
 # binary as a separate package, so its install script isn't needed.
 allowBuilds:
   esbuild: false
+  # Electron downloads its binary in the install script. Dev dependency of the Electron examples only.
+  electron: true

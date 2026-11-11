@@ -1,0 +1,17 @@
+{
+  "name": "@barista/quick-note",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "electron src/main.ts",
+    "typecheck": "tsc6 --noEmit"
+  },
+  "dependencies": {
+    "@barista/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "typescript": "npm:@typescript/typescript6@~6.0.2"
+  }
+}

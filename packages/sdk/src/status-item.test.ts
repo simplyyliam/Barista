@@ -347,3 +347,57 @@ describe("menus", () => {
     expect(removed).toMatchObject({ type: "item.remove", id: "timer" })
   })
 })
+
+describe("popovers over the real pipe", () => {
+  it("popover.show reaches the window, is confirmed, and popover.hide closes it", async () => {
+    const { fake, bar } = await setup()
+    const item = await StatusItem.create({ id: "note", bar })
+    const calls: string[] = []
+    const events: string[] = []
+    item.on("open", () => events.push("open")).on("close", () => events.push("close"))
+    item.setPopover({
+      window: {
+        show: (p) => void calls.push(`show ${p.x},${p.y} ${p.width}x${p.height} @${p.scale} ${p.tone}`),
+        hide: () => void calls.push("hide"),
+        onClose: () => {},
+      },
+      width: 320,
+      height: 380,
+    })
+    // hello, create, setPopover
+    await fake.messages(3)
+    expect(fake.received[2]).toMatchObject({ type: "item.setPopover", width: 320, height: 380 })
+
+    fake.send({
+      type: "popover.show",
+      id: "note",
+      rect: { x: -1620, y: 36, width: 480, height: 570 },
+      scale: 1.5,
+      monitor: "m2",
+      tone: "dark",
+    })
+    const [, , , shown] = await fake.messages(4)
+    expect(shown).toEqual({ type: "popover.shown", id: "note" })
+    expect(calls).toEqual(["show -1620,36 480x570 @1.5 dark"])
+
+    fake.send({ type: "popover.hide", id: "note" })
+    await until(() => calls.length === 2)
+    expect(calls[1]).toBe("hide")
+    expect(events).toEqual(["open", "close"])
+  })
+
+  it("item.click carries the anchor to on('click')", async () => {
+    const { fake, bar } = await setup()
+    const item = await StatusItem.create({ id: "note", bar })
+    const seen: unknown[] = []
+    item.on("click", (e) => seen.push(e))
+    fake.send({
+      type: "item.click",
+      id: "note",
+      button: "middle",
+      anchor: { x: 10, y: 0, width: 24, height: 36 },
+    })
+    await until(() => seen.length === 1)
+    expect(seen[0]).toEqual({ button: "middle", anchor: { x: 10, y: 0, width: 24, height: 36 } })
+  })
+})

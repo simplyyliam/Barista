@@ -9,7 +9,8 @@ pub mod anchor;
 pub mod menu;
 
 use barista_protocol::{
-    BarMessage, ErrorCode, ItemInfo, MenuTemplateItem, MouseButton, MAX_ITEMS_PER_CLIENT,
+    BarMessage, ErrorCode, ItemInfo, MenuTemplateItem, MouseButton, ScreenRect,
+    MAX_ITEMS_PER_CLIENT,
 };
 use menu::{MenuClickError, MenuEntry};
 use serde::{Deserialize, Serialize};
@@ -62,6 +63,28 @@ pub enum ClickError {
     Unreachable,
 }
 
+/// What a click with a given button does to an item (the click rule, ADR 0014).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClickTarget {
+    /// Goes to the app as `item.click`.
+    App,
+    /// Opens the item's menu.
+    Menu,
+    /// Shows the item's popover.
+    Popover,
+}
+
+/// What the coordinator needs to show a popover.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PopoverTarget {
+    /// The client's own id for the item (what goes on the wire).
+    pub id: String,
+    /// Requested size, logical px.
+    pub size: (u32, u32),
+    /// The client's process, for `AllowSetForegroundWindow` (from the pipe, never from the client).
+    pub pid: u32,
+}
+
 /// What `update` changes. `None` = leave as is, `Some("")` = clear.
 #[derive(Debug, Default)]
 pub struct ItemPatch {
@@ -89,6 +112,8 @@ struct Item {
     /// Goes up on every menu change (new menu or a checked flip), so the open menu can tell
     /// when it must redraw.
     menu_rev: u64,
+    /// Requested popover size (logical px). `None` = no popover.
+    popover: Option<(u32, u32)>,
 }
 
 /// What an open menu needs: what to draw and a revision to spot changes.
@@ -238,6 +263,7 @@ impl Registry {
             visible: true,
             menu: Vec::new(),
             menu_rev: 0,
+            popover: None,
         });
         drop(state);
         self.changed.notify_one();
@@ -335,6 +361,7 @@ impl Registry {
                     tooltip: i.tooltip.clone(),
                     visible: i.visible,
                     has_menu: !i.menu.is_empty(),
+                    has_popover: i.popover.is_some(),
                 })
             })
             .collect()
@@ -371,10 +398,83 @@ impl Registry {
         self.menu_changed.notified().await;
     }
 
-    /// Whether a click with `button` on `key` should open its menu instead of reaching the app.
-    /// Middle clicks still go to the app.
-    pub fn opens_menu(&self, key: &str, button: MouseButton) -> bool {
-        button != MouseButton::Middle && self.menu_rev(key).is_some()
+    /// Gives an item a popover size (already validated), or removes it with `None`.
+    pub fn set_popover(
+        &self,
+        session: SessionId,
+        id: &str,
+        size: Option<(u32, u32)>,
+    ) -> Result<(), RegistryError> {
+        let mut state = self.lock();
+        let item = state
+            .items
+            .iter_mut()
+            .find(|i| i.session == session && i.id == id)
+            .ok_or(RegistryError::NotFound)?;
+        if item.popover == size {
+            return Ok(());
+        }
+        item.popover = size;
+        drop(state);
+        // The coordinator listens to `changed`: a removed popover must close.
+        self.changed.notify_one();
+        Ok(())
+    }
+
+    /// The click rule: left = popover, then menu, then app; right = menu, then app; middle = app.
+    /// Hidden or missing items go to `App` (and `click` reports them as missing).
+    pub fn target(&self, key: &str, button: MouseButton) -> ClickTarget {
+        let mut state = self.lock();
+        let Some(item) = state.item_mut(key).filter(|i| i.visible) else {
+            return ClickTarget::App;
+        };
+        let (has_popover, has_menu) = (item.popover.is_some(), !item.menu.is_empty());
+        match button {
+            MouseButton::Left if has_popover => ClickTarget::Popover,
+            MouseButton::Left | MouseButton::Right if has_menu => ClickTarget::Menu,
+            _ => ClickTarget::App,
+        }
+    }
+
+    /// The popover of a visible item whose owner is still connected.
+    pub fn popover_target(&self, key: &str) -> Option<PopoverTarget> {
+        let mut state = self.lock();
+        let item = state.item_mut(key).filter(|i| i.visible)?;
+        let (session, id, size) = (item.session, item.id.clone(), item.popover?);
+        let pid = state.sessions.get(&session)?.pid;
+        Some(PopoverTarget { id, size, pid })
+    }
+
+    /// Whether `key` is a visible item with a popover (for `sync`: gone = close).
+    pub fn has_popover(&self, key: &str) -> bool {
+        self.popover_target(key).is_some()
+    }
+
+    /// Whether this session has an item with this id.
+    pub fn has_item(&self, session: SessionId, id: &str) -> bool {
+        self.lock()
+            .items
+            .iter()
+            .any(|i| i.session == session && i.id == id)
+    }
+
+    /// Sends a message to the owner of `key`, built from the client's own item id. Never waits:
+    /// a stuck client just misses it.
+    pub fn send_with(
+        &self,
+        key: &str,
+        build: impl FnOnce(String) -> BarMessage,
+    ) -> Result<(), ClickError> {
+        let (session, id) = parse_key(key).ok_or(ClickError::NotFound)?;
+        let state = self.lock();
+        let outbox = &state
+            .sessions
+            .get(&session)
+            .ok_or(ClickError::NotFound)?
+            .outbox;
+        outbox
+            .try_send(build(id.to_string()))
+            .map_err(|_| ClickError::Unreachable)
     }
 
     /// The revision of a visible item's menu, without building it. `None` = nothing to show.
@@ -446,7 +546,18 @@ impl Registry {
     }
 
     /// Sends `item.click` to the client that owns `key` (`"s3/counter"`).
+    #[cfg(test)]
     pub fn click(&self, key: &str, button: MouseButton) -> Result<(), ClickError> {
+        self.click_with_anchor(key, button, None)
+    }
+
+    /// Same, with the item's rect on screen so the app can place its own window.
+    pub fn click_with_anchor(
+        &self,
+        key: &str,
+        button: MouseButton,
+        anchor: Option<ScreenRect>,
+    ) -> Result<(), ClickError> {
         let (session, id) = parse_key(key).ok_or(ClickError::NotFound)?;
         let state = self.lock();
         if !state
@@ -466,6 +577,7 @@ impl Registry {
             .try_send(BarMessage::ItemClick {
                 id: id.to_string(),
                 button,
+                anchor,
             })
             .map_err(|_| ClickError::Unreachable)
     }
@@ -631,7 +743,8 @@ mod tests {
             rb.try_recv().unwrap(),
             BarMessage::ItemClick {
                 id: "x".into(),
-                button: MouseButton::Right
+                button: MouseButton::Right,
+                anchor: None
             }
         );
         assert!(ra.try_recv().is_err());
@@ -716,14 +829,15 @@ mod tests {
 
     #[test]
     fn menus_open_instead_of_item_click_except_middle() {
+        use ClickTarget::{App, Menu};
         let reg = Registry::new();
         let (s, _rx) = session(&reg, "App");
         reg.create(s, "a".into(), None, None, None).unwrap();
-        assert!(!reg.opens_menu("s1/a", MouseButton::Left));
+        assert_eq!(reg.target("s1/a", MouseButton::Left), App);
         reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
-        assert!(reg.opens_menu("s1/a", MouseButton::Left));
-        assert!(reg.opens_menu("s1/a", MouseButton::Right));
-        assert!(!reg.opens_menu("s1/a", MouseButton::Middle));
+        assert_eq!(reg.target("s1/a", MouseButton::Left), Menu);
+        assert_eq!(reg.target("s1/a", MouseButton::Right), Menu);
+        assert_eq!(reg.target("s1/a", MouseButton::Middle), App);
         // Hidden items have no menu to open.
         reg.update(
             s,
@@ -735,6 +849,57 @@ mod tests {
         )
         .unwrap();
         assert!(reg.menu("s1/a").is_none());
+    }
+
+    #[test]
+    fn the_click_rule_with_a_popover_a_menu_or_both() {
+        use ClickTarget::{App, Menu, Popover};
+        let reg = Registry::new();
+        let (s, _rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.set_popover(s, "a", Some((320, 380))).unwrap();
+        // Popover only: left opens it, right and middle go to the app.
+        assert_eq!(reg.target("s1/a", MouseButton::Left), Popover);
+        assert_eq!(reg.target("s1/a", MouseButton::Right), App);
+        assert_eq!(reg.target("s1/a", MouseButton::Middle), App);
+        // Both: left = popover, right = menu, middle = app.
+        reg.set_menu(s, "a", menu_of(&["m"])).unwrap();
+        assert_eq!(reg.target("s1/a", MouseButton::Left), Popover);
+        assert_eq!(reg.target("s1/a", MouseButton::Right), Menu);
+        assert_eq!(reg.target("s1/a", MouseButton::Middle), App);
+        // Removing the popover gives the left click back to the menu.
+        reg.set_popover(s, "a", None).unwrap();
+        assert_eq!(reg.target("s1/a", MouseButton::Left), Menu);
+        assert_eq!(reg.set_popover(s, "ghost", None), Err(RegistryError::NotFound));
+    }
+
+    #[test]
+    fn popover_target_needs_a_visible_item_with_a_live_session() {
+        let reg = Registry::new();
+        let (s, _rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        assert!(reg.popover_target("s1/a").is_none());
+        reg.set_popover(s, "a", Some((320, 380))).unwrap();
+        let t = reg.popover_target("s1/a").unwrap();
+        assert_eq!((t.id.as_str(), t.size, t.pid), ("a", (320, 380), 1));
+        reg.update(s, "a", ItemPatch { visible: Some(false), ..Default::default() }).unwrap();
+        assert!(!reg.has_popover("s1/a"));
+        reg.update(s, "a", ItemPatch { visible: Some(true), ..Default::default() }).unwrap();
+        reg.remove_session(s);
+        assert!(!reg.has_popover("s1/a"));
+    }
+
+    #[test]
+    fn send_with_reaches_the_owner_and_never_blocks() {
+        let reg = Registry::new();
+        let (s, mut rx) = session(&reg, "App");
+        reg.create(s, "a".into(), None, None, None).unwrap();
+        reg.send_with("s1/a", |id| BarMessage::PopoverHide { id }).unwrap();
+        assert_eq!(rx.try_recv().unwrap(), BarMessage::PopoverHide { id: "a".into() });
+        assert_eq!(
+            reg.send_with("s9/a", |id| BarMessage::PopoverHide { id }),
+            Err(ClickError::NotFound)
+        );
     }
 
     #[test]

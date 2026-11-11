@@ -275,7 +275,24 @@ export class StatusBar {
   #dispatch(message: BarMessage): void {
     switch (message.type) {
       case "item.click":
-        this.items.get(message.id)?.emitClick(message.button)
+        this.items.get(message.id)?.emitClick(message.button, message.anchor)
+        break
+      case "popover.show":
+        void this.items.get(message.id)?.emitPopoverShow({
+          ...message.rect,
+          scale: message.scale ?? 1,
+          monitor: message.monitor,
+          tone: message.tone,
+        })
+        break
+      case "popover.hide":
+        this.items.get(message.id)?.emitPopoverHide()
+        break
+      case "menu.opened":
+        this.items.get(message.id)?.emitMenuOpened()
+        break
+      case "menu.closed":
+        this.items.get(message.id)?.emitMenuClosed()
         break
       case "menu.click":
         this.items.get(message.id)?.emitMenuClick(message.menuItemId, message.checked ?? undefined)

@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.ts",
+    "start:electron": "electron src/index.ts",
     "typecheck": "tsc6 --noEmit"
   },
   "dependencies": {
     "@barista/sdk": "workspace:*"
   },
   "devDependencies": {
+    "electron": "^45.2.3",
     "typescript": "npm:@typescript/typescript6@~6.0.2"
   }
 }
