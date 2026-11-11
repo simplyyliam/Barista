@@ -56,7 +56,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
     until he switched back and forth. Cause (likely): placement read the controller's cached scale and work area, which
     are only refreshed on display/DPI events and can lag one change behind. Fix: `Controller::live_info()` re-reads
     Windows at click time and `placement::geometry()` uses it. I could not reproduce a scale change here (one monitor,
-    and I don't change his display), so the fix is untested on a real scale switch: Liam re-tests.
+    and I don't change his display). Liam re-tested and confirmed the scales are fixed (2026-11-11); he waived the rest of
+    the "every monitor and scale" check. I never ran a scale switch myself: that is his report.
   - Spotify: I (Claude) only ran `--demo` mode, with no credentials here. Liam says the real player works with his
     client ID in `.env` (2026-11-11); that is his report, not something I checked.
   - Other monitors and scales: Liam tested several scales himself (see above). I ran real clicks on one monitor at 150% only;
