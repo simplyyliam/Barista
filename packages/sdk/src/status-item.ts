@@ -1,11 +1,17 @@
 import { Menu, type MenuItemOptions } from "./menu.js"
-import type { MouseButton } from "./protocol.js"
+import { assertPopoverSize, type Placement, type PopoverOptions } from "./popover.js"
+import type { MouseButton, ScreenRect } from "./protocol.js"
 import { BarError, connect, type StatusBar } from "./status-bar.js"
 import { assertItemId, assertLabel, assertTooltip, toIconDataUrl } from "./validate.js"
 
 /** What you get when the user clicks your item. */
 export interface ClickEvent {
   button: MouseButton
+  /**
+   * Where the item is on screen, in physical pixels, when the bar knows it. Useful if you place
+   * your own window; with {@link StatusItem.setPopover} the bar does that for you.
+   */
+  anchor?: ScreenRect
 }
 
 /** Options for {@link StatusItem.create}. */
@@ -65,8 +71,15 @@ export class StatusItem {
   readonly #bar: StatusBar
   readonly #clickListeners = new Set<Listener<ClickEvent>>()
   readonly #errorListeners = new Set<Listener<BarError>>()
+  readonly #openListeners = new Set<Listener<void>>()
+  readonly #closeListeners = new Set<Listener<void>>()
   #removed = false
   #menu: Menu | undefined
+  #popover: PopoverOptions | undefined
+  /** The popover window is up (or being shown) because the bar asked for it. */
+  #popoverOpen = false
+  /** Windows we already listen to, so `setPopover` with the same window twice adds one listener. */
+  readonly #watchedWindows = new WeakSet<object>()
 
   /** @internal The request id of the `item.create`, to recognise a refused create. */
   readonly createRequestId: string
@@ -200,6 +213,41 @@ export class StatusItem {
   }
 
   /**
+   * Gives the item a popover: your own window, shown right under the icon when the user
+   * left-clicks it. The bar tells you where (`window.show(placement)`), hides it when the user
+   * clicks away or opens something else, and shows an "open" state on the icon. A right click
+   * still opens the menu if you set one; a middle click fires `on("click")`.
+   *
+   * `width` and `height` are the size you would like in logical pixels (48 to 1024); the bar
+   * keeps the window on screen. Pass `null` to remove the popover. Throws a `TypeError` for a
+   * bad size.
+   *
+   * @example
+   * ```ts
+   * import { electronPopover } from "@barista/sdk/electron"
+   * item.setPopover({ window: electronPopover(win, { screen }), width: 320, height: 380 })
+   * ```
+   */
+  setPopover(popover: PopoverOptions | null): void {
+    if (this.#removed) throw new Error(`Item ${JSON.stringify(this.id)} was removed`)
+    if (popover !== null) assertPopoverSize(popover.width, popover.height)
+    // A popover that is open while it is replaced goes away.
+    this.#closeOpenPopover()
+    this.#popover = popover ?? undefined
+    if (popover && !this.#watchedWindows.has(popover.window)) {
+      this.#watchedWindows.add(popover.window)
+      popover.window.onClose(() => this.#windowClosed(popover.window))
+    }
+    this.#bar.send({
+      type: "item.setPopover",
+      requestId: this.#bar.requestIdFor(this.id),
+      id: this.id,
+      width: popover?.width ?? 0,
+      height: popover?.height ?? 0,
+    })
+  }
+
+  /**
    * The menu set with {@link StatusItem.setMenu}, if any.
    *
    * @example
@@ -226,6 +274,7 @@ export class StatusItem {
   remove(): void {
     if (this.#removed) return
     this.#removed = true
+    this.#closeOpenPopover()
     this.#bar.items.delete(this.id)
     this.#bar.send({
       type: "item.remove",
@@ -246,6 +295,25 @@ export class StatusItem {
    */
   on(event: "click", listener: Listener<ClickEvent>): this
   /**
+   * Runs right before the item's menu or popover shows (a good moment to refresh a label or the
+   * menu), after the user opened it.
+   *
+   * @example
+   * ```ts
+   * item.on("open", () => item.setLabel(`${minutesLeft()} left`))
+   * ```
+   */
+  on(event: "open", listener: Listener<void>): this
+  /**
+   * Runs when the item's menu or popover closes, whatever closed it.
+   *
+   * @example
+   * ```ts
+   * item.on("close", () => saveDraft())
+   * ```
+   */
+  on(event: "close", listener: Listener<void>): this
+  /**
    * Runs when the bar refuses something about this item, for example `"limit_reached"`.
    * Without a listener the error goes to the connection's `error` listeners.
    *
@@ -255,17 +323,25 @@ export class StatusItem {
    * ```
    */
   on(event: "error", listener: Listener<BarError>): this
-  on(event: "click" | "error", listener: Listener<never>): this {
-    if (event === "click") this.#clickListeners.add(listener as Listener<ClickEvent>)
-    else this.#errorListeners.add(listener as Listener<BarError>)
+  on(event: "click" | "open" | "close" | "error", listener: Listener<never>): this {
+    this.#listeners(event).add(listener)
     return this
   }
 
   /** Stops a listener added with {@link StatusItem.on}. */
-  off(event: "click" | "error", listener: Listener<never>): this {
-    if (event === "click") this.#clickListeners.delete(listener as Listener<ClickEvent>)
-    else this.#errorListeners.delete(listener as Listener<BarError>)
+  off(event: "click" | "open" | "close" | "error", listener: Listener<never>): this {
+    this.#listeners(event).delete(listener)
     return this
+  }
+
+  #listeners(event: "click" | "open" | "close" | "error"): Set<Listener<never>> {
+    const sets = {
+      click: this.#clickListeners,
+      open: this.#openListeners,
+      close: this.#closeListeners,
+      error: this.#errorListeners,
+    }
+    return sets[event] as Set<Listener<never>>
   }
 
   /** @internal The bar refused to create this item, so it does not exist there. */
@@ -274,8 +350,73 @@ export class StatusItem {
   }
 
   /** @internal Called by the connection when the bar reports a click. */
-  emitClick(button: MouseButton): void {
-    for (const listener of this.#clickListeners) callSafely(() => listener({ button }))
+  emitClick(button: MouseButton, anchor?: ScreenRect | null): void {
+    const event: ClickEvent = anchor ? { button, anchor } : { button }
+    for (const listener of this.#clickListeners) callSafely(() => listener(event))
+  }
+
+  /** @internal The bar opened this item's menu. */
+  emitMenuOpened(): void {
+    for (const listener of this.#openListeners) callSafely(() => listener())
+  }
+
+  /** @internal The bar closed this item's menu. */
+  emitMenuClosed(): void {
+    for (const listener of this.#closeListeners) callSafely(() => listener())
+  }
+
+  /**
+   * @internal The bar says: show the popover here. Runs `open`, shows the window, then confirms
+   * with `popover.shown`. If showing fails, or the bar hid it meanwhile, it does not confirm.
+   */
+  async emitPopoverShow(placement: Placement): Promise<void> {
+    const popover = this.#popover
+    if (!popover || this.#removed) {
+      // The bar thinks there is a popover but we have none: tell it, so the icon is not stuck.
+      this.#bar.send({ type: "popover.closed", id: this.id })
+      return
+    }
+    this.#popoverOpen = true
+    for (const listener of this.#openListeners) callSafely(() => listener())
+    try {
+      await popover.window.show(placement)
+    } catch (error) {
+      this.#popoverOpen = false
+      this.#bar.send({ type: "popover.closed", id: this.id })
+      for (const listener of this.#closeListeners) callSafely(() => listener())
+      queueMicrotask(() => {
+        throw error
+      })
+      return
+    }
+    if (!this.#popoverOpen) {
+      // The bar hid it while we were still showing it (a fast second click): finish the hide.
+      callSafely(() => popover.window.hide())
+      return
+    }
+    this.#bar.send({ type: "popover.shown", id: this.id })
+  }
+
+  /** @internal The bar says: hide the popover. It does not expect an answer. */
+  emitPopoverHide(): void {
+    this.#closeOpenPopover()
+  }
+
+  /** Hides the popover window if the bar had it open, and runs `close`. No message goes out. */
+  #closeOpenPopover(): void {
+    if (!this.#popoverOpen) return
+    this.#popoverOpen = false
+    const popover = this.#popover
+    if (popover) callSafely(() => popover.window.hide())
+    for (const listener of this.#closeListeners) callSafely(() => listener())
+  }
+
+  /** The window closed itself (Esc, closed by the user): the bar must forget the open state. */
+  #windowClosed(window: object): void {
+    if (!this.#popoverOpen || this.#popover?.window !== window) return
+    this.#popoverOpen = false
+    this.#bar.send({ type: "popover.closed", id: this.id })
+    for (const listener of this.#closeListeners) callSafely(() => listener())
   }
 
   /**

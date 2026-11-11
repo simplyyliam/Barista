@@ -11,7 +11,10 @@
  * ```
  *
  * Every name is also exported with a `BA` prefix (`BAStatusItem`) for people who prefer
- * named imports. Popovers arrive in a later release.
+ * named imports.
+ *
+ * Popovers: `item.setPopover({ window, width, height })` shows your own window under the icon.
+ * Electron apps use `electronPopover` from `@barista/sdk/electron`.
  */
 
 import { connect, StatusBar } from "./status-bar.js"
@@ -26,6 +29,7 @@ export { BarError, connect, StatusBar } from "./status-bar.js"
 export type { ConnectOptions } from "./status-bar.js"
 export { StatusItem } from "./status-item.js"
 export type { ClickEvent, StatusItemOptions } from "./status-item.js"
+export type { Placement, PopoverOptions, PopoverWindow } from "./popover.js"
 // The SDK's Menu and MenuItem classes; the wire shape is `MenuTemplateItem` from protocol.ts.
 export { Menu, MenuItem } from "./menu.js"
 export type { MenuClickEvent, MenuItemOptions } from "./menu.js"

@@ -6,6 +6,9 @@ Barista app (tags `sdk-vX.Y.Z`). The format follows [Keep a Changelog](https://k
 ## [Unreleased]
 
 - Package set up with the protocol types generated from Rust.
+- `item.setPopover({ window, width, height })` with the `PopoverWindow` interface, `@barista/sdk/electron`
+  (`electronPopover`), `item.on('open' | 'close')` for menus and popovers, and `anchor` on `on('click')`.
+  Protocol 0.4.
 - `BA.connect`, `BA.StatusBar` and `BA.StatusItem` (`create`, `setIcon`, `setLabel`, `setTooltip`,
   `setVisible`, `remove`, `on('click' | 'error')`), also exported as `BAStatusItem`, `BAStatusBar`
   and `BAConnect`. Protocol 0.2. Menus, popovers and reconnecting come later.
