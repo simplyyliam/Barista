@@ -6,6 +6,55 @@ All notable changes to the Barista app are listed here. The SDK has its own chan
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-11
+
+Items in the bar can now open real menus, with the mouse or the keyboard.
+
+### Added
+
+- **Menus under bar items.** Click an app's item and a menu drops down right below it, at 100%,
+  125% and 150% display scaling. Near the edge of the screen it shifts to stay fully visible.
+- **Menus with everything you'd expect:** separators, checkboxes, radio groups, disabled entries,
+  keyboard shortcut hints, and submenus up to three levels deep. Ticking a checkbox or picking a
+  radio entry updates right away and the app is told.
+- **Use menus from the keyboard.** Arrow keys move through the entries, Right and Left open and close
+  submenus, Enter picks, Home and End jump to the ends, and typing a letter jumps to the entry
+  that starts with it.
+- **Closes like a real menu.** Press Esc or click anywhere else to close it. Clicking another
+  item's icon switches straight to its menu, and clicking the same icon again closes it.
+- **Smooth submenus.** Moving the mouse diagonally toward a submenu doesn't close it on the way.
+- **A frosted look** with rounded corners and a soft shadow, and the menu fades out the way
+  Windows menus do.
+- **Built-in entries** for Quit, About and Settings that apps can drop into their menus.
+- If an app closes or crashes while its menu is open, the menu closes with it.
+
+### Changed
+
+- Clicking an app's item opens its menu when it has one. Apps without a menu behave as before.
+
+### Known issues
+
+- Windows SmartScreen may warn that the installer is from an unknown publisher, because it isn't
+  code-signed yet. Click "More info", then "Run anyway".
+- No automatic updates yet. To get a newer version, download its installer from the GitHub
+  Releases page and run it.
+- The battery and volume icons are placeholders: they don't show your real battery or volume yet.
+- Keyboard shortcut hints in menus are only text. Showing "Ctrl+Enter" next to an entry doesn't
+  create a real shortcut.
+- Apps can't open a panel from their item yet; that comes in a later version.
+- The usual Windows tray icons stay in the taskbar for now; they move into the bar in a later version.
+- The bar shows on one screen only, and there's no way yet to pick which screen from the app.
+- Barista uses a bit more memory than 0.2 (about 74 MB, up from 58 MB) because the menu windows
+  are ready in the background so menus open instantly.
+
+### Privacy
+
+- Barista sends nothing over the internet. It doesn't check for updates yet.
+- Apps that add items or menus talk to the bar only on this computer; nothing leaves the machine.
+- The bar looks at the wallpaper behind it only to pick light or dark text. This happens on your
+  computer, and the wallpaper is never sent anywhere.
+- Tray icons aren't read yet. When they are, they'll be read locally and never sent anywhere.
+
 ## [0.2.0] - 2026-11-09
 
 The first Barista release: a macOS-style menu bar at the top of your screen that apps can add their own items to.
