@@ -2,8 +2,13 @@
 // preset. It uses every kind of menu entry (normal, disabled, checkbox, radio, separator,
 // submenu, roles). Run it with the bar running (`pnpm dev`): `pnpm test-client`.
 // Clicks and menu picks are logged here.
+//
+// It has a second icon with a popover: a left click shows the client's own window under it.
+// Plain `pnpm test-client` uses a fake window that only logs; `pnpm test-client:electron` opens
+// a real one (Electron), which is what the v0.4 showcase uses.
 import { readFileSync } from "node:fs"
 import * as BA from "@barista/sdk"
+import { createNotePopover } from "./note-popover.ts"
 
 const icon = readFileSync(new URL("../icon.svg", import.meta.url))
 
@@ -122,6 +127,18 @@ function showMenu() {
 showMenu()
 
 item.on("click", ({ button }) => console.log(`click (${button})`))
+
+const note = await BA.StatusItem.create({
+  id: "note",
+  icon: readFileSync(new URL("../note.svg", import.meta.url)),
+  tooltip: "Popover",
+})
+note.setPopover({ window: createNotePopover(), width: 320, height: 240 })
+note.setMenu([{ role: "quit" }]) // right click
+note.on("open", () => console.log("note: open"))
+note.on("close", () => console.log("note: close"))
+note.on("click", ({ button, anchor }) => console.log(`note: click (${button})`, anchor ?? ""))
+note.on("error", (error) => console.error(`bar refused: ${error.code}: ${error.message}`))
 item.on("error", (error) => console.error(`bar refused: ${error.code}: ${error.message}`))
 bar.on("quit", () => {
   console.log("quit")
@@ -130,6 +147,7 @@ bar.on("quit", () => {
 })
 
 process.on("SIGINT", () => {
+  note.remove()
   item.remove()
   bar.close()
   process.exit(0)
