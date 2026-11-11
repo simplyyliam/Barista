@@ -15,7 +15,7 @@ export interface ElectronWindowLike {
   show(): void
   focus(): void
   hide(): void
-  on(event: "closed", listener: () => void): unknown
+  on(event: "closed" | "hide", listener: () => void): unknown
   webContents: {
     on(
       event: "before-input-event",
@@ -41,7 +41,8 @@ export interface ElectronPopoverOptions {
 
 /**
  * Turns an Electron `BrowserWindow` into a {@link PopoverWindow}: it moves the window to the
- * rect the bar sends, shows it, focuses it, and closes it on Esc.
+ * rect the bar sends, shows it, focuses it, and closes it on Esc. If your own code hides or closes
+ * the window, the bar is told, so the icon does not stay "open".
  *
  * Create the window hidden and frameless: `show: false, frame: false, skipTaskbar: true,
  * alwaysOnTop: true`. Do not hide it on blur: the bar hides it when the user clicks away.
@@ -66,6 +67,9 @@ export function electronPopover(
     for (const listener of [...listeners]) listener()
   }
   win.on("closed", closed)
+  // The app hid its own window (a "Save" button, win.hide()): the bar must not think it is open.
+  // When the bar asked for the hide, the SDK already knows and ignores this.
+  win.on("hide", closed)
   win.webContents.on("before-input-event", (_event, input) => {
     if (input.type === "keyDown" && input.key === "Escape") {
       win.hide()

@@ -3,6 +3,8 @@
 // result is also written to docs/perf/<version>.md. Since v0.2 it also measures item latency
 // over the pipe and the bar's CPU while the test client ticks a label every second. Since v0.3
 // it also times menus: setMenu, a pick reaching the app, and click -> menu window visible.
+// Since v0.4 it times the bar side of popovers: click -> popover.show and click -> popover.hide.
+// (Window visible and focused needs a real window and real input: scripts/popover-latency.ps1.)
 // BENCH_SECONDS changes the sampling time of each CPU measurement (default 60).
 import { execFileSync, spawn } from "node:child_process"
 import { existsSync, writeFileSync } from "node:fs"
@@ -150,7 +152,7 @@ async function measureLatency() {
   await client.ready
   const welcome = await client.ask({
     type: "hello",
-    protocolVersion: "0.3",
+    protocolVersion: "0.4",
     appName: "bench",
     pid: process.pid,
     sdk: { name: "bench", version: "0" },
@@ -179,12 +181,55 @@ async function measureLatency() {
   return { connectMs, create, update }
 }
 
+/** Click -> popover.show reaching the app, and click again -> popover.hide, over the pipe. */
+async function measurePopovers() {
+  const client = pipeClient()
+  await client.ready
+  const welcome = await client.ask({
+    type: "hello",
+    protocolVersion: "0.4",
+    appName: "bench-popover",
+    pid: process.pid,
+    sdk: { name: "bench", version: "0" },
+  })
+  // An older bar has no popovers (useful to compare against a build from before v0.4).
+  if (!/^0\.([4-9]|\d\d)$/.test(welcome.protocolVersion)) {
+    client.close()
+    return null
+  }
+  const key = `${welcome.sessionId}/probe`
+  client.write({ type: "item.create", id: "probe", label: "p" })
+  client.write({ type: "item.setPopover", id: "probe", width: 320, height: 380 })
+  await timeUntil(client, { type: "debug.listItems" }, (i) =>
+    i.some((x) => x.id === key && x.hasPopover),
+  )
+  const show = []
+  const hide = []
+  for (let n = 0; n < 30; n++) {
+    let t0 = performance.now()
+    const shown = await client.ask({ type: "debug.click", id: key, button: "left" })
+    if (shown.type !== "popover.show") {
+      throw new Error(`bench popover failed: ${JSON.stringify(shown)}`)
+    }
+    show.push(performance.now() - t0)
+    client.write({ type: "popover.shown", id: "probe" })
+    t0 = performance.now()
+    const hidden = await client.ask({ type: "debug.click", id: key, button: "left" })
+    if (hidden.type !== "popover.hide") {
+      throw new Error(`bench hide failed: ${JSON.stringify(hidden)}`)
+    }
+    hide.push(performance.now() - t0)
+  }
+  client.close()
+  return { show, hide }
+}
+
 async function measureMenus() {
   const client = pipeClient()
   await client.ready
   const welcome = await client.ask({
     type: "hello",
-    protocolVersion: "0.3",
+    protocolVersion: "0.4",
     appName: "bench-menu",
     pid: process.pid,
     sdk: { name: "bench", version: "0" },
@@ -258,6 +303,9 @@ const latency = await measureLatency()
 console.log("Measuring menus (30 setMenu, 30 picks, 10 opens)...")
 const menus = await measureMenus()
 
+console.log("Measuring popovers (30 opens, 30 closes)...")
+const popovers = await measurePopovers()
+
 console.log(
   `Starting the test client, sampling CPU ${seconds}s with a label ticking every second...`,
 )
@@ -315,6 +363,22 @@ const rows = [
     "< 20 ms",
     Math.max(...menus.pick) < 20,
   ],
+  ...(popovers
+    ? [
+        [
+          "Click to popover.show reaching the app (median / worst of 30)",
+          `${median(popovers.show).toFixed(1)} / ${Math.max(...popovers.show).toFixed(1)} ms`,
+          "< 20 ms",
+          Math.max(...popovers.show) < 20,
+        ],
+        [
+          "Click on the open icon to popover.hide reaching the app (median / worst of 30)",
+          `${median(popovers.hide).toFixed(1)} / ${Math.max(...popovers.hide).toFixed(1)} ms`,
+          "< 20 ms",
+          Math.max(...popovers.hide) < 20,
+        ],
+      ]
+    : []),
   menus.shown.length === 0
     ? ["Click to menu window visible", "not measured (no menu window found)", "< 50 ms", true]
     : [
@@ -333,7 +397,6 @@ const table = [
     ([what, result, budget, ok]) => `| ${what} | ${result} | ${budget} | ${ok ? "ok" : "over"} |`,
   ),
   "| Memory growth over 8 h | not measured | < 5 MB | |",
-  "| Click to popover.show | from v0.4 | < 20 ms | |",
 ].join("\n")
 
 console.log(
@@ -350,6 +413,7 @@ ${table}
 - ${last.processes} processes counted (the bar and its WebView2 children), ${cores} logical cores.
 - CPU: total over ${elapsed.toFixed(0)} s after ${settleSeconds} s of settling, divided by cores. The ticking row is the same with \`examples/test-client\` running (one label update per second).
 - Latency is measured over the pipe with a minimal client: the time from sending the message until \`debug.listItems\` shows it. The UI sees it about one frame (16 ms) later, because \`items-changed\` is coalesced; the render time is the UI's.
+- Popovers: from the click (sent over the pipe as \`debug.click\`) until the app receives \`popover.show\` / \`popover.hide\`. Window visible and focused is timed with a real mouse click by \`scripts/popover-latency.ps1\`.
 - Menus: the window time is from the click (sent over the pipe as \`debug.click\`) until Windows reports the menu window visible; React drawing the entries comes on top once the UI exists.
 - Machine: ${os.cpus()[0].model.trim()}, ${(os.totalmem() / 1024 ** 3).toFixed(0)} GB RAM.
 `

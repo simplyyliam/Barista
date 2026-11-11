@@ -58,6 +58,7 @@ function print(items: ItemInfo[]): void {
       `pid ${item.pid}`.padEnd(10),
       item.hasIcon ? "icon" : "    ",
       item.hasMenu ? "menu" : "    ",
+      item.hasPopover ? "popover" : "       ",
       JSON.stringify(item.label ?? ""),
       item.visible ? "" : "(hidden)",
     ]

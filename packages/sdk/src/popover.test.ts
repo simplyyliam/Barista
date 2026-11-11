@@ -293,6 +293,15 @@ describe("electron adapter", () => {
     expect(closed).toHaveBeenCalledTimes(1)
   })
 
+  it("a window the app hides itself reports the close", () => {
+    const { win, handlers } = electronWindow()
+    const popover = electronPopover(win)
+    const closed = vi.fn()
+    popover.onClose(closed)
+    ;(handlers["hide"] as unknown as () => void)()
+    expect(closed).toHaveBeenCalledTimes(1)
+  })
+
   it("a destroyed window reports the close", () => {
     const { win, handlers } = electronWindow()
     const popover = electronPopover(win)
