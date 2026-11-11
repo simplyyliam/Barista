@@ -3,40 +3,12 @@
 Keep this file short: where we are, the next step, and facts a new session needs.
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
-## Where we are (2026-11-09)
+## Where we are (2026-11-11)
 
-- **v0.2.0 shipped** (tag `v0.2.0` on the merge of PR #8, not pushed yet: Liam runs `pnpm release`). Plan releases
-  v0.0 Setup, v0.1 Bar shell and v0.2 First item are done; their full notes are in
-  `docs/release/history/v0.0-v0.2-checkpoint.md` (local only).
-- **In progress: v0.3 Menus** on `feature/v0.3-menus` (plan: `~/.claude/plans/iterative-weaving-reddy.md`).
-  Built: protocol 0.3, menu validation, registry menus + checked state + roles, placement math, reused menu window
-  (`menu_window.rs`), events/commands, SDK `BA.Menu`, focus-timer test client, `inspect --menu-click`, tray spike
-  (`docs/research/tray-bridging.md`, local) + ADRs 0010-0012. Code review + security review done and fixed, e2e passed
-  (real mouse clicks on the bar; keyboard-only through a throwaway handler injected over WebView2 remote debugging,
-  real keystrokes; edge placement and submenu flip on the real 150 % screen), bench in `docs/perf/0.3.md`. PR "v0.3 Menus" open; waiting for Liam's review, the menu
-  UI, and approval of ADR 0012 (tray) before v0.6.
-- v0.4b System panels is planned (`releases/v0.4b.md`, local only).
-
-## Menu polish (2026-11-11, branch `feature/0.3/menubar-ui`, UI: full)
-
-- Two reused windows: `menu` (main panel) and `menu-sub` (submenu, `WS_EX_NOACTIVATE`), each with DWM acrylic,
-  round corners, native shadow (ADR 0013). Windows hides them at once with its own fade (a CSS fade left a ghost panel).
-- UI: `widgets/menu/{menu,root-menu,sub-menu}.tsx`, pieces in `features/menu/` (list, panel, hooks, `lib/navigation.ts`
-  with tests). Tokens: `--menu-*` in `styles/tokens.css`. `motion` is installed but unused by the menu.
-- Submenu intent: angle test + speed (`docs/research/submenu-intent.md`, local). Research also in
-  `docs/research/menu-acrylic.md` and `progressive-blur.md` (local, gitignored).
-- New commands: `menuHover`, `openSubmenu`, `closeSubmenu`, `submenuResized`, `submenuHover`, `setSubmenuHighlight`;
-  `menuResized` is now `(width, height)`. New events: `submenuShow/Hide/Placed/Highlight/Hovered`. Capability lists `menu-sub`.
-- Checked live (real bar + test client + `examples/integrations` GitHub/Spotify items, driven over WebView2 debugging):
-  keyboard (Up/Down/Home/End/Enter/Esc/Left/Right, type-to-jump), hover-switch, same-icon toggle, submenu flip, safe
-  triangle (fast vs slow moves), kill-client closes its menu, no blank submenu shell (stress), edge margin. `pnpm bench`:
-  menu visible 17 ms, idle CPU 0.02%, 70 MB private. `/code-review medium` findings fixed; `/security-review`: none.
-- Bugs found live: submenu window shown with raw Win32 must be hidden raw too (tao ignores `hide()`); a late show after
-  `close_submenu` left an empty window; submenu acrylic was flat (inactive window) -> `WM_NCACTIVATE` fixes it.
-- Close fade measured with rapid screenshots: difference from the final empty frame goes 94, 67, 53, 30, 7, 0 over ~120 ms, so
-  Windows' native fade works (not a one-frame vanish). Spotify's connected state was not exercised (needs a real sign-in).
-- Menus keep a 10 px margin from the left/right/bottom screen edges (`inset_work`), measured on the VISIBLE frame: a window with
-  a shadow has ~9 px of invisible border, so placement uses `frame_metrics` + `set_outer_rect` (it used to overshoot the edge). Progressive bar blur is research only.
+- **v0.3.0 shipped** (tag `v0.3.0` on the merge of PR #13, not pushed yet: Liam runs `pnpm release`). Plan releases
+  v0.0 to v0.3 are done; notes in `docs/release/history/` (local only).
+- **Next: v0.4 Popovers** (`docs/release/releases/v0.4.md`). v0.4b System panels is planned (`releases/v0.4b.md`, local only).
+- ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
 
 ## Facts a new session needs
 

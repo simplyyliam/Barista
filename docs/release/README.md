@@ -43,7 +43,7 @@ through a `release/v0.X.Y` PR (see `CLAUDE.md` > Releases).
 | v0.0 | Setup (done) | `pnpm dev` opens an empty bar window; CI passes (no tag) |
 | v0.1 | Bar shell (done, in 0.2.0) | The bar sits at the top, maximized windows stop under it |
 | v0.2 | First item (done, 0.2.0) | The test client puts an icon in the bar |
-| v0.3 | Menus | Click the test client's icon, a menu drops down |
+| v0.3 | Menus (done, 0.3.0) | Click the test client's icon, a menu drops down |
 | v0.4 | Popovers | Click an icon, the app's own window appears under it |
 | v0.4b | System panels | The bar shows the clock, battery and volume from real data; a panel (control center, notifications, calendar) opens under an item. Built-in Rust services, a reusable panel window (`releases/v0.4b.md`) |
 | v0.5 | Never stuck | Kill a client, its icon goes; restart the bar, icons come back. SDK published |
