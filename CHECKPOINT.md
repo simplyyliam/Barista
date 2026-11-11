@@ -5,12 +5,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-11)
 
-- **v0.3.0 shipped** (tag `v0.3.0` on the merge of PR #13, not pushed yet: Liam runs `pnpm release`). Plan releases
-  v0.0 to v0.3 are done; notes in `docs/release/history/` (local only).
-- **v0.4 Popovers: built on `feature/v0.4-popovers`, PR open for review** (not merged). Rust, protocol 0.4, SDK
-  (`setPopover`, `@barista/sdk/electron`, `on("open" | "close")`), examples (`test-client`, `spotify`, `quick-note`),
-  ADR 0014, bench `docs/perf/0.4.md`. v0.4b System panels is next (`releases/v0.4b.md`, local only); it reuses
-  `popover.rs`, `placement.rs` and `dismiss.rs`.
+- **v0.4.0 shipped** (tag `v0.4.0` on the merge of PR #19, not pushed yet: Liam runs `pnpm release`). Plan releases
+  v0.0 to v0.4 are done; notes in `docs/release/history/` (local only, v0.4 in `v0.4-checkpoint.md`).
+- **Next: v0.4b System panels** (`releases/v0.4b.md`, local only); it reuses `popover.rs`, `placement.rs` and `dismiss.rs`.
 - ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
 
 ## Facts a new session needs
@@ -57,42 +54,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Fix next
 
-- From dogfooding the v0.4 popovers (Spotify mini player in demo mode, quick-note, test client under Electron):
-  - Liam tested other display scales (2026-11-11): after switching scale, popovers and menus appeared in the wrong place
-    until he switched back and forth. Cause (likely): placement read the controller's cached scale and work area, which
-    are only refreshed on display/DPI events and can lag one change behind. Fix: `Controller::live_info()` re-reads
-    Windows at click time and `placement::geometry()` uses it. I could not reproduce a scale change here (one monitor,
-    and I don't change his display). Liam re-tested and confirmed the scales are fixed (2026-11-11); he waived the rest of
-    the "every monitor and scale" check. I never ran a scale switch myself: that is his report.
-  - Spotify: I (Claude) only ran `--demo` mode, with no credentials here. Liam says the real player works with his
-    client ID in `.env` (2026-11-11); that is his report, not something I checked.
-  - Other monitors and scales: Liam tested several scales himself (see above). I ran real clicks on one monitor at 150% only;
-    the rest is placement unit tests (100, 125, 150, 200 % and negative coordinates).
-  - An Electron app needs about 15 lines of boilerplate for the window (`show: false, frame: false, skipTaskbar,
-    alwaysOnTop`, deny navigation and new windows, preload, wait for `ready`). Want `electronPopover` to accept a window
-    factory, or a helper that makes the window.
-  - Electron's `ready` never fires while the main file is in a top-level `await`: the first version of the test client hung.
-    The README for the adapter should say so.
-  - `item.on("open")` can't hold the popover back: the window shows before the app finished refreshing. Maybe
-    `on("open", async)` with a short wait, or a documented "render the last state first".
-  - An app can't close its own popover on purpose (a "Save" button) except `win.hide()`; the adapter now reports the
-    `hide` event as a close, but a plain `item.closePopover()` would read better.
-  - The window frame: an Electron frameless window measures about 7 DIP bigger than the visible rect (invisible resize
-    border). It lines up visually; check with a transparent window.
-  - No automated test can check focus (needs real input). Only the manual scripts do. A small input-simulating test
-    helper would make "focus on every monitor and scale" checkable in CI.
-  - Only one monitor at 150% was available: other monitors and scales are covered by placement unit tests, not run for real.
-  - A label that grows (quick-note shows the start of the note) shifts the icon; an open popover stays where it was placed.
-  - Esc is handled by the app (adapter), not the bar: another framework must do it in `PopoverWindow.onClose`.
-  - Menu latency (52 ms) and memory (93 MB) are not v0.4 regressions: the v0.3.0 tag built and benched on the same machine
-    on 2026-11-11 gives about 44 ms and 99-101 MB too. Likely cause: WebView2 updated to 157.0.4341.46 on 2026-11-10 21:17.
-    Details in `docs/perf/0.4.md` (A/B table). Menu latency sits at 42-46 ms, close to the 50 ms budget.
-  - From `/code-review` and not fixed in v0.4: a late `popover.shown` from an older show is accepted for a newer show of
-    the same item (needs a per-show token in the protocol); a `setPopover` size change while the popover is open is not
-    applied until the next open; on a swap the UI sees no "closed" for the old item before the new one opens.
-  - `pnpm dev` now also starts the test client under Electron, quick-note and the Spotify player (it uses SPOTIFY_CLIENT_ID
-    from `.env`; without it the popover says so).
-  - Release scripts: `pnpm test-client` was in CLAUDE.md but missing from `package.json`; added (and `test-client:electron`).
+- From dogfooding the v0.4 popovers: the open papercuts (Electron window helper, `closePopover()`, async `on("open")`,
+  stale `popover.shown` token, `setPopover` resize while open) are in `docs/release/history/v0.4-checkpoint.md`.
+  Menu latency sits at 42-46 ms against the 50 ms budget (WebView2 drift, see `docs/perf/0.4.md`).
 
 - From dogfooding the focus timer (v0.3 menus):
   - Changing one entry (Start enabled, "Resume" label) means rebuilding the whole menu and calling `setMenu` again.
