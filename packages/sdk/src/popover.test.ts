@@ -130,12 +130,42 @@ describe("popover.show from the bar", () => {
     item.setPopover({ window: win, width: 320, height: 380 })
     sent.length = 0
     win.failShow()
-    // The error is rethrown on a microtask like any listener error.
-    const thrown = new Promise((resolve) => process.once("uncaughtException", resolve))
+    // A window that cannot show is logged, it does not crash the app.
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
     await item.emitPopoverShow(placement)
-    expect(await thrown).toMatchObject({ message: "window is gone" })
+    expect(log).toHaveBeenCalledOnce()
+    log.mockRestore()
     expect(types(sent)).toEqual(["popover.closed"])
     expect(events).toEqual(["close"])
+  })
+
+  it("a repeated popover.show runs open once and shows again", async () => {
+    const { item, win } = await setup()
+    const events: string[] = []
+    item.on("open", () => events.push("open"))
+    item.setPopover({ window: win, width: 320, height: 380 })
+    await item.emitPopoverShow(placement)
+    await item.emitPopoverShow(placement)
+    expect(events).toEqual(["open"])
+    expect(win.calls.filter((c) => c.startsWith("show"))).toHaveLength(2)
+  })
+
+  it("says nothing about a show that arrives after the item was removed", async () => {
+    const { item, win, sent } = await setup()
+    item.setPopover({ window: win, width: 320, height: 380 })
+    item.remove()
+    sent.length = 0
+    await item.emitPopoverShow(placement)
+    expect(sent).toEqual([])
+  })
+
+  it("replacing an open popover tells the bar it closed", async () => {
+    const { item, win, sent } = await setup()
+    item.setPopover({ window: win, width: 320, height: 380 })
+    await item.emitPopoverShow(placement)
+    sent.length = 0
+    item.setPopover({ window: win, width: 400, height: 400 })
+    expect(types(sent)).toEqual(["popover.closed", "item.setPopover"])
   })
 
   it("answers closed when it has no popover, so the icon is not stuck open", async () => {
@@ -253,7 +283,8 @@ describe("electron adapter", () => {
   it("moves, shows and focuses, dividing by the scale without `screen`", () => {
     const { win, calls } = electronWindow()
     electronPopover(win).show({ ...placement, x: 150, y: 54, width: 480, height: 570 })
-    expect(calls).toEqual(["bounds 100,36 320x380", "show", "focus"])
+    // Bounds twice on purpose: the second one fixes the size after a move to another-scale monitor.
+    expect(calls).toEqual(["bounds 100,36 320x380", "bounds 100,36 320x380", "show", "focus"])
   })
 
   it("uses screen.screenToDipRect when given (mixed-DPI monitors)", () => {

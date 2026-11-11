@@ -78,7 +78,11 @@ export function electronPopover(
   })
   return {
     show(placement) {
-      win.setBounds(toBounds(placement, options.screen))
+      const bounds = toBounds(placement, options.screen)
+      win.setBounds(bounds)
+      // On Windows, moving a window to a monitor with another scale first resizes it with the
+      // old scale; applying the bounds again, now on the right monitor, fixes the size.
+      win.setBounds(bounds)
       win.show()
       win.focus()
     },

@@ -9,9 +9,17 @@ use std::sync::OnceLock;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
 use windows::Win32::UI::WindowsAndMessaging::{
-    AllowSetForegroundWindow, GetWindowThreadProcessId, EVENT_SYSTEM_FOREGROUND,
-    WINEVENT_OUTOFCONTEXT,
+    AllowSetForegroundWindow, GetForegroundWindow, GetWindowThreadProcessId,
+    EVENT_SYSTEM_FOREGROUND, WINEVENT_OUTOFCONTEXT,
 };
+
+/// The process that has the foreground window right now, if there is one.
+pub fn current_pid() -> Option<u32> {
+    let mut pid = 0u32;
+    // SAFETY: plain calls; the second only writes the pid we pass a pointer to.
+    unsafe { GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut pid)) };
+    (pid != 0).then_some(pid)
+}
 
 /// Lets process `pid` bring a window to the front. Only the bar's own process can grant this, and
 /// the pid always comes from the pipe, never from what a client says about itself.

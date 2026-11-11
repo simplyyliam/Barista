@@ -231,8 +231,12 @@ export class StatusItem {
   setPopover(popover: PopoverOptions | null): void {
     if (this.#removed) throw new Error(`Item ${JSON.stringify(this.id)} was removed`)
     if (popover !== null) assertPopoverSize(popover.width, popover.height)
-    // A popover that is open while it is replaced goes away.
-    this.#closeOpenPopover()
+    // A popover that is open while it is replaced goes away, and the bar must hear about it
+    // (or it keeps the icon "open" and the next click only toggles it shut).
+    if (this.#popoverOpen) {
+      this.#closeOpenPopover()
+      this.#bar.send({ type: "popover.closed", id: this.id })
+    }
     this.#popover = popover ?? undefined
     if (popover && !this.#watchedWindows.has(popover.window)) {
       this.#watchedWindows.add(popover.window)
@@ -371,22 +375,26 @@ export class StatusItem {
    */
   async emitPopoverShow(placement: Placement): Promise<void> {
     const popover = this.#popover
-    if (!popover || this.#removed) {
+    // A removed item is already gone at the bar: answering would only earn a `not_found`.
+    if (this.#removed) return
+    if (!popover) {
       // The bar thinks there is a popover but we have none: tell it, so the icon is not stuck.
       this.#bar.send({ type: "popover.closed", id: this.id })
       return
     }
+    // A repeated show (the bar asking again) must not run `open` twice without a `close`.
+    const alreadyOpen = this.#popoverOpen
     this.#popoverOpen = true
-    for (const listener of this.#openListeners) callSafely(() => listener())
+    if (!alreadyOpen) for (const listener of this.#openListeners) callSafely(() => listener())
     try {
       await popover.window.show(placement)
     } catch (error) {
       this.#popoverOpen = false
       this.#bar.send({ type: "popover.closed", id: this.id })
       for (const listener of this.#closeListeners) callSafely(() => listener())
-      queueMicrotask(() => {
-        throw error
-      })
+      // A window that cannot be shown is the window adapter's problem, not a reason to crash the
+      // whole app: report it and carry on.
+      console.error(`[barista] could not show the popover of ${JSON.stringify(this.id)}:`, error)
       return
     }
     if (!this.#popoverOpen) {

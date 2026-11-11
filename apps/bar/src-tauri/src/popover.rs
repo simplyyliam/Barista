@@ -45,6 +45,8 @@ pub struct Env {
     pub emit: Box<dyn Fn(Option<String>) + Send + Sync>,
     pub close_menu: Box<dyn Fn() + Send + Sync>,
     pub allow_foreground: fn(u32),
+    /// Which process has the foreground right now.
+    pub foreground_pid: Box<dyn Fn() -> Option<u32> + Send + Sync>,
     pub shown_timeout: Duration,
 }
 
@@ -117,6 +119,7 @@ pub fn init(app: &tauri::AppHandle, registry: Arc<Registry>) {
             }
         }),
         allow_foreground: crate::platform::windows::foreground::allow,
+        foreground_pid: Box::new(crate::platform::windows::foreground::current_pid),
         shown_timeout: SHOWN_TIMEOUT,
     };
     if POPOVERS.set(Popovers::new(env)).is_ok() {
@@ -288,8 +291,21 @@ impl Popovers {
 
     /// `popover.shown`: the app took the popover; the timeout no longer applies.
     pub fn shown(&self, key: &str) {
-        if let Some(open) = self.lock().open.as_mut().filter(|o| o.key == key) {
+        let pid = {
+            let mut inner = self.lock();
+            let Some(open) = inner.open.as_mut().filter(|o| o.key == key) else {
+                return;
+            };
             open.shown = true;
+            open.pid
+        };
+        // If Windows refused the app the focus, another program is still in front and no
+        // "foreground changed" event will ever come for it: treat that as a click away now.
+        // (If the app is just a moment late, its own focus event cancels the hide.)
+        if let Some(front) = (self.0.env.foreground_pid)() {
+            if front != pid {
+                self.foreground_changed(front);
+            }
         }
     }
 
@@ -369,6 +385,8 @@ mod tests {
         session: SessionId,
         events: Arc<Mutex<Vec<Option<String>>>>,
         menu_closes: Arc<Mutex<u32>>,
+        /// Who the fake desktop says is in front (`None` = the client, 4242).
+        front: Arc<Mutex<Option<u32>>>,
     }
 
     static GRANTS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
@@ -382,6 +400,8 @@ mod tests {
         let events = Arc::new(Mutex::new(Vec::new()));
         let menu_closes = Arc::new(Mutex::new(0));
         let (e, m) = (events.clone(), menu_closes.clone());
+        let front = Arc::new(Mutex::new(None));
+        let f = front.clone();
         let bar = rect(work.left, work.top - 36, work.right, work.top);
         let env = Env {
             registry: registry.clone(),
@@ -393,6 +413,7 @@ mod tests {
             emit: Box::new(move |v| e.lock().unwrap().push(v)),
             close_menu: Box::new(move || *m.lock().unwrap() += 1),
             allow_foreground: |pid| GRANTS.lock().unwrap().push(pid),
+            foreground_pid: Box::new(move || f.lock().unwrap().or(Some(4242))),
             shown_timeout: Duration::from_millis(timeout_ms),
         };
         Rig {
@@ -402,6 +423,7 @@ mod tests {
             session,
             events,
             menu_closes,
+            front,
         }
     }
 
@@ -544,6 +566,21 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(350)).await;
         assert!(t.rx.try_recv().is_err());
         assert!(t.pop.current().is_some());
+    }
+
+    #[tokio::test]
+    async fn shown_while_another_program_still_has_the_focus_hides_it() {
+        // Windows refused the app the focus: no foreground event will ever come, so the check
+        // at `shown` is the only chance to notice.
+        let mut t = rig(hd(), 1.0, 5000);
+        *t.front.lock().unwrap() = Some(999);
+        t.pop.item_click("s1/note");
+        t.rx.try_recv().unwrap();
+        t.pop.shown("s1/note");
+        *t.front.lock().unwrap() = None;
+        tokio::time::sleep(Duration::from_millis(350)).await;
+        assert_eq!(t.rx.try_recv().unwrap(), BarMessage::PopoverHide { id: "note".into() });
+        assert!(t.pop.current().is_none());
     }
 
     #[tokio::test]
