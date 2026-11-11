@@ -1,4 +1,4 @@
-import { Battery, Clock, DisplayDate, MenubarItemGroup, StatusItems, Volume } from "@/features/menubar"
+import { Clock, DisplayDate, MenubarItemGroup, StatusItems } from "@/features/menubar"
 import { commands } from "@/shared/bindings"
 import { useState, useEffect } from "react"
 
@@ -21,7 +21,6 @@ export default function Menubar() {
       </MenubarItemGroup>
       <MenubarItemGroup className="justify-self-end">
         <StatusItems />
-        {/*<Volume />*/}
         <Clock />
       </MenubarItemGroup>
     </div>
