@@ -49,6 +49,10 @@ The first column must be the exact package or crate name.
 | @hugeicons/core-free-icons | 4.4     | MIT               | https://github.com/hugeicons/hugeicons                 |
 | lucide-react               | 1.70    | ISC               | https://github.com/lucide-icons/lucide                 |
 | @fontsource-variable/inter | 5.3     | OFL-1.1           | https://github.com/fontsource/font-files               |
+| concurrently               | 10.0    | MIT               | https://github.com/open-cli-tools/concurrently         |
+| dotenv-cli                 | 11.1    | MIT               | https://github.com/entropitor/dotenv-cli               |
+| tsx                        | 4.23    | MIT               | https://github.com/privatenumber/tsx                   |
+| wait-on                    | 9.5     | MIT               | https://github.com/jeffbski/wait-on                    |
 | class-variance-authority   | 0.7     | Apache-2.0        | https://github.com/joe-bell/cva                        |
 | cn                         | 0.5     | MIT               | https://github.com/shadcn-ui/cn                        |
 | next                       | 16.4    | MIT               | https://github.com/vercel/next.js                      |
