@@ -164,7 +164,7 @@ export default function RootMenu() {
     (index: number, event: MouseEvent) => {
       const current = stateRef.current
       if (current.closing) return
-      const point = { x: event.clientX, y: event.clientY }
+      const point = { x: event.clientX, y: event.clientY, t: event.timeStamp }
       if (index === current.active && current.level === "root") {
         safe.track(point)
         return

@@ -1,81 +1,91 @@
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import { inTriangle, type Point } from "../lib/navigation"
-import type { SubmenuPlacement } from "./use-menu-state"
+import { isAimedAtSubmenu, type AimTarget, type Point } from "../lib/navigation"
 
 /** A held move waits this long for the pointer to keep going before it counts. */
 const SETTLE_MS = 150
-/** The safe triangle never holds for longer than this in total. */
-const MAX_HOLD_MS = 400
+/** Holding never lasts longer than this in total, however the pointer moves. */
+const MAX_HOLD_MS = 500
+/** Slower than this (px/ms, about 80 px/s) the user is choosing a row, not travelling. */
+const DELIBERATE_SPEED = 0.08
+
+type Sample = Point & { t: number }
 
 /**
- * The "safe triangle": moving the pointer diagonally from the row that opened a submenu toward
- * the submenu passes over other rows. While the pointer is inside the triangle (its last
- * position, and the submenu's two near corners) those rows are ignored, so the submenu stays.
+ * Hover intent for submenus (see docs/research/submenu-intent.md). While a submenu is open,
+ * the pointer heading for it passes over other rows; those rows must not take over.
  *
- * `move(point, apply)` is called for every pointer move over a row. It either calls `apply` now,
- * or holds it and calls it once the pointer settles (or leaves the triangle).
+ * A move is held (the row under the pointer is ignored for now) when it is
+ *  - aimed at the submenu: its direction lies inside the cone to the submenu's near corners,
+ *    plus 15 degrees (React Aria's angle test), and
+ *  - fast enough to be travelling (Framer's speed test), not a slow, deliberate move.
+ * A held move is applied once the pointer settles, or after 500 ms. One stray move is forgiven
+ * (a shaky hand); the second in a row switches rows at once.
+ *
+ * `move(sample, apply)` is called for every pointer move over a row.
  */
 export function useSafeTriangle() {
-  const placement = useRef<SubmenuPlacement | null>(null)
-  const last = useRef<Point | null>(null)
+  const target = useRef<AimTarget | null>(null)
+  const last = useRef<Sample | null>(null)
   const heldSince = useRef<number | null>(null)
+  const strays = useRef(0)
   const timer = useRef<number | undefined>(undefined)
 
   const cancel = useCallback(() => {
     window.clearTimeout(timer.current)
     timer.current = undefined
     heldSince.current = null
+    strays.current = 0
   }, [])
 
   useEffect(() => cancel, [cancel])
 
   const setPlacement = useCallback(
-    (next: SubmenuPlacement | null) => {
-      placement.current = next
+    (next: AimTarget | null) => {
+      target.current = next
       if (!next) cancel()
     },
     [cancel],
   )
 
-  const move = useCallback(
-    (point: Point, apply: () => void) => {
-      const target = placement.current
-      const previous = last.current
-      last.current = point
+  const move = useCallback((sample: Sample, apply: () => void) => {
+    const aim = target.current
+    const previous = last.current
+    last.current = sample
 
-      let hold = false
-      if (target && previous) {
-        const edgeX = target.side === "right" ? target.x : target.x + target.width
-        hold = inTriangle(
-          point,
-          previous,
-          { x: edgeX, y: target.y },
-          { x: edgeX, y: target.y + target.height },
-        )
+    let hold = false
+    if (aim && previous) {
+      const dt = Math.max(sample.t - previous.t, 1)
+      const speed = Math.hypot(sample.x - previous.x, sample.y - previous.y) / dt
+      const aimed = isAimedAtSubmenu(previous, sample, aim)
+      if (aimed) {
+        strays.current = 0
+        hold = speed >= DELIBERATE_SPEED
+      } else {
+        strays.current += 1
+        hold = strays.current < 2
       }
+      if (hold && heldSince.current !== null && sample.t - heldSince.current > MAX_HOLD_MS) hold = false
+    }
 
-      const now = performance.now()
-      if (hold && heldSince.current !== null && now - heldSince.current > MAX_HOLD_MS) hold = false
-
-      window.clearTimeout(timer.current)
-      if (!hold) {
-        heldSince.current = null
-        apply()
-        return
-      }
-      heldSince.current ??= now
-      timer.current = window.setTimeout(() => {
-        heldSince.current = null
-        apply()
-      }, SETTLE_MS)
-    },
-    [],
-  )
+    window.clearTimeout(timer.current)
+    if (!hold) {
+      heldSince.current = null
+      strays.current = 0
+      apply()
+      return
+    }
+    heldSince.current ??= sample.t
+    timer.current = window.setTimeout(() => {
+      heldSince.current = null
+      strays.current = 0
+      apply()
+    }, SETTLE_MS)
+  }, [])
 
   /** The pointer moved over the row that is already active: only remember where it is. */
   const track = useCallback(
-    (point: Point) => {
-      last.current = point
+    (sample: Sample) => {
+      last.current = sample
       cancel()
     },
     [cancel],

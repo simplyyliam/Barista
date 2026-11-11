@@ -56,16 +56,29 @@ export function typeaheadIndex(entries: MenuEntry[], buffer: string, from: numbe
   return -1
 }
 
-function sign(a: Point, b: Point, c: Point): number {
-  return (a.x - c.x) * (b.y - c.y) - (b.x - c.x) * (a.y - c.y)
-}
+/** Where the submenu window is, in the main menu window's logical px. */
+export type AimTarget = { side: "right" | "left"; x: number; y: number; width: number; height: number }
 
-/** Is `p` inside the triangle a-b-c (edges included)? */
-export function inTriangle(p: Point, a: Point, b: Point, c: Point): boolean {
-  const d1 = sign(p, a, b)
-  const d2 = sign(p, b, c)
-  const d3 = sign(p, c, a)
-  const hasNegative = d1 < 0 || d2 < 0 || d3 < 0
-  const hasPositive = d1 > 0 || d2 > 0 || d3 > 0
-  return !(hasNegative && hasPositive)
+/** Extra angle around the corner-to-corner cone, so a slightly wobbly hand still counts. */
+const AIM_TOLERANCE = (15 * Math.PI) / 180
+
+/**
+ * Is the pointer step `prev -> next` heading for the submenu? (React Aria's method.)
+ * Angles are measured from `prev`, with x mirrored so the submenu is always on the right:
+ * the step is "aimed" when its angle lies between the angles to the submenu's near top and
+ * bottom corners, widened by 15 degrees. Moving away from the near edge is never aimed.
+ */
+export function isAimedAtSubmenu(prev: Point, next: Point, target: AimTarget): boolean {
+  const edgeX = target.side === "right" ? target.x : target.x + target.width
+  const mirror = target.side === "right" ? 1 : -1
+  const toEdge = (edgeX - prev.x) * mirror
+  const dx = (next.x - prev.x) * mirror
+  const dy = next.y - prev.y
+  if (toEdge <= 0) return true // already level with or past the edge
+  if (dx < 0) return false // moving away from the submenu
+  if (dx === 0 && dy === 0) return true // no movement says nothing
+  const heading = Math.atan2(dy, dx)
+  const top = Math.atan2(target.y - prev.y, toEdge)
+  const bottom = Math.atan2(target.y + target.height - prev.y, toEdge)
+  return heading >= top - AIM_TOLERANCE && heading <= bottom + AIM_TOLERANCE
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { MenuEntry } from "@/shared/bindings"
 import { formatAccelerator } from "./accelerator"
-import { firstIndex, inTriangle, lastIndex, nextIndex, typeaheadIndex } from "./navigation"
+import { firstIndex, isAimedAtSubmenu, lastIndex, nextIndex, typeaheadIndex } from "./navigation"
 
 const row = (label: string, enabled = true): MenuEntry =>
   ({ id: label, kind: "normal", label, checked: false, enabled, submenu: [] }) as unknown as MenuEntry
@@ -52,14 +52,35 @@ describe("typeaheadIndex", () => {
   })
 })
 
-describe("inTriangle", () => {
-  it("is true heading toward the submenu edge and false away from it", () => {
-    const apex = { x: 100, y: 50 }
-    const top = { x: 200, y: 0 }
-    const bottom = { x: 200, y: 200 }
-    expect(inTriangle({ x: 150, y: 60 }, apex, top, bottom)).toBe(true)
-    expect(inTriangle({ x: 120, y: 190 }, apex, top, bottom)).toBe(false)
-    expect(inTriangle({ x: 50, y: 50 }, apex, top, bottom)).toBe(false)
+describe("isAimedAtSubmenu", () => {
+  // Submenu to the right: its near edge is x=200, from y=0 to y=200.
+  const right = { side: "right", x: 200, y: 0, width: 150, height: 200 } as const
+  const left = { side: "left", x: 0, y: 0, width: 150, height: 200 } as const
+
+  it("is true when heading toward the near edge, even diagonally", () => {
+    expect(isAimedAtSubmenu({ x: 100, y: 50 }, { x: 130, y: 60 }, right)).toBe(true)
+    expect(isAimedAtSubmenu({ x: 100, y: 50 }, { x: 130, y: 120 }, right)).toBe(true)
+  })
+
+  it("is false when moving away, or straight along the menu", () => {
+    expect(isAimedAtSubmenu({ x: 100, y: 50 }, { x: 80, y: 55 }, right)).toBe(false)
+    expect(isAimedAtSubmenu({ x: 100, y: 50 }, { x: 100, y: 120 }, right)).toBe(false)
+    expect(isAimedAtSubmenu({ x: 100, y: 50 }, { x: 105, y: 300 }, right)).toBe(false)
+  })
+
+  it("forgives 15 degrees around the cone", () => {
+    // Cone from (100,50) tops out at atan2(-50,100) = -26.6 deg: -35 deg is inside the tolerance, -45 is not.
+    expect(isAimedAtSubmenu({ x: 100, y: 50 }, { x: 130, y: 50 - 21 }, right)).toBe(true)
+    expect(isAimedAtSubmenu({ x: 100, y: 50 }, { x: 130, y: 50 - 30 }, right)).toBe(false)
+  })
+
+  it("mirrors for a submenu on the left", () => {
+    expect(isAimedAtSubmenu({ x: 300, y: 50 }, { x: 270, y: 60 }, left)).toBe(true)
+    expect(isAimedAtSubmenu({ x: 300, y: 50 }, { x: 320, y: 55 }, left)).toBe(false)
+  })
+
+  it("counts as aimed once level with the edge", () => {
+    expect(isAimedAtSubmenu({ x: 210, y: 50 }, { x: 212, y: 400 }, right)).toBe(true)
   })
 })
 
