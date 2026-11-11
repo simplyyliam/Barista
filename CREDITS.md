@@ -57,6 +57,7 @@ The first column must be the exact package or crate name.
 | fumadocs-mdx               | 15.5    | MIT               | https://github.com/fuma-nama/fumadocs                  |
 | @types/mdx                 | 2.0     | MIT               | https://github.com/DefinitelyTyped/DefinitelyTyped     |
 | tw-animate-css             | 1.4     | MIT               | https://github.com/Wombosvideo/tw-animate-css          |
+| motion                     | 14.12   | MIT               | https://github.com/motiondivision/motion               |
 
 ## Design tooling
 
