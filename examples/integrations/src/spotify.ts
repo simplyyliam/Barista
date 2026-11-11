@@ -203,6 +203,15 @@ export class SpotifyClient {
   
     if (!response.ok) {
       const details = await response.text().catch(() => "")
+      // Spotify answers 403 "Restriction violated" when we pause while paused (or play while
+      // playing). The goal state is already true, so it's not a failure.
+      if (
+        response.status === 403 &&
+        (action === "play" || action === "pause") &&
+        details.includes("Restriction violated")
+      ) {
+        return
+      }
       throw new Error(
         `Spotify ${action} command returned ${response.status}${details ? `: ${details}` : ""}`,
       )

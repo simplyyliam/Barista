@@ -48,7 +48,9 @@ let githubTimer: NodeJS.Timeout | undefined
 function showError(service: string, error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   console.error(`[${service}] ${message}`)
-  return message.slice(0, 512)
+  // The bar rejects control characters (API errors are multi-line JSON), so flatten to one line.
+  // eslint-disable-next-line no-control-regex
+  return message.replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 512)
 }
 
 async function perform(service: string, action: () => Promise<void>): Promise<void> {
@@ -71,9 +73,16 @@ function updateSpotifyMenu(): void {
       enabled: connected && track !== null,
       click: () =>
         perform("Spotify", async () => {
-          if (!spotify || !track) return
-          await spotify.playback(track.isPlaying ? "pause" : "play")
-          await refreshSpotify()
+          // Use the live state, not the `track` captured when the menu was built: after a quick
+          // pause/play the captured one is stale and Spotify rejects the repeat command.
+          const live = currentTrack
+          if (!spotify || !live) return
+          const willPlay = !live.isPlaying
+          await spotify.playback(willPlay ? "play" : "pause")
+          currentTrack = { ...live, isPlaying: willPlay }
+          updateSpotifyMenu()
+          // Spotify's state lags a moment behind the command; refresh after it settles.
+          setTimeout(() => void refreshSpotify(), 1_000)
         }),
     },
     {
