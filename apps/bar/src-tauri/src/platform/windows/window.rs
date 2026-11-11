@@ -15,9 +15,9 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW, SendMessageW,
+    GetClientRect, GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW, SendMessageW,
     SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
-    SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
+    SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
     WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_NCACTIVATE, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
@@ -142,6 +142,54 @@ pub fn appear_active(hwnd: HWND) {
     // SAFETY: WM_NCACTIVATE with plain values; it only changes how the frame is drawn.
     unsafe {
         let _ = SendMessageW(hwnd, WM_NCACTIVATE, Some(WPARAM(1)), Some(LPARAM(0)));
+    }
+}
+
+/// How a menu window's frame differs from what is drawn. Windows keeps an invisible border around
+/// a window with a shadow, so the window rect is bigger than what you see (the "visible frame").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameMetrics {
+    /// Window rect to visible frame: (left, top, right, bottom) px of invisible border.
+    pub inset: (i32, i32, i32, i32),
+    /// Visible frame minus client area: (width, height) px, a thin rim around the page.
+    pub extra: (i32, i32),
+}
+
+/// Measures the frame of `hwnd`. Works while the window is hidden. `None` if Windows can't say.
+pub fn frame_metrics(hwnd: HWND) -> Option<FrameMetrics> {
+    let (mut window, mut client, mut visible) = (RECT::default(), RECT::default(), RECT::default());
+    // SAFETY: each call only writes into the local RECT it is given (the DWM call gets its size).
+    unsafe {
+        GetWindowRect(hwnd, &mut window).ok()?;
+        GetClientRect(hwnd, &mut client).ok()?;
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            std::ptr::addr_of_mut!(visible).cast(),
+            std::mem::size_of::<RECT>() as u32,
+        )
+        .ok()?;
+    }
+    let (vw, vh) = (visible.right - visible.left, visible.bottom - visible.top);
+    let inset = (
+        visible.left - window.left,
+        visible.top - window.top,
+        window.right - visible.right,
+        window.bottom - visible.bottom,
+    );
+    // A window that was never laid out reports nothing useful: don't trust it.
+    let sane = vw > 0 && vh > 0 && [inset.0, inset.1, inset.2, inset.3].iter().all(|v| (0..=64).contains(v));
+    sane.then_some(FrameMetrics {
+        inset,
+        extra: (vw - (client.right - client.left), vh - (client.bottom - client.top)),
+    })
+}
+
+/// Puts the window's outer rect exactly here, without activating it.
+pub fn set_outer_rect(hwnd: HWND, left: i32, top: i32, width: i32, height: i32) {
+    // SAFETY: plain call with values; no pointers.
+    unsafe {
+        let _ = SetWindowPos(hwnd, None, left, top, width, height, SWP_NOACTIVATE | SWP_NOZORDER);
     }
 }
 

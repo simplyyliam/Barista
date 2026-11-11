@@ -35,7 +35,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `close_submenu` left an empty window; submenu acrylic was flat (inactive window) -> `WM_NCACTIVATE` fixes it.
 - Close fade measured with rapid screenshots: difference from the final empty frame goes 94, 67, 53, 30, 7, 0 over ~120 ms, so
   Windows' native fade works (not a one-frame vanish). Spotify's connected state was not exercised (needs a real sign-in).
-- Menus keep an 8 px margin from the left/right/bottom screen edges (`inset_work`). Progressive bar blur is research only.
+- Menus keep a 10 px margin from the left/right/bottom screen edges (`inset_work`), measured on the VISIBLE frame: a window with
+  a shadow has ~9 px of invisible border, so placement uses `frame_metrics` + `set_outer_rect` (it used to overshoot the edge). Progressive bar blur is research only.
 
 ## Facts a new session needs
 

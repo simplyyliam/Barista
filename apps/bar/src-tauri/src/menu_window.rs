@@ -46,7 +46,7 @@ const GUESS_PADDING: f64 = 10.0;
 /// up with the row that opened it.
 const PANEL_PADDING: f64 = 5.0;
 /// Menus keep this far (logical px) from the left, right and bottom screen edges, like macOS.
-const EDGE_MARGIN: f64 = 8.0;
+const EDGE_MARGIN: f64 = 10.0;
 /// The submenu overlaps its parent by this much (logical px), like macOS.
 const SUBMENU_OVERLAP: f64 = 2.0;
 
@@ -353,12 +353,46 @@ fn inset_work(work: &Rect, scale: f64) -> Rect {
 
 /// Logical size -> physical, then `anchor::place`. The window is one panel, so the "root width"
 /// is the whole width and the side is always the right one.
-fn place_logical(item: &Rect, size: (f64, f64), work: &Rect, scale: f64) -> Rect {
+/// `extra` is the window's rim (visible frame minus page, see `frame_extra`), so the page ends up
+/// exactly `size` big.
+fn place_logical(item: &Rect, size: (f64, f64), extra: (i32, i32), work: &Rect, scale: f64) -> Rect {
     let px = |v: f64| (v * scale).round() as i32;
-    anchor::place(item, (px(size.0), px(size.1)), px(size.0), &inset_work(work, scale)).0
+    let (w, h) = (px(size.0) + extra.0, px(size.1) + extra.1);
+    anchor::place(item, (w, h), w, &inset_work(work, scale)).0
 }
 
+/// The thin rim Windows keeps between the page and the visible window edge (0 if unknown).
+fn frame_extra(window: Option<&tauri::WebviewWindow>) -> (i32, i32) {
+    #[cfg(windows)]
+    if let Some(m) = window
+        .and_then(|w| w.hwnd().ok())
+        .and_then(crate::platform::windows::window::frame_metrics)
+    {
+        return m.extra;
+    }
+    #[cfg(not(windows))]
+    let _ = window;
+    (0, 0)
+}
+
+/// Puts the window so its VISIBLE frame is exactly `rect`. A window with a shadow carries an
+/// invisible border; ignoring it pushed menus up to 10 px past the screen edge.
 fn move_to(window: &tauri::WebviewWindow, rect: &Rect) {
+    #[cfg(windows)]
+    if let Some((hwnd, m)) = window
+        .hwnd()
+        .ok()
+        .and_then(|h| crate::platform::windows::window::frame_metrics(h).map(|m| (h, m)))
+    {
+        crate::platform::windows::window::set_outer_rect(
+            hwnd,
+            rect.left - m.inset.0,
+            rect.top - m.inset.1,
+            rect.width() + m.inset.0 + m.inset.2,
+            rect.height() + m.inset.1 + m.inset.3,
+        );
+        return;
+    }
     let _ = window.set_size(PhysicalSize::new(rect.width() as u32, rect.height() as u32));
     let _ = window.set_position(PhysicalPosition::new(rect.left, rect.top));
 }
@@ -481,6 +515,7 @@ impl MenuWindow {
             return;
         };
         self.close_submenu();
+        let extra = frame_extra(self.window().as_ref());
         let (w, h) = guess_size(&snapshot);
         let (rect, item, acrylic, generation, pending) = {
             let mut inner = self.lock();
@@ -498,7 +533,7 @@ impl MenuWindow {
             // A swap before the first reveal must not cancel it: still waiting = still pending.
             inner.pending_show = !swap || inner.pending_show;
             inner.generation += 1;
-            let rect = place_logical(&inner.item_rect, inner.size, &work, scale);
+            let rect = place_logical(&inner.item_rect, inner.size, extra, &work, scale);
             inner.root_rect = rect;
             (rect, inner.item_rect, inner.acrylic, inner.generation, inner.pending_show)
         };
@@ -583,13 +618,14 @@ impl MenuWindow {
         let Some((_, work, scale)) = geometry() else {
             return;
         };
+        let extra = frame_extra(self.window().as_ref());
         let (rect, reveal) = {
             let mut inner = self.lock();
             if inner.shown.is_none() {
                 return;
             }
             inner.size = (width, height);
-            let rect = place_logical(&inner.item_rect, inner.size, &work, scale);
+            let rect = place_logical(&inner.item_rect, inner.size, extra, &work, scale);
             inner.root_rect = rect;
             (rect, inner.pending_show)
         };
@@ -660,6 +696,7 @@ impl MenuWindow {
             return;
         };
         let px = |v: f64| (v * scale).round() as i32;
+        let extra = frame_extra(self.sub_window().as_ref());
         let (rect, side, root) = {
             let mut inner = self.lock();
             let root = inner.root_rect;
@@ -674,7 +711,7 @@ impl MenuWindow {
             let (rect, side) = anchor::place_submenu(
                 &root,
                 trigger,
-                (px(sub.size.0), px(sub.size.1)),
+                (px(sub.size.0) + extra.0, px(sub.size.1) + extra.1),
                 px(SUBMENU_OVERLAP),
                 &inset_work(&work, scale),
             );
@@ -893,11 +930,13 @@ mod tests {
     fn menus_keep_a_margin_from_the_screen_edges_but_not_from_the_bar() {
         let work = Rect { left: 0, top: 36, right: 1920, bottom: 1080 };
         let inset = inset_work(&work, 1.5);
-        assert_eq!((inset.left, inset.top, inset.right, inset.bottom), (12, 36, 1908, 1068));
+        assert_eq!((inset.left, inset.top, inset.right, inset.bottom), (15, 36, 1905, 1065));
         // A menu that wants to sit at the right edge now stops short of it.
         let item = Rect { left: 1900, top: 0, right: 1910, bottom: 36 };
-        let placed = place_logical(&item, (200.0, 100.0), &work, 1.5);
-        assert_eq!(placed.right, 1908);
+        let placed = place_logical(&item, (200.0, 100.0), (4, 4), &work, 1.5);
+        assert_eq!(placed.right, 1905);
+        // The page itself is 200 logical px wide: the rim comes on top.
+        assert_eq!(placed.width(), 300 + 4);
         // A tiny screen is left alone.
         let tiny = Rect { left: 0, top: 0, right: 10, bottom: 10 };
         assert_eq!(inset_work(&tiny, 1.0).right, 10);
