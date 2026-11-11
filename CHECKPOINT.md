@@ -33,7 +33,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   menu visible 17 ms, idle CPU 0.02%, 70 MB private. `/code-review medium` findings fixed; `/security-review`: none.
 - Bugs found live: submenu window shown with raw Win32 must be hidden raw too (tao ignores `hide()`); a late show after
   `close_submenu` left an empty window; submenu acrylic was flat (inactive window) -> `WM_NCACTIVATE` fixes it.
-- Not watched by eye: the native Windows fade-out on close (needs a person).
+- Close fade measured with rapid screenshots: difference from the final empty frame goes 94, 67, 53, 30, 7, 0 over ~120 ms, so
+  Windows' native fade works (not a one-frame vanish). Spotify's connected state was not exercised (needs a real sign-in).
 - Menus keep an 8 px margin from the left/right/bottom screen edges (`inset_work`). Progressive bar blur is research only.
 
 ## Facts a new session needs
