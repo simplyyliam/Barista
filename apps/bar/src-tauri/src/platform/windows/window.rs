@@ -132,6 +132,22 @@ pub fn set_menu_styles(hwnd: HWND, no_activate: bool) -> bool {
     }
 }
 
+/// Windows' own show/hide animation for a menu window. Off while it opens (instant), on for the
+/// moment it hides, so the whole window, glass and shadow included, fades out like a native menu.
+pub fn set_menu_transitions(hwnd: HWND, enabled: bool) {
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
+    let forced_off: i32 = (!enabled).into();
+    // SAFETY: plain i32 that lives for the whole call.
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            std::ptr::addr_of!(forced_off).cast(),
+            std::mem::size_of_val(&forced_off) as u32,
+        );
+    }
+}
+
 /// Picks the dark or the light acrylic tint for a menu window.
 pub fn set_menu_dark(hwnd: HWND, dark: bool) {
     use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE};

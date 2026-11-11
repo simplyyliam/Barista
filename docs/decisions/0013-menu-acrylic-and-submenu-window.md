@@ -21,15 +21,16 @@ Each is exactly one panel.
   still share one highlight.
 - Open: Rust places the window, emits `menuOpen`, and shows it only when the UI reports its size
   (`menuResized`, measured before paint), so no stale frame. An 80 ms fallback shows it anyway.
-- Close: `menuClose` goes out at once, the UI fades the content out in 150 ms, Rust hides the windows
-  after 170 ms (cancelled if a menu opened meanwhile).
+- Close: `menuClose` goes out and both windows hide at once. Windows' own hide animation is switched
+  on only for that moment, so glass and shadow fade out together like a native menu.
 - Hover-to-switch: `menuHover(itemId)` swaps menus only while one is open. It never opens one.
 - Windows 10 / older Win11 have no system backdrop: `MenuAnchor.acrylic = false`, the UI draws an opaque panel.
 
 ## Consequences
 
-- The glass can't fade (DWM has no opacity for it). The content fades, the glass goes when the
-  window hides.
+- The glass can't fade from CSS. A first version faded the content and hid the window 170 ms later,
+  which left a blank ghost panel and felt laggy (Liam, 2026-11-11). So there is no CSS fade; the
+  fade is Windows' own, and the `motion` package is installed but unused by the menu.
 - A second WebView2 window costs memory (measured in `docs/perf/0.3.md`).
 - Placement lives in `registry/anchor.rs::place_submenu` (pure, tested): right side, flips left at
   the screen edge, stays inside the work area.

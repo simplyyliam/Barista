@@ -8,7 +8,7 @@
 //!  UI measures ───────► menuResized ─► re-place, then show + focus (first time only)
 //!  hover a submenu row ► openSubmenu ─► emit submenu-show ─► submenuResized ─► place + show
 //!  pick entry ────────► menuItemClicked ─► registry flips checked, app gets menu.click ─► close
-//!  blur / Esc / same icon again ─► close: emit menu-close now, hide the windows after the fade
+//!  blur / Esc / same icon again ─► close: emit menu-close, hide both windows (Windows fades them)
 //! ```
 
 use crate::bar::Rect;
@@ -32,9 +32,6 @@ pub const SUB_LABEL: &str = "menu-sub";
 /// arrives in between, it decides instead: same icon = stay closed, another icon = switch
 /// menus without hiding (no flicker).
 const BLUR_GRACE: Duration = Duration::from_millis(150);
-
-/// The UI fades the menu out in 150 ms; the windows hide just after.
-const HIDE_AFTER_FADE: Duration = Duration::from_millis(170);
 
 /// If the UI never reports its size (it should within a frame), show the window anyway.
 const REVEAL_FALLBACK: Duration = Duration::from_millis(80);
@@ -351,12 +348,23 @@ fn move_to(window: &tauri::WebviewWindow, rect: &Rect) {
 
 /// Shows a window without taking focus (the submenu must never steal the keyboard).
 fn show_without_focus(window: &tauri::WebviewWindow) {
+    transitions(window, false);
     #[cfg(windows)]
     if let Ok(hwnd) = window.hwnd() {
         crate::platform::windows::window::set_visible(hwnd, true);
         return;
     }
     let _ = window.show();
+}
+
+/// Turns Windows' show/hide animation on or off for one window (no-op off Windows).
+fn transitions(window: &tauri::WebviewWindow, enabled: bool) {
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() {
+        crate::platform::windows::window::set_menu_transitions(hwnd, enabled);
+    }
+    #[cfg(not(windows))]
+    let _ = (window, enabled);
 }
 
 impl MenuWindow {
@@ -505,45 +513,31 @@ impl MenuWindow {
             inner.pending_show = false;
         }
         if let Some(window) = self.window() {
+            transitions(&window, false);
             let _ = window.show();
             let _ = window.set_focus();
         }
     }
 
-    /// Tells the UI to fade out now; the windows hide when the fade is done, unless a menu
-    /// opened in between (the generation changed).
+    /// Closes now: the UI is told, and Windows hides both windows with its own fade-out (glass
+    /// and shadow can't be faded from CSS, so a CSS fade left a blank ghost panel behind).
     fn hide(&self, key: &str) {
         if key.is_empty() {
             return;
         }
-        let generation = {
+        {
             let mut inner = self.lock();
             inner.shown = None;
             inner.pending_show = false;
+            inner.sub = None;
             inner.generation += 1;
-            inner.generation
-        };
+        }
         let _ = MenuClose {
             item_id: key.to_string(),
         }
         .emit(&self.app);
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(HIDE_AFTER_FADE).await;
-            if let Some(menu) = get() {
-                menu.hide_windows(generation);
-            }
-        });
-    }
-
-    fn hide_windows(&self, generation: u64) {
-        {
-            let mut inner = self.lock();
-            if inner.generation != generation || inner.shown.is_some() {
-                return;
-            }
-            inner.sub = None;
-        }
         for window in [self.window(), self.sub_window()].into_iter().flatten() {
+            transitions(&window, true);
             let _ = window.hide();
         }
     }

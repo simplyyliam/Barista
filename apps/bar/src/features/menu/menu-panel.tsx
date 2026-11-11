@@ -1,9 +1,8 @@
-import { motion } from "motion/react"
 import { useRef, type ReactNode } from "react"
 import { useMenuSize } from "./hooks/use-menu-size"
 
 type MenuPanelProps = {
-  /** Fading out. Opening never animates: the menu must be there on the first frame. */
+  /** Closing: Windows is fading the window out, so ignore the mouse meanwhile. */
   closing: boolean
   /** The window has the system acrylic backdrop; if not, draw an opaque panel. */
   acrylic: boolean
@@ -15,18 +14,16 @@ type MenuPanelProps = {
 
 /**
  * The glass of one menu window. The window itself is the panel (Windows draws the blur, the
- * corners and the shadow), so this only adds the tint, a hairline edge and the close fade.
- * Give it a new `key` for every open: it starts fresh and fully visible, with no enter animation.
+ * corners, the shadow and the fade-out when it hides), so this only adds the tint and a hairline
+ * edge. Nothing here animates: the menu must be fully there on the first frame. Give it a new
+ * `key` for every open so it starts fresh.
  */
 export function MenuPanel({ closing, acrylic, label, activeId, onSize, children }: MenuPanelProps) {
   const measureRef = useRef<HTMLDivElement>(null)
   useMenuSize(measureRef, onSize)
 
   return (
-    <motion.div
-      initial={false}
-      animate={{ opacity: closing ? 0 : 1 }}
-      transition={closing ? { duration: 0.15, ease: "easeOut" } : { duration: 0 }}
+    <div
       data-acrylic={acrylic}
       style={{ pointerEvents: closing ? "none" : "auto" }}
       onContextMenu={(event) => event.preventDefault()}
@@ -42,6 +39,6 @@ export function MenuPanel({ closing, acrylic, label, activeId, onSize, children 
       >
         {children}
       </div>
-    </motion.div>
+    </div>
   )
 }
