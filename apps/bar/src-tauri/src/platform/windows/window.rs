@@ -15,10 +15,10 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW,
+    GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW, SendMessageW,
     SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
     SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
-    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
+    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_NCACTIVATE, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
@@ -132,6 +132,16 @@ pub fn set_menu_styles(hwnd: HWND, no_activate: bool) -> bool {
         let old = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, old | extra);
         acrylic
+    }
+}
+
+/// Makes DWM draw the window as "active" without activating it. The system acrylic turns flat
+/// on an inactive window, and the submenu window can never be active (it would take the keyboard
+/// from the main menu), so it gets the active look this way.
+pub fn appear_active(hwnd: HWND) {
+    // SAFETY: WM_NCACTIVATE with plain values; it only changes how the frame is drawn.
+    unsafe {
+        let _ = SendMessageW(hwnd, WM_NCACTIVATE, Some(WPARAM(1)), Some(LPARAM(0)));
     }
 }
 

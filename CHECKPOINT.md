@@ -27,11 +27,14 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `docs/research/menu-acrylic.md` and `progressive-blur.md` (local, gitignored).
 - New commands: `menuHover`, `openSubmenu`, `closeSubmenu`, `submenuResized`, `submenuHover`, `setSubmenuHighlight`;
   `menuResized` is now `(width, height)`. New events: `submenuShow/Hide/Placed/Highlight/Hovered`. Capability lists `menu-sub`.
-- Checked live (real bar + test client): open under the icon, acrylic look, compact rows, hover highlight, submenu flip
-  left at the right edge. NOT checked live: keyboard/type-to-jump, safe triangle feel, hover-switch between items, close
-  fade feel, `pnpm bench` (second window memory), code/security review.
-- Known: the inactive submenu window shows flatter, less see-through acrylic than the main one (Windows draws acrylic
-  inactive windows flat). Progressive bar blur is research only.
+- Checked live (real bar + test client + `examples/integrations` GitHub/Spotify items, driven over WebView2 debugging):
+  keyboard (Up/Down/Home/End/Enter/Esc/Left/Right, type-to-jump), hover-switch, same-icon toggle, submenu flip, safe
+  triangle (fast vs slow moves), kill-client closes its menu, no blank submenu shell (stress), edge margin. `pnpm bench`:
+  menu visible 17 ms, idle CPU 0.02%, 70 MB private. `/code-review medium` findings fixed; `/security-review`: none.
+- Bugs found live: submenu window shown with raw Win32 must be hidden raw too (tao ignores `hide()`); a late show after
+  `close_submenu` left an empty window; submenu acrylic was flat (inactive window) -> `WM_NCACTIVATE` fixes it.
+- Not watched by eye: the native Windows fade-out on close (needs a person).
+- Menus keep an 8 px margin from the left/right/bottom screen edges (`inset_work`). Progressive bar blur is research only.
 
 ## Facts a new session needs
 

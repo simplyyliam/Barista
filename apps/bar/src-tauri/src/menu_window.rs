@@ -45,6 +45,8 @@ const GUESS_PADDING: f64 = 10.0;
 /// The panel's inner padding (logical px): a submenu moves up by this much so its first row lines
 /// up with the row that opened it.
 const PANEL_PADDING: f64 = 5.0;
+/// Menus keep this far (logical px) from the left, right and bottom screen edges, like macOS.
+const EDGE_MARGIN: f64 = 8.0;
 /// The submenu overlaps its parent by this much (logical px), like macOS.
 const SUBMENU_OVERLAP: f64 = 2.0;
 
@@ -334,11 +336,26 @@ fn geometry() -> Option<(Rect, Rect, f64)> {
     Some((bar, work, info.scale))
 }
 
+/// The area menus may use: the work area, pulled in from the left, right and bottom edges. The
+/// top stays where it is (the menu hangs from the bar). A screen too small for it is left alone.
+fn inset_work(work: &Rect, scale: f64) -> Rect {
+    let m = (EDGE_MARGIN * scale).round() as i32;
+    if work.width() <= 2 * m + 1 || work.height() <= m + 1 {
+        return *work;
+    }
+    Rect {
+        left: work.left + m,
+        top: work.top,
+        right: work.right - m,
+        bottom: work.bottom - m,
+    }
+}
+
 /// Logical size -> physical, then `anchor::place`. The window is one panel, so the "root width"
 /// is the whole width and the side is always the right one.
 fn place_logical(item: &Rect, size: (f64, f64), work: &Rect, scale: f64) -> Rect {
     let px = |v: f64| (v * scale).round() as i32;
-    anchor::place(item, (px(size.0), px(size.1)), px(size.0), work).0
+    anchor::place(item, (px(size.0), px(size.1)), px(size.0), &inset_work(work, scale)).0
 }
 
 fn move_to(window: &tauri::WebviewWindow, rect: &Rect) {
@@ -352,9 +369,22 @@ fn show_without_focus(window: &tauri::WebviewWindow) {
     #[cfg(windows)]
     if let Ok(hwnd) = window.hwnd() {
         crate::platform::windows::window::set_visible(hwnd, true);
+        // Same acrylic as the main menu: DWM flattens it on an inactive window otherwise.
+        crate::platform::windows::window::appear_active(hwnd);
         return;
     }
     let _ = window.show();
+}
+
+/// Hides the submenu window. It is shown with a raw Win32 call (above), so Tauri's own state
+/// still says "hidden" and `window.hide()` would do nothing: it must be hidden the same way.
+fn hide_without_focus(window: &tauri::WebviewWindow) {
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() {
+        crate::platform::windows::window::set_visible(hwnd, false);
+        return;
+    }
+    let _ = window.hide();
 }
 
 /// Turns Windows' show/hide animation on or off for one window (no-op off Windows).
@@ -537,9 +567,13 @@ impl MenuWindow {
             item_id: key.to_string(),
         }
         .emit(&self.app);
-        for window in [self.window(), self.sub_window()].into_iter().flatten() {
+        if let Some(window) = self.window() {
             transitions(&window, true);
             let _ = window.hide();
+        }
+        if let Some(window) = self.sub_window() {
+            transitions(&window, true);
+            hide_without_focus(&window);
         }
     }
 
@@ -642,13 +676,20 @@ impl MenuWindow {
                 trigger,
                 (px(sub.size.0), px(sub.size.1)),
                 px(SUBMENU_OVERLAP),
-                &work,
+                &inset_work(&work, scale),
             );
             (rect, side, root)
         };
         if let Some(window) = self.sub_window() {
             move_to(&window, &rect);
             show_without_focus(&window);
+            // The submenu may have been closed after we read the state but before the window
+            // showed (the pointer left the row). Showing it then would leave an empty window
+            // that nothing tracks, so hide it again.
+            if self.lock().sub.is_none() {
+                hide_without_focus(&window);
+                return;
+            }
         }
         let _ = SubmenuPlaced {
             side,
@@ -666,11 +707,13 @@ impl MenuWindow {
             let mut inner = self.lock();
             (inner.sub.take().is_some(), inner.shown.clone())
         };
+        // Always hide, even if no submenu was tracked: hiding a hidden window is free, and it
+        // clears any window a racing show left behind.
+        if let Some(window) = self.sub_window() {
+            hide_without_focus(&window);
+        }
         if !had {
             return;
-        }
-        if let Some(window) = self.sub_window() {
-            let _ = window.hide();
         }
         let _ = SubmenuHide {
             item_id: key.unwrap_or_default(),
@@ -844,6 +887,20 @@ mod tests {
         m.blur(t);
         m.focus();
         assert_eq!(m.blur_timeout(later(t, 500)), Action::Nothing);
+    }
+
+    #[test]
+    fn menus_keep_a_margin_from_the_screen_edges_but_not_from_the_bar() {
+        let work = Rect { left: 0, top: 36, right: 1920, bottom: 1080 };
+        let inset = inset_work(&work, 1.5);
+        assert_eq!((inset.left, inset.top, inset.right, inset.bottom), (12, 36, 1908, 1068));
+        // A menu that wants to sit at the right edge now stops short of it.
+        let item = Rect { left: 1900, top: 0, right: 1910, bottom: 36 };
+        let placed = place_logical(&item, (200.0, 100.0), &work, 1.5);
+        assert_eq!(placed.right, 1908);
+        // A tiny screen is left alone.
+        let tiny = Rect { left: 0, top: 0, right: 10, bottom: 10 };
+        assert_eq!(inset_work(&tiny, 1.0).right, 10);
     }
 
     #[test]
