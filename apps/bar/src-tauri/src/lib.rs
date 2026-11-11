@@ -9,6 +9,7 @@ mod events;
 mod ipc;
 mod menu_window;
 mod placement;
+mod popover;
 mod platform;
 mod radius;
 mod registry;
@@ -46,7 +47,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::menu_hover,
             commands::close_menu,
             commands::get_open_menu,
-            commands::set_item_bounds
+            commands::set_item_bounds,
+            commands::get_open_popover
         ])
         .events(collect_events![
             events::BarChanged,
@@ -55,6 +57,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::MenuOpen,
             events::MenuChanged,
             events::MenuClose,
+            events::PopoverChanged,
             events::SubmenuShow,
             events::SubmenuHide,
             events::SubmenuPlaced,
@@ -146,6 +149,7 @@ pub fn run() {
             let registry = Arc::new(registry::Registry::new());
             app.manage(registry.clone());
             menu_window::init(app.handle(), registry.clone())?;
+            popover::init(app.handle(), registry.clone());
             ipc::start(registry.clone());
             events::forward_changes(app.handle().clone(), registry);
             Ok(())

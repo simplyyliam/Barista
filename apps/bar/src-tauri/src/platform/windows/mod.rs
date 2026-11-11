@@ -4,6 +4,7 @@
 //! Tray bridging helpers come later.
 
 pub mod appbar;
+pub mod foreground;
 pub mod fullscreen;
 pub mod monitors;
 pub mod pipe;

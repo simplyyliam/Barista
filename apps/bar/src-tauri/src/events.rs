@@ -43,6 +43,9 @@ pub fn forward_changes(app: tauri::AppHandle, registry: std::sync::Arc<Registry>
             if let Some(menu) = crate::menu_window::get() {
                 menu.sync();
             }
+            if let Some(popovers) = crate::popover::get() {
+                popovers.sync();
+            }
         }
     });
 }
@@ -93,6 +96,14 @@ pub struct MenuChanged {
 #[serde(rename_all = "camelCase")]
 pub struct MenuClose {
     pub item_id: String,
+}
+
+/// The popover that is open changed: `item_id` is the item it hangs from, `None` = none is open.
+/// The UI shows the item as "open" while this is set.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct PopoverChanged {
+    pub item_id: Option<String>,
 }
 
 /// Draw `entries` in the submenu window (the entry `index` of the open menu was opened). The

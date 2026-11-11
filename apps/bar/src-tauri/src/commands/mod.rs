@@ -206,6 +206,14 @@ pub fn get_open_menu() -> Option<MenuOpen> {
     menu_window::get().and_then(|m| m.current())
 }
 
+/// The item whose popover is open right now (the `id` from `getItems()`), if any. Call once when
+/// the UI starts; `popoverChanged` keeps it fresh. Show that item as "open".
+#[tauri::command]
+#[specta::specta]
+pub fn get_open_popover() -> Option<String> {
+    crate::popover::get().and_then(|p| p.current())
+}
+
 /// Where each item is drawn in the bar (logical px, relative to the bar window), so menus open
 /// right under their icon. Send it whenever the items move (a ResizeObserver is enough).
 /// Without it, menus open under the mouse.

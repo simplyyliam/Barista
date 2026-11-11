@@ -19,8 +19,8 @@ use crate::events::{
 use crate::dismiss::{Action, Machine, BLUR_GRACE};
 use crate::placement::{self, geometry, inset_work};
 use crate::registry::anchor;
-use crate::registry::{ClickError, MenuItemClickError, MenuSnapshot, Registry};
-use barista_protocol::{MenuItemType, MouseButton};
+use crate::registry::{ClickError, ClickTarget, MenuItemClickError, MenuSnapshot, Registry};
+use barista_protocol::{BarMessage, MenuItemType, MouseButton, ScreenRect};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
@@ -179,17 +179,44 @@ pub fn tone_changed(dark: bool) {
     let _ = dark;
 }
 
-/// A click on a bar item: opens/closes its menu if it has one, else tells the app
-/// (`item.click`). Used by the `itemClicked` command and by `debug.click`.
+/// A click on a bar item, the one place that applies the click rule (ADR 0014): left = popover,
+/// then menu, then the app; right = menu, then the app; middle = the app. Used by the
+/// `itemClicked` command and by `debug.click`.
 pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Result<(), ClickError> {
-    if !registry.opens_menu(key, button) {
-        return registry.click(key, button);
+    // No windows in unit tests: the click is accepted and nothing opens.
+    match registry.target(key, button) {
+        ClickTarget::Popover => {
+            if let Some(popovers) = crate::popover::get() {
+                popovers.item_click(key);
+            }
+            Ok(())
+        }
+        ClickTarget::Menu => {
+            // One thing open at a time: a menu replaces an open popover.
+            crate::popover::close();
+            if let Some(menu) = get() {
+                menu.item_click(key);
+            }
+            Ok(())
+        }
+        ClickTarget::App => {
+            // A click on an item without a popover must not leave another item's popover up.
+            crate::popover::close();
+            registry.click_with_anchor(key, button, anchor_of(key))
+        }
     }
-    // No window in unit tests: the click is accepted and nothing opens.
-    if let Some(menu) = get() {
-        menu.item_click(key);
-    }
-    Ok(())
+}
+
+/// The item's rect on screen, for `item.click`. `None` when the bar has no monitor yet.
+fn anchor_of(key: &str) -> Option<ScreenRect> {
+    let (bar, _, scale) = geometry()?;
+    let r = placement::item_rect(key, &bar, scale);
+    Some(ScreenRect {
+        x: r.left,
+        y: r.top,
+        width: r.width(),
+        height: r.height(),
+    })
 }
 
 /// The user picked an entry. Closes the menu if it is the open one.
@@ -312,6 +339,18 @@ impl MenuWindow {
         self.app.get_webview_window(SUB_LABEL)
     }
 
+    /// Tells the owner its menu opened or closed (`menu.opened` / `menu.closed`), so it can
+    /// refresh labels. A stuck client just misses it.
+    fn notify_app(&self, key: &str, opened: bool) {
+        let _ = self.registry.send_with(key, |id| {
+            if opened {
+                BarMessage::MenuOpened { id }
+            } else {
+                BarMessage::MenuClosed { id }
+            }
+        });
+    }
+
     fn item_click(&self, key: &str) {
         let action = self.lock().machine.click(key, Instant::now());
         self.apply(action);
@@ -319,7 +358,7 @@ impl MenuWindow {
 
     /// The mouse moved onto a bar item (`menuHover`). Switches menus if one is open.
     pub fn hover_item(&self, key: &str) {
-        if !self.registry.opens_menu(key, MouseButton::Left) {
+        if self.registry.target(key, MouseButton::Right) != ClickTarget::Menu {
             return;
         }
         let action = self.lock().machine.hover(key);
@@ -385,19 +424,26 @@ impl MenuWindow {
         self.close_submenu();
         let extra = frame_extra(self.window().as_ref());
         let (w, h) = guess_size(&snapshot);
-        let (rect, item, acrylic, generation, pending) = {
+        let (rect, item, acrylic, generation, pending, previous) = {
             let mut inner = self.lock();
             inner.item_rect = placement::item_rect(key, &bar, scale);
             inner.size = (w, h);
             inner.rev = snapshot.rev;
-            inner.shown = Some(key.to_string());
+            let previous = inner.shown.replace(key.to_string());
             // A swap before the first reveal must not cancel it: still waiting = still pending.
             inner.pending_show = !swap || inner.pending_show;
             inner.generation += 1;
             let rect = place_logical(&inner.item_rect, inner.size, extra, &work, scale);
             inner.root_rect = rect;
-            (rect, inner.item_rect, inner.acrylic, inner.generation, inner.pending_show)
+            (rect, inner.item_rect, inner.acrylic, inner.generation, inner.pending_show, previous)
         };
+        // The apps hear about it (a swap closes the old menu and opens the new one).
+        if previous.as_deref() != Some(key) {
+            if let Some(previous) = previous {
+                self.notify_app(&previous, false);
+            }
+            self.notify_app(key, true);
+        }
         if let Some(window) = self.window() {
             move_to(&window, &rect);
         }
@@ -459,6 +505,7 @@ impl MenuWindow {
             inner.sub = None;
             inner.generation += 1;
         }
+        self.notify_app(key, false);
         let _ = MenuClose {
             item_id: key.to_string(),
         }

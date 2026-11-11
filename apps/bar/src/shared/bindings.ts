@@ -87,6 +87,11 @@ export const commands = {
 	 *  Without it, menus open under the mouse.
 	 */
 	setItemBounds: (bounds: ItemBounds[]) => __TAURI_INVOKE<void>("set_item_bounds", { bounds }),
+	/**
+	 *  The item whose popover is open right now (the `id` from `getItems()`), if any. Call once when
+	 *  the UI starts; `popoverChanged` keeps it fresh. Show that item as "open".
+	 */
+	getOpenPopover: () => __TAURI_INVOKE<string | null>("get_open_popover"),
 };
 
 /** Events */
@@ -97,6 +102,7 @@ export const events = {
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
 	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
+	popoverChanged: makeEvent<PopoverChanged_Serialize, PopoverChanged_Deserialize>("popover-changed"),
 	submenuHide: makeEvent<SubmenuHide, SubmenuHide>("submenu-hide"),
 	submenuHighlight: makeEvent<SubmenuHighlight_Serialize, SubmenuHighlight_Deserialize>("submenu-highlight"),
 	submenuHovered: makeEvent<SubmenuHovered_Serialize, SubmenuHovered_Deserialize>("submenu-hovered"),
@@ -287,6 +293,28 @@ export type Monitor = {
 
 /**  Which mouse button clicked an item. */
 export type MouseButton = "left" | "right" | "middle";
+
+/**
+ *  The popover that is open changed: `item_id` is the item it hangs from, `None` = none is open.
+ *  The UI shows the item as "open" while this is set.
+ */
+export type PopoverChanged = PopoverChanged_Serialize | PopoverChanged_Deserialize;
+
+/**
+ *  The popover that is open changed: `item_id` is the item it hangs from, `None` = none is open.
+ *  The UI shows the item as "open" while this is set.
+ */
+export type PopoverChanged_Deserialize = {
+	itemId?: string | null,
+};
+
+/**
+ *  The popover that is open changed: `item_id` is the item it hangs from, `None` = none is open.
+ *  The UI shows the item as "open" while this is set.
+ */
+export type PopoverChanged_Serialize = {
+	itemId: string | null,
+};
 
 /**
  *  A rectangle in **physical pixels** (what Windows works in). Logical pixels only exist in
