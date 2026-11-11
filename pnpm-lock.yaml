@@ -344,6 +344,32 @@ importers:
         specifier: npm:@typescript/typescript6@~6.0.2
         version: '@typescript/typescript6@6.0.2'
 
+  examples/quick-note:
+    dependencies:
+      '@barista/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      electron:
+        specifier: ^45.2.3
+        version: 45.2.3(supports-color@10.2.2)
+      typescript:
+        specifier: npm:@typescript/typescript6@~6.0.2
+        version: '@typescript/typescript6@6.0.2'
+
+  examples/spotify:
+    dependencies:
+      '@barista/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      electron:
+        specifier: ^45.2.3
+        version: 45.2.3(supports-color@10.2.2)
+      typescript:
+        specifier: npm:@typescript/typescript6@~6.0.2
+        version: '@typescript/typescript6@6.0.2'
+
   examples/test-client:
     dependencies:
       '@barista/sdk':

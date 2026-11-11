@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'"
+/>
+<title>Quick note</title>
+<style>
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+    font: 14px/1.5 system-ui, sans-serif;
+    color: #f2f2f2;
+    background: #202124;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    opacity: 0.6;
+  }
+  textarea {
+    flex: 1;
+    resize: none;
+    border: 1px solid #3c4043;
+    border-radius: 8px;
+    padding: 10px;
+    font: inherit;
+    color: inherit;
+    background: #292a2d;
+  }
+  textarea:focus {
+    outline: 2px solid #8ab4f8;
+    border-color: transparent;
+  }
+</style>
+<main>
+  <header>
+    <span>Quick note</span>
+    <span id="status" aria-live="polite">Esc to close</span>
+  </header>
+  <textarea id="text" aria-label="Note" placeholder="Jot something down…" autofocus></textarea>
+</main>
+<script src="note.js"></script>
