@@ -30,6 +30,8 @@ export type { ConnectOptions } from "./status-bar.js"
 export { StatusItem } from "./status-item.js"
 export type { ClickEvent, StatusItemOptions } from "./status-item.js"
 export type { Placement, PopoverOptions, PopoverWindow } from "./popover.js"
+export { iconToSvg, ICON_SIZE, WIDE_ICON_HEIGHT, ICON_AREA, BAR_HEIGHT } from "./icons.js"
+export type { IconInput, IconNode, IconSpec } from "./icons.js"
 // The SDK's Menu and MenuItem classes; the wire shape is `MenuTemplateItem` from protocol.ts.
 export { Menu, MenuItem } from "./menu.js"
 export type { MenuClickEvent, MenuItemOptions } from "./menu.js"

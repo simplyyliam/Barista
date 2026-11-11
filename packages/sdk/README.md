@@ -99,6 +99,25 @@ item.setMenu([
 - At most 3 levels deep and 50 entries in total; ids unique. Changed an entry? Call
   `item.setMenu(menu)` again.
 
+## Icons
+
+Use an icon from Hugeicons or Lucide directly, no SVG file needed:
+
+```ts
+import { Clock01Icon } from "@hugeicons/core-free-icons" // or: import { Clock } from "lucide"
+const item = await BA.StatusItem.create({ id: "time", icon: Clock01Icon })
+item.setIcon({ icon: Clock01Icon, color: "#8b95a5", strokeWidth: 1.75 })
+```
+
+- `setIcon` / `create({ icon })` take an icon object, `{ icon, color?, strokeWidth?, height? }`, SVG text,
+  PNG/SVG bytes or a `data:` URL.
+- Icon sets draw with an empty border, so a plain 16 px icon looks small. Icon objects are cropped to their real
+  glyph and sized by height (16 px square, `height: BA.WIDE_ICON_HEIGHT` for wide shapes) when you install
+  `@resvg/resvg-js` (`npm install @resvg/resvg-js`). Without it they still work, just smaller.
+- For your own SVG: `import { fitToGlyph } from "@barista/sdk/icons"`, then `item.setIcon(fitToGlyph(svg, 16))`.
+  `toPng(svg, { height, scale })` makes a PNG at `height * scale` pixels. The sizes (`ICON_SIZE`, `WIDE_ICON_HEIGHT`,
+  `ICON_AREA`) are exported from the same place.
+
 ## Popovers
 
 A popover is your own window, shown right under the icon. The bar decides when (a left click) and
@@ -129,7 +148,7 @@ item.setMenu([{ role: "quit" }]) // right click
 
 - **Item ids**: 1 to 64 characters from `a-z 0-9 - _ .`, unique in your app.
 - **At most 8 items** per app. **Labels** up to 128 characters, **tooltips** up to 512.
-- **Icons**: PNG (at most 1024x1024 pixels) or SVG, up to 256 KB. Size them for a bar about 24 px high; the bar scales them.
+- **Icons**: an icon object, PNG (at most 1024x1024 pixels) or SVG, up to 256 KB. The bar is 24 px high and icons stay within 22: see "Icons".
 - A bad argument throws right at the call (nothing is sent). Anything the bar refuses later
   arrives through `on("error")`.
 - The bar draws everything. Your app never paints into it.
