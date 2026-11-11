@@ -54,13 +54,13 @@ async function main(): Promise<void> {
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }))
   win.webContents.on("will-navigate", (event) => event.preventDefault())
   // Registered before the page loads: it asks for the note as soon as it starts.
-  let item: BA.StatusItem | undefined
+  const holder: { item?: BA.StatusItem } = {}
   ipcMain.handle("load", (event) => (event.sender === win.webContents ? note : ""))
   ipcMain.handle("save", async (event, text: unknown) => {
     if (event.sender !== win.webContents || typeof text !== "string" || text.length > MAX_NOTE) return
     note = text
     await writeFile(file, note)
-    item?.setLabel(preview(note))
+    holder.item?.setLabel(preview(note))
   })
   await win.loadFile(fileURLToPath(new URL("./note.html", import.meta.url)))
 
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     label: preview(note),
     tooltip: "Quick note",
   })
-  item = created
+  holder.item = created
   created.setPopover({ window: electronPopover(win, { screen }), width: 360, height: 260 })
   created.setMenu([
     {
