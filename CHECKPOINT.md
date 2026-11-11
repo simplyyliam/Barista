@@ -17,6 +17,22 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   UI, and approval of ADR 0012 (tray) before v0.6.
 - v0.4b System panels is planned (`releases/v0.4b.md`, local only).
 
+## Menu polish (2026-11-11, branch `feature/0.3/menubar-ui`, UI: full)
+
+- Two reused windows: `menu` (main panel) and `menu-sub` (submenu, `WS_EX_NOACTIVATE`), each with DWM acrylic,
+  round corners, native shadow (ADR 0013). Windows hides them at once with its own fade (a CSS fade left a ghost panel).
+- UI: `widgets/menu/{menu,root-menu,sub-menu}.tsx`, pieces in `features/menu/` (list, panel, hooks, `lib/navigation.ts`
+  with tests). Tokens: `--menu-*` in `styles/tokens.css`. `motion` is installed but unused by the menu.
+- Submenu intent: angle test + speed (`docs/research/submenu-intent.md`, local). Research also in
+  `docs/research/menu-acrylic.md` and `progressive-blur.md` (local, gitignored).
+- New commands: `menuHover`, `openSubmenu`, `closeSubmenu`, `submenuResized`, `submenuHover`, `setSubmenuHighlight`;
+  `menuResized` is now `(width, height)`. New events: `submenuShow/Hide/Placed/Highlight/Hovered`. Capability lists `menu-sub`.
+- Checked live (real bar + test client): open under the icon, acrylic look, compact rows, hover highlight, submenu flip
+  left at the right edge. NOT checked live: keyboard/type-to-jump, safe triangle feel, hover-switch between items, close
+  fade feel, `pnpm bench` (second window memory), code/security review.
+- Known: the inactive submenu window shows flatter, less see-through acrylic than the main one (Windows draws acrylic
+  inactive windows flat). Progressive bar blur is research only.
+
 ## Facts a new session needs
 
 - One Cargo workspace at the root (`apps/bar/src-tauri`, `crates/protocol`). `pnpm gen` = `cargo test --workspace export_`
