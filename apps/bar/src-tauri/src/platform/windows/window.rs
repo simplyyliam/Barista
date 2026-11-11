@@ -106,14 +106,6 @@ pub fn set_menu_styles(hwnd: HWND, no_activate: bool) -> bool {
             std::ptr::addr_of!(no_anim).cast(),
             std::mem::size_of_val(&no_anim) as u32,
         );
-        // The backdrop only shows if the frame is extended over the whole window.
-        let margins = MARGINS {
-            cxLeftWidth: -1,
-            cxRightWidth: -1,
-            cyTopHeight: -1,
-            cyBottomHeight: -1,
-        };
-        let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
         let backdrop = DWMSBT_TRANSIENTWINDOW;
         let acrylic = DwmSetWindowAttribute(
             hwnd,
@@ -122,6 +114,17 @@ pub fn set_menu_styles(hwnd: HWND, no_activate: bool) -> bool {
             std::mem::size_of_val(&backdrop) as u32,
         )
         .is_ok();
+        if acrylic {
+            // The backdrop only shows if the frame is extended over the whole window. Without
+            // acrylic (Windows 10) we leave the window alone: the UI draws an opaque panel.
+            let margins = MARGINS {
+                cxLeftWidth: -1,
+                cxRightWidth: -1,
+                cyTopHeight: -1,
+                cyBottomHeight: -1,
+            };
+            let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
+        }
         let mut extra = WS_EX_TOOLWINDOW.0 as isize;
         if no_activate {
             extra |= WS_EX_NOACTIVATE.0 as isize;

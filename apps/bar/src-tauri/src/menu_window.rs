@@ -452,7 +452,7 @@ impl MenuWindow {
         };
         self.close_submenu();
         let (w, h) = guess_size(&snapshot);
-        let (rect, item, acrylic, generation) = {
+        let (rect, item, acrylic, generation, pending) = {
             let mut inner = self.lock();
             #[cfg(windows)]
             let cursor = crate::platform::windows::window::cursor_x();
@@ -465,11 +465,12 @@ impl MenuWindow {
             inner.size = (w, h);
             inner.rev = snapshot.rev;
             inner.shown = Some(key.to_string());
-            inner.pending_show = !swap;
+            // A swap before the first reveal must not cancel it: still waiting = still pending.
+            inner.pending_show = !swap || inner.pending_show;
             inner.generation += 1;
             let rect = place_logical(&inner.item_rect, inner.size, &work, scale);
             inner.root_rect = rect;
-            (rect, inner.item_rect, inner.acrylic, inner.generation)
+            (rect, inner.item_rect, inner.acrylic, inner.generation, inner.pending_show)
         };
         if let Some(window) = self.window() {
             move_to(&window, &rect);
@@ -487,7 +488,7 @@ impl MenuWindow {
             },
         }
         .emit(&self.app);
-        if !swap {
+        if pending {
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(REVEAL_FALLBACK).await;
                 if let Some(menu) = get() {

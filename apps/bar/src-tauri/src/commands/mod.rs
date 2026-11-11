@@ -172,6 +172,10 @@ pub fn set_submenu_highlight(index: Option<u32>) {
 #[tauri::command]
 #[specta::specta]
 pub fn menu_hover(item_id: String) {
+    // Item ids are "<session>/<id>", short; refuse anything absurd before looking it up.
+    if item_id.len() > 256 {
+        return;
+    }
     if let Some(menu) = menu_window::get() {
         menu.hover_item(&item_id);
     }

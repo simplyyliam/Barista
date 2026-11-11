@@ -65,9 +65,10 @@ export default function RootMenu() {
             patch({ sub: null, subActive: -1, level: "root" })
           }),
           events.submenuHovered.listen(({ payload }) => {
-            if (payload.index === null) return
             safe.cancel()
-            patch({ level: "sub", subActive: payload.index })
+            // Pointer left the submenu: its highlight is gone, so the keyboard starts over there.
+            if (payload.index === null) patch({ subActive: -1 })
+            else patch({ level: "sub", subActive: payload.index })
           }),
         ])
         if (cancelled) {
