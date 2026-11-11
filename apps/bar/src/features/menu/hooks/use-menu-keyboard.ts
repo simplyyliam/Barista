@@ -35,6 +35,8 @@ export function useMenuKeyboard(api: MenuKeyboardApi, enabled: boolean) {
 
     function onKeyDown(event: KeyboardEvent) {
       const a = apiRef.current
+      // Any other key ends the word being typed ("q", then an arrow, then "p" is not "qp").
+      if (event.key.length > 1) typed.current = { text: "", at: 0 }
       const entry = a.entries[a.active]
       const submenuTrigger = a.level === "root" && entry?.kind === "submenu" && entry.enabled
 

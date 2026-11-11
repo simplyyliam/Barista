@@ -57,12 +57,14 @@ export function useSafeTriangle() {
       const dt = Math.max(sample.t - previous.t, 1)
       const speed = Math.hypot(sample.x - previous.x, sample.y - previous.y) / dt
       const aimed = isAimedAtSubmenu(previous, sample, aim)
+      // A slow move is a deliberate choice of row: never hold it.
+      const travelling = speed >= DELIBERATE_SPEED
       if (aimed) {
         strays.current = 0
-        hold = speed >= DELIBERATE_SPEED
+        hold = travelling
       } else {
         strays.current += 1
-        hold = strays.current < 2
+        hold = travelling && strays.current < 2
       }
       if (hold && heldSince.current !== null && sample.t - heldSince.current > MAX_HOLD_MS) hold = false
     }
