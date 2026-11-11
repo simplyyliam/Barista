@@ -6,6 +6,55 @@ All notable changes to the Barista app are listed here. The SDK has its own chan
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-11
+
+Apps can now open their own small window right under their item in the bar.
+
+### Added
+
+- **Popovers.** Click an app's item and its window appears right below it, ready for typing. It
+  works at 100%, 125% and 150% display scaling and stays on screen near the edges. Esc or a click
+  anywhere else closes it, and clicking the same item again closes it too.
+- **One thing open at a time.** Opening a popover closes any open menu, and the other way round.
+  If an app closes or crashes while its window is open, the window goes away with it.
+- **Left, right and middle click.** Left click opens the window, right click opens the menu if the
+  app has one, and middle click goes to the app.
+- **Apps hear when their menu or window opens or closes**, so they can refresh a label right
+  before you see it.
+
+### Changed
+
+- **Item images keep their own shape.** Wide icons, like a battery, are no longer squeezed into a
+  square; they are drawn at their own size, up to 22 px tall.
+- Menus and windows now find the right place from the current screen setup, so they stay put
+  after you change monitors or scaling.
+
+### Known issues
+
+- Windows SmartScreen may warn that the installer is from an unknown publisher, because it isn't
+  code-signed yet. Click "More info", then "Run anyway".
+- No automatic updates yet. To get a newer version, download its installer from the GitHub
+  Releases page and run it.
+- The battery and volume icons are placeholders: they don't show your real battery or volume yet.
+- Keyboard shortcut hints in menus are only text. Showing "Ctrl+Enter" next to an entry doesn't
+  create a real shortcut.
+- An item doesn't look "pressed" while its window is open yet.
+- Popovers were tested mostly on a single screen at 150% scaling; other screens and scales are
+  covered by tests but have had less hands-on checking.
+- The usual Windows tray icons stay in the taskbar for now; they move into the bar in a later version.
+- The bar shows on one screen only, and there's no way yet to pick which screen from the app.
+- Menus take about 45 ms to appear and Barista uses about 93 MB of memory, because the menu windows
+  are ready in the background.
+
+### Privacy
+
+- Barista sends nothing over the internet. It doesn't check for updates yet.
+- Apps that add items, menus or popovers talk to the bar only on this computer; nothing leaves the
+  machine.
+- The bar looks at the wallpaper behind it only to pick light or dark text. This happens on your
+  computer, and the wallpaper is never sent anywhere.
+- Tray icons aren't read yet. When they are, they'll be read locally and never sent anywhere.
+
 ## [0.3.0] - 2026-11-11
 
 Items in the bar can now open real menus, with the mouse or the keyboard.

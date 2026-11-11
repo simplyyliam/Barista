@@ -66,6 +66,9 @@ is `docs/release/README.md`.
   - Only docs, chores or refactors: ask whether to release at all.
   - A minor release also needs `docs/perf/0.N.md` from `pnpm bench` on the reference machine, within
     `docs/release/plan/05-performance-budget.md` and no regression over 10%. Missing or failing: stop and ask.
+    Judge regressions against the previous tag rebuilt and benched on the same machine on the same day,
+    not against old `docs/perf/` files: the machine and WebView2 drift (v0.4: the same v0.3.0 code measured
+    44 ms and 99 MB where `0.3.md` said 18 ms and 74 MB). Put the A/B table in `docs/perf/0.N.md`.
 - **SDK track:**
   - **Patch** for fixes. **Minor** for new API or protocol messages (protocol minor bump).
   - Anything that removes or renames public API or protocol fields before 1.0: say so plainly and ask.
