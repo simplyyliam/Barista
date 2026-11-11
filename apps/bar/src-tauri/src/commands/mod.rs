@@ -212,7 +212,5 @@ pub fn get_open_menu() -> Option<MenuOpen> {
 #[tauri::command]
 #[specta::specta]
 pub fn set_item_bounds(bounds: Vec<ItemBounds>) {
-    if let Some(menu) = menu_window::get() {
-        menu.set_item_bounds(bounds);
-    }
+    crate::placement::set_item_bounds(bounds);
 }

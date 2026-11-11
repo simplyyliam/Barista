@@ -16,10 +16,11 @@ use crate::events::{
     MenuAnchor, MenuChanged, MenuClose, MenuOpen, SubmenuHide, SubmenuHighlight, SubmenuHovered,
     SubmenuPlaced, SubmenuShow,
 };
-use crate::registry::anchor::{self, ItemBounds};
+use crate::dismiss::{Action, Machine, BLUR_GRACE};
+use crate::placement::{self, geometry, inset_work};
+use crate::registry::anchor;
 use crate::registry::{ClickError, MenuItemClickError, MenuSnapshot, Registry};
 use barista_protocol::{MenuItemType, MouseButton};
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
@@ -27,11 +28,6 @@ use tauri_specta::Event;
 
 pub const LABEL: &str = "menu";
 pub const SUB_LABEL: &str = "menu-sub";
-
-/// After the menu loses focus, wait this long before hiding it. If a click on a bar icon
-/// arrives in between, it decides instead: same icon = stay closed, another icon = switch
-/// menus without hiding (no flicker).
-const BLUR_GRACE: Duration = Duration::from_millis(150);
 
 /// If the UI never reports its size (it should within a frame), show the window anyway.
 const REVEAL_FALLBACK: Duration = Duration::from_millis(80);
@@ -45,100 +41,8 @@ const GUESS_PADDING: f64 = 10.0;
 /// The panel's inner padding (logical px): a submenu moves up by this much so its first row lines
 /// up with the row that opened it.
 const PANEL_PADDING: f64 = 5.0;
-/// Menus keep this far (logical px) from the left, right and bottom screen edges, like macOS.
-const EDGE_MARGIN: f64 = 10.0;
 /// The submenu overlaps its parent by this much (logical px), like macOS.
 const SUBMENU_OVERLAP: f64 = 2.0;
-
-/// What the open/close logic decided. Kept apart from Tauri so it can be tested.
-#[derive(Debug, PartialEq, Eq)]
-enum Action {
-    Nothing,
-    Open(String),
-    /// Another item's menu replaces the open one; the window stays up.
-    Swap(String),
-    Close,
-}
-
-#[derive(Default)]
-struct Machine {
-    /// The item whose menu is showing.
-    open: Option<String>,
-    /// Set when the window lost focus while open.
-    blurred_at: Option<Instant>,
-    /// The item whose menu the blur timer just closed, and when.
-    closed_by_blur: Option<(String, Instant)>,
-}
-
-impl Machine {
-    fn click(&mut self, key: &str, now: Instant) -> Action {
-        let recent = |t: Instant| now.duration_since(t) < BLUR_GRACE;
-        match (&self.open, self.blurred_at) {
-            (Some(open), _) if open == key => {
-                self.reset();
-                Action::Close
-            }
-            (Some(_), _) => {
-                self.open = Some(key.to_string());
-                self.blurred_at = None;
-                Action::Swap(key.to_string())
-            }
-            (None, _) => {
-                // The blur closed this very menu a moment ago: the click was meant to close it.
-                if let Some((closed, at)) = &self.closed_by_blur {
-                    if closed == key && recent(*at) {
-                        self.closed_by_blur = None;
-                        return Action::Nothing;
-                    }
-                }
-                self.open = Some(key.to_string());
-                self.blurred_at = None;
-                Action::Open(key.to_string())
-            }
-        }
-    }
-
-    /// The mouse moved onto another bar item while a menu is open: switch menus, no click.
-    /// Never opens a menu on its own and never closes one.
-    fn hover(&mut self, key: &str) -> Action {
-        match &self.open {
-            Some(open) if open != key => {
-                self.open = Some(key.to_string());
-                self.blurred_at = None;
-                Action::Swap(key.to_string())
-            }
-            _ => Action::Nothing,
-        }
-    }
-
-    fn blur(&mut self, now: Instant) {
-        if self.open.is_some() {
-            self.blurred_at = Some(now);
-        }
-    }
-
-    fn focus(&mut self) {
-        self.blurred_at = None;
-    }
-
-    /// The grace timer fired.
-    fn blur_timeout(&mut self, now: Instant) -> Action {
-        match (&self.open, self.blurred_at) {
-            (Some(open), Some(at)) if now.duration_since(at) >= BLUR_GRACE => {
-                self.closed_by_blur = Some((open.clone(), now));
-                self.open = None;
-                self.blurred_at = None;
-                Action::Close
-            }
-            _ => Action::Nothing,
-        }
-    }
-
-    fn reset(&mut self) {
-        self.open = None;
-        self.blurred_at = None;
-    }
-}
 
 /// The open submenu (window `menu-sub`).
 struct Sub {
@@ -158,10 +62,6 @@ struct Inner {
     /// The item whose menu the window shows right now (the machine may already have moved on,
     /// e.g. to closed, before the window is hidden).
     shown: Option<String>,
-    /// Item rects from the UI (`setItemBounds`), logical and bar-relative, keyed like
-    /// `s3/counter`. Converted to screen pixels only when a menu opens, with the bar's
-    /// position and scale at that moment (it may have moved monitor since).
-    bounds: HashMap<String, ItemBounds>,
     /// Rect of the item the open menu hangs from.
     item_rect: Rect,
     /// Where the main window sits on screen (physical px).
@@ -251,7 +151,6 @@ pub fn init(app: &AppHandle, registry: Arc<Registry>) -> Result<(), Box<dyn std:
         inner: Mutex::new(Inner {
             machine: Machine::default(),
             shown: None,
-            bounds: HashMap::new(),
             item_rect: Rect::default(),
             root_rect: Rect::default(),
             size: (0.0, 0.0),
@@ -318,37 +217,6 @@ fn guess_size(snapshot: &MenuSnapshot) -> (f64, f64) {
         }
     });
     (GUESS_WIDTH, height)
-}
-
-/// The bar's strip, the area menus may use, and the scale, from the controller.
-fn geometry() -> Option<(Rect, Rect, f64)> {
-    let info = crate::controller::get()?.info();
-    let m = &info.monitor;
-    let bar = Rect {
-        left: m.rect.left,
-        top: m.rect.top,
-        right: m.rect.right,
-        bottom: m.rect.top + info.height_px,
-    };
-    // The work area already starts under the bar once the AppBar is registered; make sure.
-    let mut work = m.work_area;
-    work.top = work.top.max(bar.bottom);
-    Some((bar, work, info.scale))
-}
-
-/// The area menus may use: the work area, pulled in from the left, right and bottom edges. The
-/// top stays where it is (the menu hangs from the bar). A screen too small for it is left alone.
-fn inset_work(work: &Rect, scale: f64) -> Rect {
-    let m = (EDGE_MARGIN * scale).round() as i32;
-    if work.width() <= 2 * m + 1 || work.height() <= m + 1 {
-        return *work;
-    }
-    Rect {
-        left: work.left + m,
-        top: work.top,
-        right: work.right - m,
-        bottom: work.bottom - m,
-    }
 }
 
 /// Logical size -> physical, then `anchor::place`. The window is one panel, so the "root width"
@@ -519,14 +387,7 @@ impl MenuWindow {
         let (w, h) = guess_size(&snapshot);
         let (rect, item, acrylic, generation, pending) = {
             let mut inner = self.lock();
-            #[cfg(windows)]
-            let cursor = crate::platform::windows::window::cursor_x();
-            #[cfg(not(windows))]
-            let cursor: Option<i32> = None;
-            inner.item_rect = match inner.bounds.get(key) {
-                Some(b) => anchor::to_screen(b, &bar, scale),
-                None => anchor::at_cursor(cursor.unwrap_or(bar.left), &bar),
-            };
+            inner.item_rect = placement::item_rect(key, &bar, scale);
             inner.size = (w, h);
             inner.rev = snapshot.rev;
             inner.shown = Some(key.to_string());
@@ -768,15 +629,6 @@ impl MenuWindow {
         let _ = SubmenuHighlight { index }.emit(&self.app);
     }
 
-    /// `setItemBounds`: where the UI drew each item (logical, relative to the bar window).
-    pub fn set_item_bounds(&self, items: Vec<ItemBounds>) {
-        self.lock().bounds = items
-            .into_iter()
-            .take(256) // the UI is trusted, but a runaway loop shouldn't grow this forever
-            .map(|b| (b.id.clone(), b))
-            .collect();
-    }
-
     /// For `getOpenMenu`: what is showing right now.
     pub fn current(&self) -> Option<MenuOpen> {
         let (key, item, acrylic) = {
@@ -830,101 +682,6 @@ impl MenuWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn later(t: Instant, ms: u64) -> Instant {
-        t + Duration::from_millis(ms)
-    }
-
-    #[test]
-    fn clicking_the_same_icon_toggles() {
-        let mut m = Machine::default();
-        let t = Instant::now();
-        assert_eq!(m.click("s1/a", t), Action::Open("s1/a".into()));
-        assert_eq!(m.click("s1/a", t), Action::Close);
-        assert_eq!(m.click("s1/a", t), Action::Open("s1/a".into()));
-    }
-
-    #[test]
-    fn clicking_another_icon_swaps_without_closing() {
-        let mut m = Machine::default();
-        let t = Instant::now();
-        m.click("s1/a", t);
-        assert_eq!(m.click("s2/b", t), Action::Swap("s2/b".into()));
-        assert_eq!(m.open.as_deref(), Some("s2/b"));
-    }
-
-    #[test]
-    fn hovering_another_icon_swaps_only_while_a_menu_is_open() {
-        let mut m = Machine::default();
-        let t = Instant::now();
-        // Nothing open: hovering never opens a menu.
-        assert_eq!(m.hover("s1/a"), Action::Nothing);
-        m.click("s1/a", t);
-        // Same icon: nothing. Another icon: swap.
-        assert_eq!(m.hover("s1/a"), Action::Nothing);
-        assert_eq!(m.hover("s2/b"), Action::Swap("s2/b".into()));
-        assert_eq!(m.open.as_deref(), Some("s2/b"));
-        // Hovering never closes: a click on the open icon still does.
-        assert_eq!(m.click("s2/b", t), Action::Close);
-        assert_eq!(m.hover("s1/a"), Action::Nothing);
-    }
-
-    #[test]
-    fn hover_swap_cancels_a_pending_blur() {
-        let mut m = Machine::default();
-        let t = Instant::now();
-        m.click("s1/a", t);
-        m.blur(t);
-        assert_eq!(m.hover("s2/b"), Action::Swap("s2/b".into()));
-        assert_eq!(m.blur_timeout(later(t, 200)), Action::Nothing);
-    }
-
-    #[test]
-    fn blur_closes_after_the_grace_time() {
-        let mut m = Machine::default();
-        let t = Instant::now();
-        m.click("s1/a", t);
-        m.blur(t);
-        assert_eq!(m.blur_timeout(later(t, 50)), Action::Nothing);
-        assert_eq!(m.blur_timeout(later(t, 200)), Action::Close);
-        assert!(m.open.is_none());
-    }
-
-    #[test]
-    fn a_click_during_the_grace_time_wins_over_the_blur() {
-        let mut m = Machine::default();
-        let t = Instant::now();
-        m.click("s1/a", t);
-        m.blur(t);
-        // Another icon: swap, and the pending blur is cancelled.
-        assert_eq!(m.click("s2/b", later(t, 40)), Action::Swap("s2/b".into()));
-        assert_eq!(m.blur_timeout(later(t, 200)), Action::Nothing);
-        // Same icon during a blur: close.
-        m.blur(later(t, 300));
-        assert_eq!(m.click("s2/b", later(t, 320)), Action::Close);
-    }
-
-    #[test]
-    fn same_icon_right_after_the_blur_closed_it_stays_closed() {
-        let mut m = Machine::default();
-        let t = Instant::now();
-        m.click("s1/a", t);
-        m.blur(t);
-        assert_eq!(m.blur_timeout(later(t, 150)), Action::Close);
-        assert_eq!(m.click("s1/a", later(t, 200)), Action::Nothing);
-        // Later clicks open it again.
-        assert_eq!(m.click("s1/a", later(t, 1000)), Action::Open("s1/a".into()));
-    }
-
-    #[test]
-    fn focus_back_cancels_the_blur() {
-        let mut m = Machine::default();
-        let t = Instant::now();
-        m.click("s1/a", t);
-        m.blur(t);
-        m.focus();
-        assert_eq!(m.blur_timeout(later(t, 500)), Action::Nothing);
-    }
 
     #[test]
     fn menus_keep_a_margin_from_the_screen_edges_but_not_from_the_bar() {
