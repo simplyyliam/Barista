@@ -49,6 +49,12 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `./node_modules/.bin/electron src/main.ts`; never `await app.whenReady()` at the top level of the main file (deadlock).
 - Killing a dev bar: kill `barista.exe` by PID, then check port 1420 (vite); don't match processes by command line.
 
+- Icon sizing (branch `fix/menubar-icon-sizing`, PR #17): the SDK sets an aspect-correct width and height on icon SVGs
+  (16 x 16 square, about 25 x 12 for the battery). With Liam's OK, the string branch of `Icon` in
+  `packages/ui/src/icons.tsx` now draws status images at that size (max height 22) instead of a fixed 16 x 16, in its own
+  commit. Still open for Liam: the bar's own `battery.tsx` / `volume.tsx` (`size={16}` on 24-box Hugeicons) have the same
+  empty-border problem.
+
 ## Fix next
 
 - From dogfooding the v0.4 popovers (Spotify mini player in demo mode, quick-note, test client under Electron):

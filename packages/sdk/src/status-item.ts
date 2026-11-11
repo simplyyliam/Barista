@@ -1,4 +1,5 @@
 import { Menu, type MenuItemOptions } from "./menu.js"
+import { resolveIcon, type IconInput } from "./icons.js"
 import { assertPopoverSize, type Placement, type PopoverOptions } from "./popover.js"
 import type { MouseButton, ScreenRect } from "./protocol.js"
 import { BarError, connect, type StatusBar } from "./status-bar.js"
@@ -21,8 +22,12 @@ export interface StatusItemOptions {
    * `a-z 0-9 - _ .`
    */
   id: string
-  /** PNG or SVG as bytes (`fs.readFileSync("icon.svg")`) or a `data:` URL. Max 256 KB. */
-  icon?: Uint8Array | string
+  /**
+   * An icon object (`import { Clock01Icon } from "@hugeicons/core-free-icons"`, or an icon from
+   * `lucide`), `{ icon, color, strokeWidth, height }`, SVG text, PNG or SVG bytes
+   * (`fs.readFileSync("icon.svg")`) or a `data:` URL. Max 256 KB.
+   */
+  icon?: IconInput
   /** Short text next to the icon. Max 128 characters. */
   label?: string
   /** Text shown when the pointer rests on the item. Max 512 characters. */
@@ -113,7 +118,7 @@ export class StatusItem {
     assertItemId(options.id)
     if (options.label !== undefined) assertLabel(options.label)
     if (options.tooltip !== undefined) assertTooltip(options.tooltip)
-    const icon = options.icon === undefined ? undefined : toIconDataUrl(options.icon)
+    const icon = options.icon === undefined ? undefined : toIconDataUrl(resolveIcon(options.icon))
     const bar = options.bar ?? (await connect())
     if (bar.items.has(options.id)) {
       throw new Error(`This app already has an item with the id ${JSON.stringify(options.id)}`)
@@ -134,15 +139,17 @@ export class StatusItem {
   }
 
   /**
-   * Changes the icon. Pass an empty string to remove it.
+   * Changes the icon. Pass an icon object from Hugeicons or Lucide (no SVG needed), `{ icon,
+   * color, strokeWidth, height }`, SVG text, bytes or a `data:` URL. An empty string removes it.
+   * Icon objects are cropped to their real glyph when `@resvg/resvg-js` is installed.
    *
    * @example
    * ```ts
    * item.setIcon(fs.readFileSync("mail-unread.svg"))
    * ```
    */
-  setIcon(icon: Uint8Array | string): void {
-    this.#update({ icon: toIconDataUrl(icon) })
+  setIcon(icon: IconInput): void {
+    this.#update({ icon: toIconDataUrl(resolveIcon(icon)) })
   }
 
   /**

@@ -1,11 +1,10 @@
 // GitHub in the menu bar: the latest commit of one repository, as a menu (no popover needed).
 // Spotify moved to its own Electron example, `examples/spotify`, because it has a window.
 import * as BA from "@barista/sdk"
+import { GitBranch } from "lucide"
 import { fetchLatestCommit, type GitHubCommit } from "./github.ts"
 import { openExternalUrl } from "./open-url.ts"
 
-const GITHUB_ICON =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f0f0f0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v5a4 4 0 0 0 4 4h2m4-8v2a4 4 0 0 1-4 4"/></svg>'
 
 const githubRepositoryValue = process.env.GITHUB_REPOSITORY?.trim()
 const githubRepository =
@@ -22,7 +21,7 @@ bar.on("close", () => {
 
 const githubItem = await BA.StatusItem.create({
   id: "github",
-  icon: Buffer.from(GITHUB_ICON),
+  icon: { icon: GitBranch, color: "#f0f0f0" }, // a Lucide icon object
   label: (githubRepository ?? "GitHub setup").slice(0, 128),
   tooltip: githubRepository
     ? `Latest activity in ${githubRepository}`

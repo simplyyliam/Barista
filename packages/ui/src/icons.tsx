@@ -37,8 +37,20 @@ type IconProps = {
 export function Icon({ icon, ...props }: IconProps) {
   if (typeof icon === "string") {
     // Pictures keep their own colours, so color and strokeWidth don't apply.
-    const { size = 16, className } = props
-    return <img src={icon} width={size} height={size} className={className} alt="" draggable={false} />
+    const { size, className } = props
+    // Status item images carry their own size (the SDK sets width and height: 16 x 16 for square
+    // icons, about 25 x 12 for the battery). Draw them as they are, never taller than the 22 px
+    // icon area. An explicit `size` (menu entries pass 16) still wins.
+    return (
+      <img
+        src={icon}
+        {...(size !== undefined && { width: size, height: size })}
+        style={{ maxHeight: 22 }}
+        className={className}
+        alt=""
+        draggable={false}
+      />
+    )
   }
   // Hugeicons are plain data (an array); Lucide icons are React components.
   if (Array.isArray(icon)) {
