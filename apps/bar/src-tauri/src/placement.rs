@@ -40,9 +40,10 @@ pub fn item_rect(key: &str, bar: &Rect, scale: f64) -> Rect {
     }
 }
 
-/// The bar's strip, the area menus may use, and the scale, from the controller.
+/// The bar's strip, the area menus may use, and the scale. Read from Windows at the moment of the
+/// click (see `Controller::live_info`), so it is right even right after a scale or monitor change.
 pub fn geometry() -> Option<(Rect, Rect, f64)> {
-    let info = crate::controller::get()?.info();
+    let info = crate::controller::get()?.live_info();
     let m = &info.monitor;
     let bar = Rect {
         left: m.rect.left,
