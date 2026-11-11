@@ -54,7 +54,10 @@ through a `release/v0.X.Y` PR (see `CLAUDE.md` > Releases).
 | v0.10 | Ship it | Installer, auto-updater, docs, first public release |
 | v1.0 | 1.0 | Stable protocol v1, stable SDK |
 | v1.1 | Gallery | Curated scripts (repo `barista-scripts`) on the Barista site, Install button with a confirm dialog (notes only, `releases/v1.1.md`) |
-| v1.2+ | After the gallery | Dock, React package, Tauri plugin, C# SDK (`releases/v1.2.md`) |
+| v1.2 | Rust + Tauri | Rust crate and Tauri plugin, incl. the Tauri popover adapter (notes only, `releases/v1.2.md`) |
+| v1.3 | C# SDK | .NET SDK for WinUI, WPF, WinForms (notes only, `releases/v1.3.md`) |
+| v1.4 | Python SDK | Python SDK (notes only, `releases/v1.4.md`) |
+| – | Backlog | Dock, React package, popover host, multi-monitor, app menus; not scheduled (`releases/backlog.md`) |
 
 ## History
 
