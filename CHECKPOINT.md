@@ -49,21 +49,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `./node_modules/.bin/electron src/main.ts`; never `await app.whenReady()` at the top level of the main file (deadlock).
 - Killing a dev bar: kill `barista.exe` by PID, then check port 1420 (vite); don't match processes by command line.
 
-- New for the UI (icon sizing, branch `fix/menubar-icon-sizing`, PR #17): `packages/ui/src/icons.tsx` draws every status-item
-  image as `<img width={16} height={16}>`, which squeezes a wide icon (the 25 x 12 battery) to about 16 x 8. The SDK now sets
-  an aspect-correct width and height on the SVG (16 x 16 for square icons, about 25 x 12 for the battery), so the string
-  branch of `Icon` should draw images at their own size, capped at the 22 px icon area:
-
-  ```tsx
-  const { size, className } = props   // no default of 16
-  return (
-    <img src={icon} {...(size !== undefined && { width: size, height: size })}
-      style={{ maxHeight: 22 }} className={className} alt="" draggable={false} />
-  )
-  ```
-
-  Menu entries keep working (they pass `size={16}`). The bar's own `battery.tsx` / `volume.tsx` (`size={16}` on 24-box
-  Hugeicons) have the same empty-border problem: crop or enlarge them too.
+- Icon sizing (branch `fix/menubar-icon-sizing`, PR #17): the SDK sets an aspect-correct width and height on icon SVGs
+  (16 x 16 square, about 25 x 12 for the battery). With Liam's OK, the string branch of `Icon` in
+  `packages/ui/src/icons.tsx` now draws status images at that size (max height 22) instead of a fixed 16 x 16, in its own
+  commit. Still open for Liam: the bar's own `battery.tsx` / `volume.tsx` (`size={16}` on 24-box Hugeicons) have the same
+  empty-border problem.
 
 ## Fix next
 
