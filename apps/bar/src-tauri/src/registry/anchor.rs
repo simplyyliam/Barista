@@ -86,6 +86,38 @@ pub fn place(item: &Rect, size: (i32, i32), root_width: i32, work: &Rect) -> (Re
     (rect, side)
 }
 
+/// Places a submenu window next to its parent `root` (screen rect). `trigger_top` is the screen y
+/// the submenu's top edge should line up with (the trigger row, minus the panel padding).
+/// - Goes to the right of the parent (overlapping it by `overlap` px) if it fits, else to the left.
+/// - If neither side has room it is pinned to the work area's left edge.
+/// - Moved up (never above the bar) when it would run off the bottom; height capped to the work area.
+pub fn place_submenu(
+    root: &Rect,
+    trigger_top: i32,
+    size: (i32, i32),
+    overlap: i32,
+    work: &Rect,
+) -> (Rect, SubmenuSide) {
+    let width = size.0.clamp(1, work.width().max(1));
+    let height = size.1.clamp(1, work.height().max(1));
+    let right_left = root.right - overlap;
+    let (left, side) = if right_left + width <= work.right {
+        (right_left, SubmenuSide::Right)
+    } else {
+        ((root.left + overlap - width).max(work.left), SubmenuSide::Left)
+    };
+    let top = trigger_top.min(work.bottom - height).max(work.top);
+    (
+        Rect {
+            left,
+            top,
+            right: left + width,
+            bottom: top + height,
+        },
+        side,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,5 +218,54 @@ mod tests {
         let (bar, _) = monitor(0, 1920, 1.0);
         assert_eq!(at_cursor(5000, &bar).left, 1919);
         assert_eq!(at_cursor(300, &bar).bottom, bar.bottom);
+    }
+
+    #[test]
+    fn submenu_goes_right_and_lines_up_with_its_row() {
+        let work = rect(0, 28, 1920, 1080);
+        let root = rect(100, 28, 350, 200);
+        let (r, side) = place_submenu(&root, 60, (200, 100), 2, &work);
+        assert_eq!(side, SubmenuSide::Right);
+        assert_eq!((r.left, r.top, r.width(), r.height()), (348, 60, 200, 100));
+    }
+
+    #[test]
+    fn submenu_flips_left_at_the_right_edge() {
+        let work = rect(0, 28, 1920, 1080);
+        let root = rect(1700, 28, 1900, 200);
+        let (r, side) = place_submenu(&root, 60, (200, 100), 2, &work);
+        assert_eq!(side, SubmenuSide::Left);
+        assert_eq!(r.right, 1702);
+    }
+
+    #[test]
+    fn submenu_pins_to_the_left_edge_when_neither_side_fits() {
+        let work = rect(0, 28, 400, 1080);
+        let root = rect(50, 28, 300, 200);
+        let (r, side) = place_submenu(&root, 60, (380, 100), 2, &work);
+        assert_eq!(side, SubmenuSide::Left);
+        assert_eq!(r.left, 0);
+    }
+
+    #[test]
+    fn submenu_moves_up_at_the_bottom_and_never_above_the_bar() {
+        let work = rect(0, 28, 1920, 500);
+        let root = rect(100, 28, 350, 200);
+        let (r, _) = place_submenu(&root, 480, (200, 100), 2, &work);
+        assert_eq!((r.top, r.bottom), (400, 500));
+        let (r, _) = place_submenu(&root, 0, (200, 100), 2, &work);
+        assert_eq!(r.top, 28);
+        // taller than the work area: capped
+        let (r, _) = place_submenu(&root, 100, (200, 9999), 2, &work);
+        assert_eq!((r.top, r.bottom), (28, 500));
+    }
+
+    #[test]
+    fn submenu_on_a_second_monitor_with_a_negative_origin() {
+        let work = rect(-1920, 42, 0, 1080);
+        let root = rect(-400, 42, -150, 300);
+        let (r, side) = place_submenu(&root, 80, (240, 120), 3, &work);
+        assert_eq!(side, SubmenuSide::Left);
+        assert_eq!(r.left, -400 + 3 - 240);
     }
 }

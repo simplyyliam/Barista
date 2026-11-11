@@ -210,6 +210,7 @@ pub fn cycle_override() {
 }
 
 fn emit(tone: Tone) {
+    crate::menu_window::tone_changed(tone == Tone::Dark);
     if let Some(app) = APP.get() {
         let _ = BarAppearanceChanged(BarAppearance { tone }).emit(app);
     }

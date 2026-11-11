@@ -78,24 +78,72 @@ pub fn place(hwnd: HWND, r: Rect) {
     };
 }
 
-/// Menu window look: square corners (the UI draws its own, Windows 11 would round them again)
-/// and out of Alt+Tab. Unlike the bar it may take focus, so arrow keys reach the menu.
-pub fn set_menu_styles(hwnd: HWND) {
+/// Styles for a menu window: no taskbar button, round corners, no Windows show/hide animation
+/// (menus open instantly) and the system acrylic backdrop (ADR 0013). `no_activate` keeps a
+/// submenu window from ever taking focus. Returns whether acrylic is available (Win11 22H2+);
+/// without it the UI draws an opaque panel.
+pub fn set_menu_styles(hwnd: HWND, no_activate: bool) -> bool {
     use windows::Win32::Graphics::Dwm::{
-        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+        DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMSBT_TRANSIENTWINDOW,
+        DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_TRANSITIONS_FORCEDISABLED,
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
     };
-    // SAFETY: the attribute value is a plain u32 that lives for the whole call. Older Windows
-    // (10) does not know the attribute and just returns an error, which is fine.
+    use windows::Win32::UI::Controls::MARGINS;
+    // SAFETY: every attribute value is a plain value that lives for the whole call. Older
+    // Windows does not know an attribute and returns an error, which we treat as "not there".
     unsafe {
-        let pref = DWMWCP_DONOTROUND;
+        let round = DWMWCP_ROUND;
         let _ = DwmSetWindowAttribute(
             hwnd,
             DWMWA_WINDOW_CORNER_PREFERENCE,
-            std::ptr::addr_of!(pref).cast(),
-            std::mem::size_of_val(&pref) as u32,
+            std::ptr::addr_of!(round).cast(),
+            std::mem::size_of_val(&round) as u32,
         );
+        let no_anim: i32 = 1;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            std::ptr::addr_of!(no_anim).cast(),
+            std::mem::size_of_val(&no_anim) as u32,
+        );
+        // The backdrop only shows if the frame is extended over the whole window.
+        let margins = MARGINS {
+            cxLeftWidth: -1,
+            cxRightWidth: -1,
+            cyTopHeight: -1,
+            cyBottomHeight: -1,
+        };
+        let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
+        let backdrop = DWMSBT_TRANSIENTWINDOW;
+        let acrylic = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_SYSTEMBACKDROP_TYPE,
+            std::ptr::addr_of!(backdrop).cast(),
+            std::mem::size_of_val(&backdrop) as u32,
+        )
+        .is_ok();
+        let mut extra = WS_EX_TOOLWINDOW.0 as isize;
+        if no_activate {
+            extra |= WS_EX_NOACTIVATE.0 as isize;
+        }
         let old = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, old | WS_EX_TOOLWINDOW.0 as isize);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, old | extra);
+        acrylic
+    }
+}
+
+/// Picks the dark or the light acrylic tint for a menu window.
+pub fn set_menu_dark(hwnd: HWND, dark: bool) {
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE};
+    let value: i32 = dark.into();
+    // SAFETY: plain i32 that lives for the whole call.
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_USE_IMMERSIVE_DARK_MODE,
+            std::ptr::addr_of!(value).cast(),
+            std::mem::size_of_val(&value) as u32,
+        );
     }
 }
 

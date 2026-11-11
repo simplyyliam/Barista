@@ -5,7 +5,7 @@ use crate::appearance::BarAppearance;
 use crate::bar::BarInfo;
 use crate::controller;
 use crate::events::MenuOpen;
-use crate::menu_window::{self, MenuPlacement};
+use crate::menu_window;
 use crate::radius::WindowRadius;
 use crate::registry::anchor::ItemBounds;
 use crate::registry::menu::MenuClickError;
@@ -102,24 +102,86 @@ pub fn menu_item_clicked(
     })
 }
 
-/// The menu window measured itself (logical px): its full `width` and `height` (with any
-/// open submenu) and the main panel's `rootWidth`. The bar moves and sizes the window to fit
-/// on screen and answers which side an open submenu goes on.
+/// The menu window measured its panel (logical px). The bar sizes and moves the window to fit
+/// on screen and, the first time after an open, shows it.
 #[tauri::command]
 #[specta::specta]
-pub fn menu_resized(width: f64, height: f64, root_width: f64) -> MenuPlacement {
-    let clean = |v: f64| {
-        if v.is_finite() {
-            v.clamp(1.0, 10_000.0)
+pub fn menu_resized(width: f64, height: f64) {
+    if let Some(menu) = menu_window::get() {
+        menu.resized(clean_size(width), clean_size(height));
+    }
+}
+
+/// The submenu window measured its panel (logical px). The bar places it next to the menu
+/// (flipping to the left near the screen edge) and shows it.
+#[tauri::command]
+#[specta::specta]
+pub fn submenu_resized(width: f64, height: f64) {
+    if let Some(menu) = menu_window::get() {
+        menu.submenu_resized(clean_size(width), clean_size(height));
+    }
+}
+
+/// Open the submenu of entry `index` of the open menu. `trigger_top` is that row's top in
+/// logical px, relative to the menu window. The bar answers with `submenuShow` (draw this) and
+/// `submenuPlaced` (it landed here). Does nothing if the entry has no (enabled) submenu.
+#[tauri::command]
+#[specta::specta]
+pub fn open_submenu(index: u32, trigger_top: f64) {
+    if let Some(menu) = menu_window::get() {
+        let top = if trigger_top.is_finite() {
+            trigger_top.clamp(0.0, 10_000.0)
         } else {
-            1.0
-        }
-    };
-    match menu_window::get() {
-        Some(menu) => menu.resized(clean(width), clean(height), clean(root_width)),
-        None => MenuPlacement {
-            submenu_side: crate::registry::anchor::SubmenuSide::Right,
-        },
+            0.0
+        };
+        menu.open_submenu(index as usize, top);
+    }
+}
+
+/// Closes the submenu (instantly). Does nothing if none is open.
+#[tauri::command]
+#[specta::specta]
+pub fn close_submenu() {
+    if let Some(menu) = menu_window::get() {
+        menu.close_submenu();
+    }
+}
+
+/// The mouse is over row `index` of the submenu (or left it: `null`). The bar relays it to the
+/// menu window as `submenuHovered`, so mouse and keyboard share one highlight.
+#[tauri::command]
+#[specta::specta]
+pub fn submenu_hover(index: Option<u32>) {
+    if let Some(menu) = menu_window::get() {
+        menu.submenu_hover(index);
+    }
+}
+
+/// Keyboard moved the highlight to row `index` of the submenu (or none). The bar relays it to
+/// the submenu window as `submenuHighlight`.
+#[tauri::command]
+#[specta::specta]
+pub fn set_submenu_highlight(index: Option<u32>) {
+    if let Some(menu) = menu_window::get() {
+        menu.set_submenu_highlight(index);
+    }
+}
+
+/// The mouse moved onto bar item `item_id`. If another item's menu is open, it switches to this
+/// one without a click. Does nothing when no menu is open (hover never opens a menu).
+#[tauri::command]
+#[specta::specta]
+pub fn menu_hover(item_id: String) {
+    if let Some(menu) = menu_window::get() {
+        menu.hover_item(&item_id);
+    }
+}
+
+fn clean_size(v: f64) -> f64 {
+    if v.is_finite() {
+        v.clamp(1.0, 10_000.0)
+    } else {
+        1.0
     }
 }
 
