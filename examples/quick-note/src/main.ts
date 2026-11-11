@@ -1,6 +1,5 @@
 // A quick-note popover for the menu bar (the v0.4 dogfood app): click the pen, type, click away.
-// The note is saved to %APPDATA%\Barista\quick-note
-ote.txt. The icon label shows the start of it.
+// The note is saved to a text file in %APPDATA%/Barista/quick-note. The icon label shows the start of it.
 // Run with the bar running: `pnpm --filter @barista/quick-note start`.
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
