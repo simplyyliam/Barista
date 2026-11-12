@@ -49,3 +49,25 @@ fn read() -> Option<HashMap<u32, String>> {
     }
     Some(out)
 }
+
+/// A number that changes when a toast arrives, goes away or is replaced, and not otherwise. Cheap
+/// (ids and arrival times only), so the folder watcher can ask it on every write. It matters
+/// because reading through the listener writes to this database itself: without this check our own
+/// read would wake the watcher, which would read again, forever. `None` if the database can't be read.
+pub fn fingerprint() -> Option<u64> {
+    use std::hash::{Hash, Hasher};
+    let path = folder()?.join("wpndatabase.db");
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).ok()?;
+    conn.busy_timeout(Duration::from_millis(200)).ok()?;
+    let mut stmt = conn
+        .prepare("SELECT Id, ArrivalTime FROM Notification WHERE Type = 'toast' ORDER BY Id")
+        .ok()?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))
+        .ok()?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for row in rows.flatten() {
+        row.hash(&mut hasher);
+    }
+    Some(hasher.finish())
+}

@@ -348,7 +348,44 @@ pub fn start() {
     ENABLED.store(mode() == Mode::Barista, Ordering::Relaxed);
     listener::start(publish);
     if let Some(dir) = notification_db::folder() {
-        folder_watch::start(dir, refresh);
+        folder_watch::start(dir, folder_changed);
+    }
+    *lock_fingerprint() = notification_db::fingerprint();
+    refresh();
+}
+
+/// What the toast set looked like when we last asked; see `folder_changed`.
+static FINGERPRINT: Mutex<Option<u64>> = Mutex::new(None);
+/// When the last unconditional refresh ran, for the case where the fingerprint can't be read.
+static LAST_BLIND: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+
+fn lock_fingerprint() -> std::sync::MutexGuard<'static, Option<u64>> {
+    FINGERPRINT.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Windows wrote in its notification folder. Reading through the listener writes there too, so a
+/// plain "refresh on every write" would feed itself. Instead ask the database cheaply whether the set
+/// of toasts really changed, and only then read for real.
+fn folder_changed() {
+    if !enabled() {
+        return;
+    }
+    match notification_db::fingerprint() {
+        Some(now) => {
+            let mut last = lock_fingerprint();
+            if *last == Some(now) {
+                return;
+            }
+            *last = Some(now);
+        }
+        None => {
+            // Can't tell: refresh, but at most every 10 s so we never spin.
+            let mut blind = LAST_BLIND.lock().unwrap_or_else(|e| e.into_inner());
+            if blind.is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(10)) {
+                return;
+            }
+            *blind = Some(std::time::Instant::now());
+        }
     }
     refresh();
 }

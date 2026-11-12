@@ -21,7 +21,7 @@ export default function PanelWindow() {
   if (!open) return null
   const key = `${open.name}|${open.anchor}`
   return (
-    <PanelFrame key={key} acrylic={open.acrylic} openKey={key}>
+    <PanelFrame key={key} acrylic={open.acrylic} chrome={open.chrome} openKey={key}>
       <PanelBody name={open.name} />
     </PanelFrame>
   )

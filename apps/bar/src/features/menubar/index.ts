@@ -5,4 +5,4 @@ export { Clock } from "./clock";
 export { Battery } from "./battery"
 export { Volume } from "./volume";
 export { StatusItems } from "./status-items" 
-export { DisplayDate } from "./date" 
+export { DateItem } from "./date"

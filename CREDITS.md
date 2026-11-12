@@ -51,6 +51,8 @@ The first column must be the exact package or crate name.
 | @hugeicons/react           | 1.1     | MIT               | https://github.com/hugeicons/hugeicons                 |
 | @hugeicons/core-free-icons | 4.4     | MIT               | https://github.com/hugeicons/hugeicons                 |
 | lucide-react               | 1.70    | ISC               | https://github.com/lucide-icons/lucide                 |
+| react-day-picker           | 10.0    | MIT               | https://github.com/gpbl/react-day-picker               |
+| date-fns                   | 4.4     | MIT               | https://github.com/date-fns/date-fns                   |
 | lucide                     | 1.72    | ISC               | https://github.com/lucide-icons/lucide                 |
 | @resvg/resvg-js            | 2.6     | MPL-2.0           | https://github.com/thx/resvg-js                        |
 | @fontsource-variable/inter | 5.3     | OFL-1.1           | https://github.com/fontsource/font-files               |

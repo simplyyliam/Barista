@@ -103,6 +103,8 @@
   /* --- Radii (ADR 0008) --- */
   /* The panel window itself gets --window-radius from the OS / Windhawk. Never set it on a window's
      root. Children use the same radius minus their distance from the edge, so the curves line up. */
+  /* The cards of a bare panel window are the "windows" here, so they take the window radius. */
+  --radius-panel: var(--window-radius, 8px);
   --radius-panel-child: max(0px, calc(var(--window-radius, 8px) - var(--spacing-panel-inset)));
 
   /* --- Shadows and blur --- */

@@ -136,6 +136,23 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// What the panel hangs from. A glass panel hangs from the item itself (left edges line up, right
+/// under the bar, like a menu). A bare-window panel is centred under the item and sits a little
+/// below the bar (`--spacing-panel-offset`, 14 px in App.png).
+fn hang_rect(item: Rect, size: (f64, f64), extra: (i32, i32), scale: f64, chrome: PanelChrome) -> Rect {
+    if chrome == PanelChrome::Glass {
+        return item;
+    }
+    let width = (size.0 * scale).round() as i32 + extra.0;
+    let left = (item.left + item.right) / 2 - width / 2;
+    Rect {
+        left,
+        right: left + 1,
+        top: item.top,
+        bottom: item.bottom + (14.0 * scale).round() as i32,
+    }
+}
+
 /// Switches the window between the menu look and a bare transparent window.
 fn apply_chrome(window: &tauri::WebviewWindow, chrome: PanelChrome) {
     let glass = chrome == PanelChrome::Glass;
@@ -190,6 +207,11 @@ impl PanelWindow {
         // read both fresh whenever a panel opens (one cheap call each, no polling).
         crate::system::battery::refresh();
         crate::system::clock::refresh();
+        // The folder watcher is quick for new toasts but Windows signals removals late (seconds to
+        // never), so opening the notification panel always reads fresh.
+        if name == "notifications" {
+            crate::system::notifications::refresh();
+        }
         // The frame decides the invisible border, so set the chrome before measuring it.
         if self.lock().chrome != chrome {
             if let Some(window) = self.window() {
@@ -199,6 +221,7 @@ impl PanelWindow {
         }
         let extra = crate::menu_window::frame_extra(self.window().as_ref());
         let item = placement::item_rect(anchor, &bar, scale);
+        let item = hang_rect(item, size, extra, scale, chrome);
         let (open, generation) = {
             let mut inner = self.lock();
             inner.size = size;
@@ -254,6 +277,7 @@ impl PanelWindow {
                 return;
             };
             let item = placement::item_rect(&open.anchor, &bar, scale);
+            let item = hang_rect(item, (width, height), extra, scale, open.chrome);
             let rect = crate::menu_window::place_logical(&item, (width, height), extra, &work, scale);
             open.rect = rect;
             open.scale = scale;
@@ -355,6 +379,21 @@ impl PanelWindow {
 mod tests {
     use super::*;
     use crate::menu_window::place_logical;
+
+    fn r(left: i32, top: i32, right: i32, bottom: i32) -> Rect {
+        Rect { left, top, right, bottom }
+    }
+
+    #[test]
+    fn a_bare_panel_is_centred_under_its_item_and_below_the_bar() {
+        // Item 900..1100 on a bar 0..32, scale 2, panel 340 logical = 680 physical.
+        let item = r(900, 0, 1100, 32);
+        let hung = hang_rect(item, (340.0, 400.0), (0, 0), 2.0, PanelChrome::None);
+        assert_eq!(hung.left, 1000 - 340);
+        assert_eq!(hung.bottom, 32 + 28);
+        // Glass keeps hanging from the item itself.
+        assert_eq!(hang_rect(item, (340.0, 400.0), (0, 0), 2.0, PanelChrome::Glass), item);
+    }
 
     #[test]
     fn names_are_route_like() {
