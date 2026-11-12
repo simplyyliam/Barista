@@ -16,6 +16,7 @@ pub mod notification_db;
 pub mod notifications;
 pub mod pipe;
 pub mod power;
+pub mod registry_watch;
 pub mod radios;
 pub mod shell;
 pub mod wallpaper;

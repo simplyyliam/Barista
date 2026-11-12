@@ -196,3 +196,8 @@ pub struct BluetoothChanged(pub crate::system::bluetooth::Bluetooth);
 /// frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct WifiChanged(pub crate::system::wifi::Wifi);
+
+/// Airplane mode was switched (in Windows settings or Quick Settings). Full snapshot, at most once
+/// per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct AirplaneModeChanged(pub crate::system::airplane::AirplaneMode);

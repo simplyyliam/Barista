@@ -467,3 +467,12 @@ pub fn connect_wifi(ssid: String) {
 pub fn disconnect_wifi() {
     crate::system::wifi::disconnect();
 }
+
+/// Airplane mode right now. The bar can read it but not switch it: open the airplane mode
+/// settings page (`openSettings`) for that. Call once when the UI starts; `airplaneModeChanged`
+/// keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_airplane_mode() -> crate::system::airplane::AirplaneMode {
+    crate::system::airplane::service().get()
+}

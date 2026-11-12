@@ -9,6 +9,7 @@
 //! ```
 
 pub mod actions;
+pub mod airplane;
 pub mod battery;
 pub mod bluetooth;
 pub mod clock;
@@ -71,7 +72,7 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> Service<T> {
 
 /// Starts the services and their event forwarding. Call once from `setup`.
 pub fn init(app: &tauri::AppHandle) {
-    use crate::events::{
+    use crate::events::{AirplaneModeChanged, 
         BatteryChanged, BluetoothChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged, WifiChanged,
     };
     use tauri_specta::Event;
@@ -99,6 +100,10 @@ pub fn init(app: &tauri::AppHandle) {
     wifi::service().forward(move |v| {
         let _ = WifiChanged(v).emit(&a);
     });
+    let a = app.clone();
+    airplane::service().forward(move |v| {
+        let _ = AirplaneModeChanged(v).emit(&a);
+    });
     clock::refresh();
     battery::refresh();
     volume::start();
@@ -107,6 +112,7 @@ pub fn init(app: &tauri::AppHandle) {
     crate::platform::windows::radios::start(radios_changed);
     bluetooth::start();
     wifi::start();
+    airplane::start();
 }
 
 /// One radios thread serves Wi-Fi and Bluetooth: fan its state out to both services.
