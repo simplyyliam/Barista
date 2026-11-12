@@ -11,12 +11,16 @@ use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject, INFIN
 
 /// The DWORD in the default value of `HKLM\<subkey>`, or `None` if the key or value is missing.
 pub fn read_default_dword(subkey: &str) -> Option<u32> {
+    read_default_dword_in(HKEY_LOCAL_MACHINE, subkey)
+}
+
+fn read_default_dword_in(root: HKEY, subkey: &str) -> Option<u32> {
     let mut value = 0u32;
     let mut size = size_of::<u32>() as u32;
     // SAFETY: `value` and `size` live for the call and match the requested DWORD type.
     let status = unsafe {
         RegGetValueW(
-            HKEY_LOCAL_MACHINE,
+            root,
             &HSTRING::from(subkey),
             PCWSTR::null(),
             RRF_RT_REG_DWORD,
@@ -31,10 +35,14 @@ pub fn read_default_dword(subkey: &str) -> Option<u32> {
 /// Calls `on_change` on a new thread each time something under `HKLM\<subkey>` changes.
 /// Returns false if the key can't be watched.
 pub fn watch(subkey: &str, on_change: fn()) -> bool {
+    watch_in(HKEY_LOCAL_MACHINE, subkey, on_change)
+}
+
+fn watch_in(root: HKEY, subkey: &str, on_change: fn()) -> bool {
     let mut key = HKEY::default();
     // SAFETY: plain call; the key is closed again if the thread can't start.
     let opened = unsafe {
-        RegOpenKeyExW(HKEY_LOCAL_MACHINE, &HSTRING::from(subkey), None, KEY_NOTIFY, &mut key)
+        RegOpenKeyExW(root, &HSTRING::from(subkey), None, KEY_NOTIFY, &mut key)
     };
     if opened != ERROR_SUCCESS {
         return false;
@@ -82,4 +90,41 @@ pub fn watch(subkey: &str, on_change: fn()) -> bool {
         return false;
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Command;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::time::{Duration, Instant};
+    use windows::Win32::System::Registry::HKEY_CURRENT_USER;
+
+    static FIRED: AtomicU32 = AtomicU32::new(0);
+    const KEY: &str = r"Software\BaristaWatchTest";
+
+    fn reg(args: &[&str]) {
+        let _ = Command::new("reg").args(args).output();
+    }
+
+    /// The same code path as the airplane mode watch, on a key we may write without admin rights.
+    #[test]
+    #[ignore = "writes a temporary HKCU key"]
+    fn a_registry_change_wakes_the_watcher() {
+        reg(&["add", &format!(r"HKCU\{KEY}"), "/ve", "/t", "REG_DWORD", "/d", "0", "/f"]);
+        assert!(watch_in(HKEY_CURRENT_USER, KEY, || {
+            FIRED.fetch_add(1, Ordering::SeqCst);
+        }));
+        std::thread::sleep(Duration::from_millis(300));
+        let before = FIRED.load(Ordering::SeqCst);
+        reg(&["add", &format!(r"HKCU\{KEY}"), "/ve", "/t", "REG_DWORD", "/d", "1", "/f"]);
+        let started = Instant::now();
+        while FIRED.load(Ordering::SeqCst) == before && started.elapsed() < Duration::from_secs(3) {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        println!("woke after {:?}", started.elapsed());
+        assert!(FIRED.load(Ordering::SeqCst) > before, "no wake-up");
+        assert_eq!(read_default_dword_in(HKEY_CURRENT_USER, KEY), Some(1));
+        reg(&["delete", &format!(r"HKCU\{KEY}"), "/f"]);
+    }
 }
