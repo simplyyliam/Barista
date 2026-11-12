@@ -1,0 +1,19 @@
+# Spike only (ADR 0017). Own workspace on purpose: the bar never builds this.
+[package]
+name = "notifications-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+windows = { version = "0.62", features = [
+  "ApplicationModel",
+  "Foundation",
+  "Foundation_Collections",
+  "Storage_Streams",
+  "UI_Notifications",
+  "UI_Notifications_Management",
+  "Win32_System_WinRT",
+] }
