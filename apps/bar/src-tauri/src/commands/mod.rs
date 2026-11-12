@@ -492,3 +492,11 @@ pub fn get_output_devices() -> crate::system::output_devices::OutputDevices {
 pub fn set_output_device(id: String) {
     crate::system::output_devices::set_default(id);
 }
+
+/// The signed-in user's display name and picture (data URL). Call once when the UI starts;
+/// `userChanged` follows when the first read finishes.
+#[tauri::command]
+#[specta::specta]
+pub fn get_user() -> crate::system::user::User {
+    crate::system::user::service().get()
+}

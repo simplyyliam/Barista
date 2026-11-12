@@ -206,3 +206,8 @@ pub struct AirplaneModeChanged(pub crate::system::airplane::AirplaneMode);
 /// frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct OutputDevicesChanged(pub crate::system::output_devices::OutputDevices);
+
+/// The signed-in user's name or picture changed (read again whenever the control center opens).
+/// Full snapshot, at most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct UserChanged(pub crate::system::user::User);

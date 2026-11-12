@@ -20,6 +20,7 @@ pub mod power;
 pub mod registry_watch;
 pub mod radios;
 pub mod shell;
+pub mod user;
 pub mod wallpaper;
 pub mod wallpaper_watch;
 pub mod windhawk;
