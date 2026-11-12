@@ -38,7 +38,7 @@ pub fn refresh() {
         return;
     }
     #[cfg(windows)]
-    service().set(from_registry(crate::platform::windows::registry_watch::read_default_dword(KEY)));
+    super::publish_gated(service(), from_registry(crate::platform::windows::registry_watch::read_default_dword(KEY)));
 }
 
 pub fn start() {

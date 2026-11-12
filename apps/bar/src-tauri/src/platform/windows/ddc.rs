@@ -111,6 +111,23 @@ fn range(p: &PHYSICAL_MONITOR) -> Option<(u32, u32, u32)> {
     (ok != 0 && max > min).then_some((min, cur.clamp(min, max), max))
 }
 
+/// (min, max) per monitor id, filled by `read_all`: a slider drag then needs one cable write per
+/// change instead of a read and a write.
+static RANGES: std::sync::Mutex<Vec<(String, u32, u32)>> = std::sync::Mutex::new(Vec::new());
+
+fn remember(id: &str, min: u32, max: u32) {
+    let mut r = RANGES.lock().unwrap_or_else(|e| e.into_inner());
+    match r.iter_mut().find(|(i, _, _)| i == id) {
+        Some(e) => (e.1, e.2) = (min, max),
+        None => r.push((id.to_owned(), min, max)),
+    }
+}
+
+fn remembered(id: &str) -> Option<(u32, u32)> {
+    let r = RANGES.lock().unwrap_or_else(|e| e.into_inner());
+    r.iter().find(|(i, _, _)| i == id).map(|e| (e.1, e.2))
+}
+
 /// Maps the monitor's own range to 0..100.
 pub fn to_percent(min: u32, cur: u32, max: u32) -> u8 {
     (u64::from(cur.saturating_sub(min)) * 100 / u64::from((max - min).max(1))).min(100) as u8
@@ -132,13 +149,17 @@ pub fn read_all(skip: Option<&str>) -> Vec<RawDdc> {
         let list = physical(h);
         for (i, p) in list.iter().enumerate() {
             let started = Instant::now();
+            let id = format!("ddc:{device}:{i}");
             let percent = range(p)
                 .filter(|_| started.elapsed() < SLOW)
-                .map(|(min, cur, max)| to_percent(min, cur, max));
+                .map(|(min, cur, max)| {
+                    remember(&id, min, max);
+                    to_percent(min, cur, max)
+                });
             // The struct is packed: copy the array out before borrowing it.
             let description = p.szPhysicalMonitorDescription;
             out.push(RawDdc {
-                id: format!("ddc:{device}:{i}"),
+                id,
                 name: utf16_to_string(&description),
                 percent,
             });
@@ -155,7 +176,8 @@ pub fn set(id: &str, percent: u8) -> bool {
         let mut done = false;
         for (i, p) in list.iter().enumerate() {
             if format!("ddc:{device}:{i}") == id {
-                if let Some((min, _, max)) = range(p) {
+                let known = remembered(id).or_else(|| range(p).map(|(min, _, max)| (min, max)));
+                if let Some((min, max)) = known {
                     // SAFETY: plain call on a live handle.
                     done = unsafe { SetMonitorBrightness(p.hPhysicalMonitor, from_percent(min, max, percent)) } != 0;
                 }

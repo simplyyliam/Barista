@@ -48,7 +48,7 @@ pub fn refresh() {
                 return;
             }
             if let Some(u) = read() {
-                service().set(User {
+                super::publish_gated(service(), User {
                     available: true,
                     name: u.name,
                     avatar: u.avatar.and_then(|b| avatar_data_url(&b, MAX_AVATAR_BYTES)),

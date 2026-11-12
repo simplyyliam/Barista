@@ -132,7 +132,7 @@ fn publish(edit: impl FnOnce(&mut Inputs)) {
     let snapshot = build(&i);
     drop(i);
     if super::control_center_active() {
-        service().set(snapshot);
+        super::publish_gated(service(), snapshot);
     }
 }
 

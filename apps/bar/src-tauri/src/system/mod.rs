@@ -78,6 +78,18 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> Service<T> {
 /// Windows' Quick Settings instead. Their threads stay parked in `recv()`, so they cost nothing.
 static CONTROL_CENTER_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
+/// Held while a service publishes and while the mode switches, so a snapshot that was ready just before
+/// the switch to `windows` mode can't land after the services were emptied.
+static GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// `Service::set`, but only while the control center is ours.
+pub fn publish_gated<T: Clone + PartialEq + Send + Sync + 'static>(service: &Service<T>, value: T) {
+    let _gate = GATE.lock().unwrap_or_else(|e| e.into_inner());
+    if control_center_active() {
+        service.set(value);
+    }
+}
+
 pub fn control_center_active() -> bool {
     CONTROL_CENTER_ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
 }
@@ -94,8 +106,10 @@ pub fn set_control_center_mode(mode: crate::settings::Mode) {
     if let Some(c) = crate::controller::get() {
         c.update_settings(|s| s.control_center_mode = mode);
     }
+    let gate = GATE.lock().unwrap_or_else(|e| e.into_inner());
     CONTROL_CENTER_ACTIVE.store(mode == Mode::Barista, std::sync::atomic::Ordering::Relaxed);
     if mode == Mode::Barista {
+        drop(gate);
         refresh_control_center();
     } else {
         brightness::service().set(Default::default());

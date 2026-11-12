@@ -34,7 +34,7 @@ pub fn changed(raw: crate::platform::windows::audio::RawOutputs) {
     if !super::control_center_active() {
         return;
     }
-    service().set(OutputDevices {
+    super::publish_gated(service(), OutputDevices {
         devices: raw
             .devices
             .into_iter()

@@ -39,7 +39,7 @@ fn changed(raw: crate::platform::windows::tethering::RawHotspot) {
     if !super::control_center_active() {
         return;
     }
-    service().set(Hotspot {
+    super::publish_gated(service(), Hotspot {
         supported: raw.supported,
         state: match raw.state {
             RawState::Off => HotspotState::Off,

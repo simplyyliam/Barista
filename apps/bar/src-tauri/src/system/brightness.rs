@@ -50,7 +50,7 @@ fn changed(raw: Vec<crate::platform::windows::display_brightness::RawDisplay>) {
     if !super::control_center_active() {
         return;
     }
-    service().set(Brightness {
+    super::publish_gated(service(), Brightness {
         displays: raw
             .into_iter()
             .map(|d| Display {
