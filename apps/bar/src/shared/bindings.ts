@@ -271,6 +271,11 @@ export const commands = {
 	/**  Switches airplane mode on or off. `airplaneModeChanged` follows. */
 	setAirplaneMode: (on: boolean) => __TAURI_INVOKE<void>("set_airplane_mode", { on }),
 	/**
+	 *  Switches energy saver ("battery saver") on or off, the same way Quick Settings does.
+	 *  `batteryChanged` follows.
+	 */
+	setBatterySaver: (on: boolean) => __TAURI_INVOKE<void>("set_battery_saver", { on }),
+	/**
 	 *  What is playing right now (`available` is false when nothing is). Call once when the UI
 	 *  starts; `mediaChanged` keeps it fresh.
 	 */
@@ -402,10 +407,7 @@ export type Battery_Deserialize = {
 	secondsLeft?: number | null,
 	/**  Battery saver is on. */
 	saver: boolean,
-	/**
-	 *  The bar can switch battery saver itself. False until a call that Windows really acts on is
-	 *  found (ADR 0020); the tile then only shows the state.
-	 */
+	/**  The bar can switch battery saver itself (true on Windows, ADR 0020). */
 	saverControllable: boolean,
 };
 
@@ -421,10 +423,7 @@ export type Battery_Serialize = {
 	secondsLeft: number | null,
 	/**  Battery saver is on. */
 	saver: boolean,
-	/**
-	 *  The bar can switch battery saver itself. False until a call that Windows really acts on is
-	 *  found (ADR 0020); the tile then only shows the state.
-	 */
+	/**  The bar can switch battery saver itself (true on Windows, ADR 0020). */
 	saverControllable: boolean,
 };
 

@@ -147,8 +147,8 @@ export function ControlCenterPanel({ active }: { active: boolean }) {
                   icon={BatteryEcoChargingIcon}
                   label="Battery Saver"
                   active={battery?.saver === true}
-                  // Read-only for now: nothing we can call switches energy saver (ADR 0020), so the tile shows the state.
                   disabled={!battery?.present || !battery.saverControllable}
+                  onClick={() => void commands.setBatterySaver(!battery?.saver)}
                 />
               </Cell>
             </div>

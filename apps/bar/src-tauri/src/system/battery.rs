@@ -20,8 +20,7 @@ pub struct Battery {
     pub seconds_left: Option<u32>,
     /// Battery saver is on.
     pub saver: bool,
-    /// The bar can switch battery saver itself. False until a call that Windows really acts on is
-    /// found (ADR 0020); the tile then only shows the state.
+    /// The bar can switch battery saver itself (true on Windows, ADR 0020).
     pub saver_controllable: bool,
 }
 
@@ -56,6 +55,23 @@ pub fn service() -> &'static Service<Battery> {
     S.get_or_init(|| Service::new(Battery::default()))
 }
 
+/// Switches energy saver on or off (the same call as Quick Settings, ADR 0020). The registry watch
+/// below publishes the new state.
+pub fn set_saver(on: bool) {
+    if !super::control_center_active() {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        if let Err(status) = crate::platform::windows::energy_saver::publish(on) {
+            eprintln!("barista: energy saver not switched (status {status:#x})");
+        }
+        refresh();
+    }
+    #[cfg(not(windows))]
+    let _ = on;
+}
+
 /// Windows keeps the energy saver switch (Quick Settings) in this value: 1 = on, 2 = off. The power
 /// status flag does not show it while plugged in, so we read the value too. Only Windows' own
 /// service may write it (an ordinary program can't, it needs administrator rights).
@@ -83,9 +99,7 @@ pub fn refresh() {
             p.seconds_left,
             saver,
         );
-        // Always false for now: the helper can write EnergySaverState, but Windows does not act on it
-        // (tested 2026-11-12), so there is nothing the bar can call to switch energy saver (ADR 0020).
-        battery.saver_controllable = false;
+        battery.saver_controllable = true;
         service().set(battery);
     }
 }

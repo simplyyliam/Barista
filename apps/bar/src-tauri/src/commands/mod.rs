@@ -437,6 +437,14 @@ pub async fn set_airplane_mode(on: bool) {
     crate::system::airplane::set(on);
 }
 
+/// Switches energy saver ("battery saver") on or off, the same way Quick Settings does.
+/// `batteryChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_battery_saver(on: bool) {
+    crate::system::battery::set_saver(on);
+}
+
 /// Starts one of the apps a quick action knows (calculator, the Clock app's timer, the camera).
 #[tauri::command]
 #[specta::specta]

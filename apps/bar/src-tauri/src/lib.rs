@@ -98,6 +98,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_night_light,
             commands::set_night_light,
             commands::set_airplane_mode,
+            commands::set_battery_saver,
             commands::get_media,
             commands::media_play_pause,
             commands::media_next,

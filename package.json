@@ -23,8 +23,6 @@
     "bench": "node scripts/bench.mjs",
     "release": "node scripts/release.mjs",
     "updater:keygen": "node scripts/updater-keygen.mjs",
-    "helper:build": "cargo build -p barista-saver-helper --release",
-    "helper:install": "pnpm helper:build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/helper/install.ps1",
     "helper:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/helper/uninstall.ps1"
   },
   "devDependencies": {
