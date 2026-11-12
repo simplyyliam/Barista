@@ -56,23 +56,6 @@ pub fn service() -> &'static Service<Battery> {
     S.get_or_init(|| Service::new(Battery::default()))
 }
 
-/// Switches energy saver through the helper service. Nothing happens without it.
-pub fn set_saver(on: bool) {
-    if !super::control_center_active() {
-        return;
-    }
-    #[cfg(windows)]
-    {
-        if !crate::platform::windows::saver_helper::set_saver(on) {
-            eprintln!("barista: energy saver not switched (is the helper installed? `pnpm helper:install`)");
-        }
-        // The registry watch publishes the result; this covers a helper that changed nothing.
-        refresh();
-    }
-    #[cfg(not(windows))]
-    let _ = on;
-}
-
 /// Windows keeps the energy saver switch (Quick Settings) in this value: 1 = on, 2 = off. The power
 /// status flag does not show it while plugged in, so we read the value too. Only Windows' own
 /// service may write it (an ordinary program can't, it needs administrator rights).

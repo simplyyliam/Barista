@@ -24,7 +24,6 @@ pub mod tethering;
 pub mod registry_watch;
 pub mod radio_manager;
 pub mod radios;
-pub mod saver_helper;
 pub mod shell;
 pub mod user;
 pub mod wallpaper;

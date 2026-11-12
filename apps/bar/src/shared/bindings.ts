@@ -270,8 +270,6 @@ export const commands = {
 	setNightLight: (on: boolean) => __TAURI_INVOKE<void>("set_night_light", { on }),
 	/**  Switches airplane mode on or off. `airplaneModeChanged` follows. */
 	setAirplaneMode: (on: boolean) => __TAURI_INVOKE<void>("set_airplane_mode", { on }),
-	/**  Switches energy saver ("battery saver") on or off. `batteryChanged` follows. */
-	setBatterySaver: (on: boolean) => __TAURI_INVOKE<void>("set_battery_saver", { on }),
 	/**
 	 *  What is playing right now (`available` is false when nothing is). Call once when the UI
 	 *  starts; `mediaChanged` keeps it fresh.
