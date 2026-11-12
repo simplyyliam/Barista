@@ -59,7 +59,7 @@ pub fn refresh() {
 const MAX_ID: usize = 256;
 
 pub fn set_default(id: String) {
-    if id.is_empty() || id.len() > MAX_ID {
+    if !super::control_center_active() || id.is_empty() || id.len() > MAX_ID {
         return;
     }
     #[cfg(windows)]

@@ -62,6 +62,9 @@ pub fn refresh() {
 }
 
 pub fn set_enabled(on: bool) {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     crate::platform::windows::tethering::set_enabled(on);
     #[cfg(not(windows))]

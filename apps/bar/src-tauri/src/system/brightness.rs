@@ -77,7 +77,7 @@ pub fn refresh() {
 
 /// Only ids we listed, and only displays that answered, reach the hardware.
 pub fn set(id: &str, level: f64) {
-    if id.len() > MAX_ID {
+    if !super::control_center_active() || id.len() > MAX_ID {
         return;
     }
     let Some(percent) = to_percent(level) else { return };

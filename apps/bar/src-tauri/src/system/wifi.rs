@@ -159,6 +159,9 @@ pub fn start() {
 }
 
 pub fn set_enabled(on: bool) {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     crate::platform::windows::radios::set_enabled(crate::platform::windows::radios::Kind::Wifi, on);
     #[cfg(not(windows))]
@@ -166,11 +169,17 @@ pub fn set_enabled(on: bool) {
 }
 
 pub fn scan() {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     crate::platform::windows::wlan::scan();
 }
 
 pub fn disconnect() {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     crate::platform::windows::wlan::disconnect();
 }
@@ -178,12 +187,15 @@ pub fn disconnect() {
 /// Joins a network Windows already knows. Anything else (new, unknown name, too long) opens
 /// Windows' own Wi-Fi flyout: joining a new secured network is out of scope.
 pub fn connect(ssid: &str) {
+    if !super::control_center_active() {
+        return;
+    }
     let profile = if ssid.len() <= MAX_SSID {
         let i = INPUTS.lock().unwrap_or_else(|e| e.into_inner());
         i.networks
             .iter()
-            .find(|n| n.ssid == ssid)
-            .and_then(|n| n.profile.clone())
+            .filter(|n| n.ssid == ssid)
+            .find_map(|n| n.profile.clone())
     } else {
         None
     };

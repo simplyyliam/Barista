@@ -73,5 +73,13 @@ pub fn watch(subkey: &str, on_change: fn()) -> bool {
                 let _ = CloseHandle(event);
             }
         });
-    spawned.is_ok()
+    if spawned.is_err() {
+        // SAFETY: the thread never ran, so these are still ours to close.
+        unsafe {
+            let _ = RegCloseKey(key);
+            let _ = CloseHandle(event);
+        }
+        return false;
+    }
+    true
 }

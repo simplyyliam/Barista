@@ -84,13 +84,20 @@ pub fn run(action: Action, confirm: bool) -> Result<(), ActionError> {
     #[cfg(windows)]
     {
         use crate::platform::windows::shell;
-        match action {
-            Action::Lock => shell::lock(),
-            Action::Sleep => shell::sleep(),
-            Action::Restart => shell::restart(),
-            Action::ShutDown => shell::shut_down(),
-            Action::SignOut => shell::sign_out(),
-            Action::Screenshot => shell::open_uri("ms-screenclip:"),
+        // Own thread: `SetSuspendState` only returns after the PC wakes, and a command runs on the
+        // thread that also serves the bar's window.
+        let spawned = std::thread::Builder::new().name("barista-action".into()).spawn(move || {
+            match action {
+                Action::Lock => shell::lock(),
+                Action::Sleep => shell::sleep(),
+                Action::Restart => shell::restart(),
+                Action::ShutDown => shell::shut_down(),
+                Action::SignOut => shell::sign_out(),
+                Action::Screenshot => shell::open_uri("ms-screenclip:"),
+            }
+        });
+        if let Err(e) = spawned {
+            eprintln!("barista: could not run the action: {e}");
         }
     }
     #[cfg(not(windows))]

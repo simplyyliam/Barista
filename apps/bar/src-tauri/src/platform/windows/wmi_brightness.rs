@@ -157,9 +157,18 @@ impl Wmi {
 }
 
 /// Blocks until the brightness changes somewhere else, then calls `on_event`; repeats forever.
-/// Run it on its own thread (with COM initialised). Returns when the class does not exist.
+/// Run it on its own thread (with COM initialised). Returns when the class does not exist (a
+/// desktop). If WMI drops an established subscription (service restart, resume), it subscribes
+/// again after a pause: one retry per failure, never a loop of polls.
 pub fn watch(on_event: impl Fn()) {
-    let Some(wmi) = connect() else { return };
+    while watch_once(&on_event) {
+        std::thread::sleep(std::time::Duration::from_secs(10));
+    }
+}
+
+/// Returns true if a subscription worked and then ended (worth retrying).
+fn watch_once(on_event: &impl Fn()) -> bool {
+    let Some(wmi) = connect() else { return false };
     // SAFETY: plain COM calls on a live connection.
     unsafe {
         let Ok(events) = wmi.0.ExecNotificationQuery(
@@ -168,7 +177,7 @@ pub fn watch(on_event: impl Fn()) {
             QUERY_FLAGS,
             None::<&IWbemContext>,
         ) else {
-            return;
+            return false;
         };
         loop {
             let mut objects = [None];
@@ -176,7 +185,7 @@ pub fn watch(on_event: impl Fn()) {
             // -1 = WBEM_INFINITE: the thread sleeps here until Windows has an event.
             let hr = events.Next(-1, &mut objects, &mut returned);
             if hr.is_err() {
-                return;
+                return true;
             }
             if returned > 0 {
                 on_event();

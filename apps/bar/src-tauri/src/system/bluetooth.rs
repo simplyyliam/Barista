@@ -58,6 +58,19 @@ fn build(radio: Option<bool>, denied: bool, devices: &[BluetoothDevice]) -> Blue
     }
 }
 
+/// A device paired over classic and Low Energy shows up twice under different ids: list it once, as
+/// connected if either side is.
+fn merge_by_name(list: Vec<BluetoothDevice>) -> Vec<BluetoothDevice> {
+    let mut out: Vec<BluetoothDevice> = Vec::new();
+    for d in list {
+        match out.iter_mut().find(|o| o.name == d.name) {
+            Some(o) => o.connected |= d.connected,
+            None => out.push(d),
+        }
+    }
+    out
+}
+
 fn publish(edit: impl FnOnce(&mut Inputs)) {
     let mut i = INPUTS.lock().unwrap_or_else(|e| e.into_inner());
     edit(&mut i);
@@ -79,14 +92,15 @@ pub fn radio_changed(r: crate::platform::windows::radios::RadioStates) {
 #[cfg(windows)]
 fn devices_changed(list: Vec<crate::platform::windows::bt_devices::RawDevice>) {
     publish(|i| {
-        i.devices = list
-            .into_iter()
-            .map(|d| BluetoothDevice {
-                id: d.id,
-                name: d.name,
-                connected: d.connected,
-            })
-            .collect();
+        i.devices = merge_by_name(
+            list.into_iter()
+                .map(|d| BluetoothDevice {
+                    id: d.id,
+                    name: d.name,
+                    connected: d.connected,
+                })
+                .collect(),
+        );
     });
 }
 
@@ -96,6 +110,9 @@ pub fn start() {
 }
 
 pub fn set_enabled(on: bool) {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     crate::platform::windows::radios::set_enabled(crate::platform::windows::radios::Kind::Bluetooth, on);
     #[cfg(not(windows))]
@@ -112,6 +129,18 @@ mod tests {
             name: name.into(),
             connected: false,
         }
+    }
+
+    #[test]
+    fn a_dual_mode_device_is_listed_once() {
+        let mut a = dev("Buds");
+        a.id = "classic".into();
+        let mut b = dev("Buds");
+        b.id = "le".into();
+        b.connected = true;
+        let merged = merge_by_name(vec![a, b, dev("Mouse")]);
+        assert_eq!(merged.len(), 2);
+        assert!(merged[0].connected);
     }
 
     #[test]
