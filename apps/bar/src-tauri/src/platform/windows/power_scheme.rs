@@ -10,7 +10,7 @@ use windows::Win32::System::Power::{
 };
 
 /// `SUB_ENERGYSAVER`.
-const SUB_ENERGYSAVER: GUID = GUID::from_u128(0xde830923_a562_41af_9685_e3a2c6bad2da);
+const SUB_ENERGYSAVER: GUID = GUID::from_u128(0xde830923_a562_41af_a086_e3a2c6bad2da);
 /// `ESBATTTHRESHOLD`.
 const ES_THRESHOLD: GUID = GUID::from_u128(0xe69653ca_cf7f_4f05_aa73_cb833fa90ad4);
 
@@ -30,15 +30,21 @@ fn active_scheme() -> Option<GUID> {
     }
 }
 
+/// What an untouched plan uses (checked on Windows 11 with `powercfg /qh`): never when plugged in,
+/// 20 % on battery.
+const BUILT_IN: Thresholds = (0, 20);
+
+/// A plan only stores a level once somebody changed it; before that the read fails ("file not
+/// found") and Windows uses its built-in value, so we do the same.
 pub fn read() -> Option<Thresholds> {
     let scheme = active_scheme()?;
-    let (mut ac, mut dc) = (0u32, 0u32);
-    // SAFETY: the GUIDs and out pointers live for the calls.
+    let (mut ac, mut dc) = BUILT_IN;
+    // SAFETY: the GUIDs and out pointers live for the calls. A failed read leaves the built-in value.
     unsafe {
-        let a = PowerReadACValueIndex(None, Some(&scheme), Some(&SUB_ENERGYSAVER), Some(&ES_THRESHOLD), &mut ac);
-        let d = PowerReadDCValueIndex(None, Some(&scheme), Some(&SUB_ENERGYSAVER), Some(&ES_THRESHOLD), &mut dc);
-        (a == ERROR_SUCCESS && d == 0).then_some((ac, dc))
+        let _ = PowerReadACValueIndex(None, Some(&scheme), Some(&SUB_ENERGYSAVER), Some(&ES_THRESHOLD), &mut ac);
+        let _ = PowerReadDCValueIndex(None, Some(&scheme), Some(&SUB_ENERGYSAVER), Some(&ES_THRESHOLD), &mut dc);
     }
+    Some((ac, dc))
 }
 
 /// Writes both levels to the active plan and re-applies it so Windows re-evaluates right away.
@@ -48,6 +54,24 @@ pub fn write((ac, dc): Thresholds) -> bool {
     unsafe {
         let a = PowerWriteACValueIndex(None, &scheme, Some(&SUB_ENERGYSAVER), Some(&ES_THRESHOLD), ac);
         let d = PowerWriteDCValueIndex(None, &scheme, Some(&SUB_ENERGYSAVER), Some(&ES_THRESHOLD), dc);
-        a == ERROR_SUCCESS && d == 0 && PowerSetActiveScheme(None, Some(&scheme)) == ERROR_SUCCESS
+        let set = PowerSetActiveScheme(None, Some(&scheme));
+        if a != ERROR_SUCCESS || d != 0 || set != ERROR_SUCCESS {
+            eprintln!("barista: energy saver level not written (ac {a:?}, dc {d}, apply {set:?})");
+        }
+        a == ERROR_SUCCESS && d == 0 && set == ERROR_SUCCESS
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Reads the real power plan: needs a Windows machine with an energy saver setting.
+    #[test]
+    #[ignore = "reads the machine's power plan"]
+    fn reads_the_active_plan() {
+        let levels = super::read();
+        println!("levels = {levels:?}");
+        assert!(levels.is_some());
+        // Writing the same levels back changes nothing, but shows whether the write is allowed.
+        assert!(super::write(levels.unwrap()), "write refused");
     }
 }

@@ -147,7 +147,8 @@ export function ControlCenterPanel({ active }: { active: boolean }) {
                   icon={BatteryEcoChargingIcon}
                   label="Battery Saver"
                   active={battery?.saver === true}
-                  disabled={!battery?.present}
+                  // Windows only switches energy saver on while running on battery.
+                  disabled={!battery?.present || (battery.pluggedIn === true && !battery.saver)}
                   onClick={() => void commands.setBatterySaver(!battery?.saver)}
                 />
               </Cell>
@@ -210,7 +211,11 @@ function VolumeSlider() {
       icon={volume?.muted ? VolumeMute01Icon : VolumeHighIcon}
       value={volume?.muted ? 0 : drag.value}
       disabled={!volume?.available}
-      onChange={drag.change}
+      // Moving a muted volume up unmutes it, like the volume keys do.
+      onChange={(level) => {
+        if (volume?.muted && level > 0) void commands.setMuted(false)
+        drag.change(level)
+      }}
       onCommit={drag.end}
       onIconClick={() => void commands.setMuted(!volume?.muted)}
     />
