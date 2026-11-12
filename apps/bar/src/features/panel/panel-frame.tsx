@@ -1,18 +1,35 @@
 import { useRef, type ReactNode } from "react"
+import type { PanelChrome } from "@/shared/bindings"
 import { usePanelSize } from "./hooks/use-panel-size"
 
 type PanelFrameProps = {
   /** The window has the system acrylic backdrop; if not, draw an opaque panel. */
   acrylic: boolean
-  /** New for every open, so the size is reported again. */
-  openKey: string
+  /** `glass`: the window is the panel. `none`: a bare transparent window, the content draws its own cards. */
+  chrome: PanelChrome
+  /** New for every open, so the size is reported again. `null` while the panel is closed. */
+  openKey: string | null
   children: ReactNode
 }
 
-/** The glass of the panel window. The window itself is the panel (Windows draws blur, corners, shadow). */
-export function PanelFrame({ acrylic, openKey, children }: PanelFrameProps) {
+/** The glass of the panel window (or nothing, for floating cards). */
+export function PanelFrame({ acrylic, chrome, openKey, children }: PanelFrameProps) {
   const measureRef = useRef<HTMLDivElement>(null)
   usePanelSize(measureRef, openKey)
+
+  if (chrome === "none") {
+    return (
+      <div
+        onContextMenu={(event) => event.preventDefault()}
+        className="fixed inset-0 cursor-default overflow-hidden font-bar select-none"
+      >
+        {/* No motion in the page: the window appears whole, at its final size, already painted. */}
+        <div ref={measureRef} className="w-max">
+          {children}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div

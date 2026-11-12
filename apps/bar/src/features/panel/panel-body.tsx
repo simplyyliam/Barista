@@ -1,7 +1,29 @@
 import { useBattery, useClockSettings, useVolume } from "./hooks/use-system-state"
+import { NotificationsPanel } from "./notifications-panel"
 
-/** What a panel route shows. Only the live system values for now; the real designs come later. */
-export function PanelBody({ name }: { name: string }) {
+/**
+ * What a panel route shows. `name` is `null` while the panel is closed. The notifications route is
+ * kept mounted even then (out of the layout, invisible) so it opens with everything loaded; the
+ * other routes show live values until their designs come.
+ */
+export function PanelBody({ name, warm = false }: { name: string | null; warm?: boolean }) {
+  const active = name === "notifications"
+  return (
+    <>
+      <div
+        // Closed: out of the layout and invisible. Warming (startup, window hidden): drawn and in the
+        // layout, so it is painted once and its real size can be measured.
+        className={active || warm ? undefined : "invisible absolute top-0 left-0"}
+        aria-hidden={!active}
+      >
+        <NotificationsPanel active={active} />
+      </div>
+      {name !== null && !active && <SystemValues name={name} />}
+    </>
+  )
+}
+
+function SystemValues({ name }: { name: string }) {
   const battery = useBattery()
   const volume = useVolume()
   const clock = useClockSettings()

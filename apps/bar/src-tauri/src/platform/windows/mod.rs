@@ -3,12 +3,16 @@
 //! placement, message hook) and `fullscreen` (is a full-screen app in front?) and `wallpaper` (how bright is the wallpaper under the bar?).
 //! Tray bridging helpers come later.
 
+pub mod app_icon;
 pub mod appbar;
 pub mod audio;
+pub mod folder_watch;
 pub mod foreground;
 pub mod locale;
 pub mod fullscreen;
 pub mod monitors;
+pub mod notification_db;
+pub mod notifications;
 pub mod pipe;
 pub mod power;
 pub mod wallpaper;

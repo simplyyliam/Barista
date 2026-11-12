@@ -205,6 +205,20 @@ impl Controller {
         }
     }
 
+    /// A copy of the saved settings.
+    pub fn settings(&self) -> Settings {
+        self.lock().settings.clone()
+    }
+
+    /// Changes the saved settings and writes them to disk.
+    pub fn update_settings(&self, change: impl FnOnce(&mut Settings)) {
+        let mut state = self.lock();
+        change(&mut state.settings);
+        if let Err(e) = state.settings.save(&state.settings_file) {
+            eprintln!("barista: could not save settings: {e}");
+        }
+    }
+
     pub fn info(&self) -> BarInfo {
         Self::info_of(&self.lock())
     }

@@ -11,6 +11,20 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   settings, battery, volume (ADR 0016, `docs/perf/0.4b.md`). Next: slices B and C (`releases/v0.4b.md`, local only);
   re-measure panel latency once the UI uses `panelResized`.
 - ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
+- **v0.4b slice C built, PR open** (branch `feature/v0.4b-notifications`, includes the spike of PR #23; ADR 0017 accepted, ADR 0018):
+  notifications panel with the UI (`UI: full`): date in the bar + unread dot, notification card, shadcn calendar, Focus pills. The date sits inside the clock item (right side; anchor `system/clock`), 300 px wide cards; moving it (e.g. to the centre) is a v0.8 setting.
+  Reader = `UserNotificationListener` + read-only `wpndatabase.db` (pictures) + folder watcher gated by a toast fingerprint
+  (reading through the listener writes to that database: without the gate it looped at 3% CPU). Windows signals removals
+  late, so opening the panel reads fresh. Switch `notificationsMode` (barista | windows) saved, no UI until v0.8 (rule 11).
+  Left: slice B (display, network, radios, actions). Barista focus timer is in the backlog.
+- Panel is prebaked: `PanelWindow` keeps the frame and the notifications route mounted while hidden, `PanelBody` takes `name: null` when closed, `usePanelSize` takes a `null` key. No opening motion (Windows does not animate a bare transparent window, measured; in-page motion felt staggered): the window appears whole in one frame. Never resize the window around an open (WebView2 paints the top first): sizes are remembered per route, the warm-up (`panelWarm`) measures and paints it once at startup. To watch it: real clicks with `SetCursorPos` (logical px) + `mouse_event`, and `CopyFromScreen` frames (physical px). Notification list = one block per notification; the list is as tall as one 16:9 picture notification (measured) and has no minimum, so a lone notification shrinks the card. ADR 0018 has the details.
+- Debug a panel without a click: run the bar with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then from
+  the `panel` page call `close_panel`, then `open_panel` and capture within ~1 s (the panel closes on blur because Windows won't
+  focus it without a real click). Same-anchor `open_panel` toggles.
+- CSS gotcha: a `<button>` and a scrolling (`overflow-y-auto`) box clip anything that sticks out of them, even with negative
+  margins; the DOM rect still says it is fine. Notification pictures therefore sit in their own full-width wrapper
+  (`overflow-hidden rounded-panel-child`) and the list has `-mx-panel-pad px-panel-pad`. Check by looking, not by `getBoundingClientRect`.
+- New for the UI (slice C, wired already): see ADR 0018. `openPanel` has a 5th argument `chrome: "glass" | "none"`.
 
 ## Facts a new session needs
 

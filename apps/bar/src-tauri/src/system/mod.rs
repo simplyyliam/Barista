@@ -1,4 +1,4 @@
-//! Built-in system services (ADR 0016): clock settings, battery, volume. Every service has the
+//! Built-in system services (ADR 0016): clock settings, battery, volume, notifications. Every service has the
 //! same shape: a full snapshot you can read any time, a change event sent at most once per frame,
 //! and (volume only) commands that change the system. No polling: Windows tells us when
 //! something changed.
@@ -10,6 +10,7 @@
 
 pub mod battery;
 pub mod clock;
+pub mod notifications;
 pub mod volume;
 
 use std::time::Duration;
@@ -65,9 +66,9 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> Service<T> {
     }
 }
 
-/// Starts the three services and their event forwarding. Call once from `setup`.
+/// Starts the services and their event forwarding. Call once from `setup`.
 pub fn init(app: &tauri::AppHandle) {
-    use crate::events::{BatteryChanged, ClockSettingsChanged, VolumeChanged};
+    use crate::events::{BatteryChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged};
     use tauri_specta::Event;
     let a = app.clone();
     clock::service().forward(move |v| {
@@ -81,9 +82,14 @@ pub fn init(app: &tauri::AppHandle) {
     volume::service().forward(move |v| {
         let _ = VolumeChanged(v).emit(&a);
     });
+    let a = app.clone();
+    notifications::service().forward(move |v| {
+        let _ = NotificationsChanged(v).emit(&a);
+    });
     clock::refresh();
     battery::refresh();
     volume::start();
+    notifications::start();
 }
 
 #[cfg(test)]

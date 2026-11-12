@@ -1,14 +1,22 @@
-import { useEffect } from "react"
-import { commands } from "@/shared/bindings"
-import { PanelBody, PanelFrame, useOpenPanel } from "@/features/panel"
+import { useEffect, useRef } from "react"
+import { commands, type PanelOpen } from "@/shared/bindings"
+import { PanelBody, PanelFrame, useOpenPanel, useWarm } from "@/features/panel"
 
 /**
  * The panel window (label `panel`): one window, reused for every system panel. Rust decides when
- * it opens and where it goes; this only draws the route named in `panelChanged`, reports its size
- * and asks Rust to close on Esc (ADR 0016).
+ * it opens and where it goes; this draws the route named in `panelChanged`, reports its size and
+ * asks Rust to close on Esc (ADR 0016).
+ *
+ * The frame and the body stay mounted while the window is hidden, so the next open has nothing
+ * left to load: the data, the icons and the decoded pictures are already there ("prebaked").
  */
 export default function PanelWindow() {
   const open = useOpenPanel()
+  const warm = useWarm()
+  // Closed: remember how the last panel looked, so nothing flips while the window is hidden.
+  const last = useRef<PanelOpen | null>(null)
+  if (open) last.current = open
+  const look = open ?? last.current
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -18,11 +26,15 @@ export default function PanelWindow() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
-  if (!open) return null
-  const key = `${open.name}|${open.anchor}`
   return (
-    <PanelFrame key={key} acrylic={open.acrylic} openKey={key}>
-      <PanelBody name={open.name} />
+    <PanelFrame
+      acrylic={look?.acrylic ?? false}
+      chrome={look?.chrome ?? "none"}
+      // While Rust warms the hidden window up, report the size as if it were open (the key is only
+      // used to start the report; Rust sizes the hidden window from it).
+      openKey={open ? `${open.name}|${open.anchor}` : warm ? "warm" : null}
+    >
+      <PanelBody name={open?.name ?? null} warm={warm} />
     </PanelFrame>
   )
 }

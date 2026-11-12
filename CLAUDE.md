@@ -68,6 +68,11 @@ Claude may build a release's Rust while the UI for it isn't done yet. Then:
 9. **Performance budget:** the bar idles near 0% CPU and stays small in memory. No polling where
    a Windows event exists. Results go in `docs/perf/`.
 10. Architectural decisions get a short ADR in `docs/decisions/`.
+11. **Every replacement of a Windows feature is switchable.** Anything the bar replaces (notification
+    center, later volume or Wi-Fi flyouts, ...) gets a setting in `settings.rs` (`barista` | `windows`)
+    from day one, default `barista`. In `windows` mode the bar stops its own work and opens Windows' own
+    version. No UI for it until the v0.8 settings window; add each new switch to the list in
+    `docs/release/releases/v0.8.md`, which the settings scrub uses.
 
 ## Layout
 

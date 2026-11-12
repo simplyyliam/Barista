@@ -29,16 +29,26 @@ barista-protocol = { path = "../../../crates/protocol" }
 tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "macros"] }
 # Decodes icon data URLs so their size and file type can be checked.
 base64 = "0.23"
+# Reads the toast XML (title, images, buttons) from Windows' notification database.
+roxmltree = "0.21.2"
 
 # Win32 calls (AppBar, monitors, window styles). Same version Tauri already uses, so Cargo
 # builds only one copy. Each feature is one Win32 header group; add one only when needed.
 # #[implement] (the audio callbacks) expands to code that names this crate. Same version as `windows`.
 [target.'cfg(windows)'.dependencies]
+# Opens Windows' notification database read-only (ADR 0018). SQLite is built in (bundled).
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 windows-core = "0.62"
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [
+  "ApplicationModel",
+  "Foundation",
+  "Foundation_Collections",
+  "Storage_Streams",
+  "UI_Notifications",
+  "UI_Notifications_Management",
   "Win32_Foundation",
   "Win32_Globalization",
   "Win32_Media_Audio",

@@ -16,8 +16,14 @@ export {
 
 // Lucide names clash with Hugeicons' style, so they get a "Lucide" prefix.
 export {
+  Bell as LucideBell,
   Check as LucideCheck,
+  ChevronDown as LucideChevronDown,
+  ChevronLeft as LucideChevronLeft,
   ChevronRight as LucideChevronRight,
+  Minus as LucideMinus,
+  Plus as LucidePlus,
+  X as LucideX,
 } from "lucide-react"
 
 // Only the props both libraries share.
