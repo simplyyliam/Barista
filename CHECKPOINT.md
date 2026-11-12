@@ -12,7 +12,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   re-measure panel latency once the UI uses `panelResized`.
 - ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
 - **v0.4b slice C built, PR open** (branch `feature/v0.4b-notifications`, includes the spike of PR #23; ADR 0017 accepted, ADR 0018):
-  notifications panel with the UI (`UI: full`): date in the bar + unread dot, notification card, shadcn calendar, Focus pills.
+  notifications panel with the UI (`UI: full`): date in the bar + unread dot, notification card, shadcn calendar, Focus pills. The date sits inside the clock item (right side; anchor `system/clock`), 300 px wide cards; moving it (e.g. to the centre) is a v0.8 setting.
   Reader = `UserNotificationListener` + read-only `wpndatabase.db` (pictures) + folder watcher gated by a toast fingerprint
   (reading through the listener writes to that database: without the gate it looped at 3% CPU). Windows signals removals
   late, so opening the panel reads fresh. Switch `notificationsMode` (barista | windows) saved, no UI until v0.8 (rule 11).
