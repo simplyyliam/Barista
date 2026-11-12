@@ -73,6 +73,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_notification_mode,
             commands::set_notification_mode,
             commands::run_action,
+            commands::get_bluetooth,
+            commands::set_bluetooth_enabled,
             commands::open_settings
         ])
         .events(collect_events![
@@ -91,6 +93,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::ClockSettingsChanged,
             events::BatteryChanged,
             events::VolumeChanged,
+            events::BluetoothChanged,
             events::NotificationsChanged,
             events::NotificationModeChanged,
             events::PanelChanged,

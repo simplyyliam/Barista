@@ -105,6 +105,7 @@ dependencies = [
  "tauri-specta",
  "tokio",
  "windows",
+ "windows-collections",
  "windows-core",
 ]
 

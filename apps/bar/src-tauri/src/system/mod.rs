@@ -10,6 +10,7 @@
 
 pub mod actions;
 pub mod battery;
+pub mod bluetooth;
 pub mod clock;
 pub mod notifications;
 pub mod volume;
@@ -69,7 +70,9 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> Service<T> {
 
 /// Starts the services and their event forwarding. Call once from `setup`.
 pub fn init(app: &tauri::AppHandle) {
-    use crate::events::{BatteryChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged};
+    use crate::events::{
+        BatteryChanged, BluetoothChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged,
+    };
     use tauri_specta::Event;
     let a = app.clone();
     clock::service().forward(move |v| {
@@ -87,10 +90,23 @@ pub fn init(app: &tauri::AppHandle) {
     notifications::service().forward(move |v| {
         let _ = NotificationsChanged(v).emit(&a);
     });
+    let a = app.clone();
+    bluetooth::service().forward(move |v| {
+        let _ = BluetoothChanged(v).emit(&a);
+    });
     clock::refresh();
     battery::refresh();
     volume::start();
     notifications::start();
+    #[cfg(windows)]
+    crate::platform::windows::radios::start(radios_changed);
+    bluetooth::start();
+}
+
+/// One radios thread serves Wi-Fi and Bluetooth: fan its state out to both services.
+#[cfg(windows)]
+fn radios_changed(r: crate::platform::windows::radios::RadioStates) {
+    bluetooth::radio_changed(r);
 }
 
 #[cfg(test)]

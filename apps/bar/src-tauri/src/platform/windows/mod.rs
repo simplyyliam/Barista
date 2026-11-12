@@ -6,6 +6,7 @@
 pub mod app_icon;
 pub mod appbar;
 pub mod audio;
+pub mod bt_devices;
 pub mod folder_watch;
 pub mod foreground;
 pub mod locale;
@@ -15,6 +16,7 @@ pub mod notification_db;
 pub mod notifications;
 pub mod pipe;
 pub mod power;
+pub mod radios;
 pub mod shell;
 pub mod wallpaper;
 pub mod wallpaper_watch;

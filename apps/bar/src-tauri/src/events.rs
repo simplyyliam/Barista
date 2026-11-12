@@ -186,3 +186,8 @@ pub struct PanelWarm(pub bool);
 pub struct PanelChanged {
     pub open: Option<crate::panel::PanelOpen>,
 }
+
+/// Bluetooth changed (radio on or off, a paired device connected or removed). Full snapshot, at
+/// most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct BluetoothChanged(pub crate::system::bluetooth::Bluetooth);

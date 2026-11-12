@@ -414,3 +414,19 @@ pub fn run_action(
 pub fn open_settings(page: crate::system::actions::SettingsPage) {
     crate::system::actions::open_settings(page);
 }
+
+/// Bluetooth right now: radio state and paired devices. `available` is false without a radio. Call
+/// once when the UI starts; `bluetoothChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_bluetooth() -> crate::system::bluetooth::Bluetooth {
+    crate::system::bluetooth::service().get()
+}
+
+/// Turns the Bluetooth radio on or off. `bluetoothChanged` follows. Connecting a single device has
+/// no public API: open the Bluetooth settings page for that.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_bluetooth_enabled(enabled: bool) {
+    crate::system::bluetooth::set_enabled(enabled);
+}

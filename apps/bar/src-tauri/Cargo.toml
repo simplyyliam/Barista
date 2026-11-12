@@ -39,11 +39,15 @@ roxmltree = "0.21.2"
 # Opens Windows' notification database read-only (ADR 0018). SQLite is built in (bundled).
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 windows-core = "0.62"
+# The WinRT list types (IIterable, IMapView) that the device watcher needs. Already in the tree through `windows`.
+windows-collections = "0.3"
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [
   "ApplicationModel",
+  "Devices_Enumeration",
+  "Devices_Radios",
   "Foundation",
   "Foundation_Collections",
   "Storage_Streams",
