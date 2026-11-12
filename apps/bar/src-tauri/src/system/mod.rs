@@ -22,6 +22,7 @@ pub mod notifications;
 pub mod theme;
 pub mod volume;
 pub mod wifi;
+pub mod wifi_profile;
 
 use std::time::Duration;
 use tokio::sync::watch;

@@ -525,6 +525,15 @@ pub fn connect_wifi(ssid: String) {
     crate::system::wifi::connect(&ssid);
 }
 
+/// Joins a network that Windows has no saved profile for: `password` is `null` for an open
+/// network, otherwise 8 to 63 characters. A wrong password shows up as the network not
+/// connecting (`wifiChanged`). Enterprise networks open Windows' own flyout.
+#[tauri::command]
+#[specta::specta]
+pub fn join_wifi(ssid: String, password: Option<String>) {
+    crate::system::wifi::join(&ssid, password);
+}
+
 /// Disconnects from the current network.
 #[tauri::command]
 #[specta::specta]

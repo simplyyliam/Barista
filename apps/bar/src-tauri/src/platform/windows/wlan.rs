@@ -7,12 +7,13 @@
 
 use std::sync::mpsc::{channel, Sender};
 use std::sync::OnceLock;
+use crate::system::wifi_profile::{profile_xml, Auth};
 use windows::core::{GUID, PCWSTR};
 use windows::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_SUCCESS, HANDLE};
 use windows::Win32::NetworkManagement::WiFi::{
     dot11_BSS_type_any, wlan_connection_mode_profile, WlanCloseHandle, WlanConnect, WlanDisconnect,
     WlanEnumInterfaces, WlanFreeMemory, WlanGetAvailableNetworkList, WlanOpenHandle,
-    WlanRegisterNotification, WlanScan, L2_NOTIFICATION_DATA, WLAN_AVAILABLE_NETWORK_LIST,
+    WlanRegisterNotification, WlanScan, WlanSetProfile, L2_NOTIFICATION_DATA, WLAN_AVAILABLE_NETWORK_LIST,
     WLAN_CONNECTION_PARAMETERS, WLAN_INTERFACE_INFO_LIST, WLAN_NOTIFICATION_SOURCE_ACM,
 };
 
@@ -43,6 +44,8 @@ enum Msg {
     Refresh,
     Scan,
     Connect(String),
+    /// A network without a saved profile: make one (with the password, if it needs one), then join.
+    Join { ssid: String, password: Option<String> },
     Disconnect,
 }
 
@@ -58,6 +61,13 @@ pub fn scan() {
 pub fn connect(profile: String) {
     if let Some(tx) = TX.get() {
         let _ = tx.send(Msg::Connect(profile));
+    }
+}
+
+/// Joins a new network. The password is only passed on to the profile, never stored.
+pub fn join(ssid: String, password: Option<String>) {
+    if let Some(tx) = TX.get() {
+        let _ = tx.send(Msg::Join { ssid, password });
     }
 }
 
@@ -95,6 +105,60 @@ fn first_interface(handle: HANDLE) -> Option<GUID> {
         WlanFreeMemory(list.cast());
         guid
     }
+}
+
+/// How the network named `ssid` protects itself, from the list Windows has in range.
+fn auth_of(handle: HANDLE, guid: &GUID, ssid: &str) -> Option<Auth> {
+    let mut list: *mut WLAN_AVAILABLE_NETWORK_LIST = std::ptr::null_mut();
+    // SAFETY: as in `read`; the list is freed before returning.
+    unsafe {
+        if WlanGetAvailableNetworkList(handle, guid, 0, None, &mut list) != ERROR_SUCCESS.0 || list.is_null() {
+            return None;
+        }
+        let items = std::slice::from_raw_parts((*list).Network.as_ptr(), (*list).dwNumberOfItems as usize);
+        let found = items.iter().find_map(|n| {
+            let len = (n.dot11Ssid.uSSIDLength as usize).min(n.dot11Ssid.ucSSID.len());
+            (n.dot11Ssid.ucSSID[..len] == *ssid.as_bytes()).then_some(n.dot11DefaultAuthAlgorithm.0)
+        });
+        WlanFreeMemory(list.cast());
+        found.and_then(Auth::from_algo)
+    }
+}
+
+fn join_now(handle: HANDLE, guid: &GUID, ssid: &str, password: Option<&str>) {
+    let Some(auth) = auth_of(handle, guid, ssid) else {
+        // Not in range any more, or an enterprise network: Windows' own flyout handles those.
+        crate::platform::windows::shell::open_uri("ms-availablenetworks:");
+        return;
+    };
+    let Some(xml) = profile_xml(ssid, auth, password) else { return };
+    let mut text: Vec<u16> = xml.encode_utf16().collect();
+    text.push(0);
+    let mut reason = 0u32;
+    // SAFETY: the XML buffer and `reason` live for the call. Flag 2 = a profile for this user only.
+    let status = unsafe {
+        WlanSetProfile(handle, guid, 2, PCWSTR(text.as_ptr()), PCWSTR::null(), true, None, &mut reason)
+    };
+    if status != ERROR_SUCCESS.0 {
+        eprintln!("barista: wifi profile refused (status {status}, reason {reason})");
+        return;
+    }
+    connect_profile(handle, guid, ssid);
+}
+
+fn connect_profile(handle: HANDLE, guid: &GUID, profile: &str) {
+    let mut name: Vec<u16> = profile.encode_utf16().collect();
+    name.push(0);
+    let params = WLAN_CONNECTION_PARAMETERS {
+        wlanConnectionMode: wlan_connection_mode_profile,
+        strProfile: PCWSTR(name.as_ptr()),
+        pDot11Ssid: std::ptr::null_mut(),
+        pDesiredBssidList: std::ptr::null_mut(),
+        dot11BssType: dot11_BSS_type_any,
+        dwFlags: 0,
+    };
+    // SAFETY: `guid` and the parameter struct live for the call.
+    let _ = unsafe { WlanConnect(handle, guid, &params, None) };
 }
 
 fn read(handle: HANDLE) -> RawWifi {
@@ -185,19 +249,8 @@ pub fn start(on_change: fn(RawWifi)) {
                             Msg::Disconnect => {
                                 let _ = WlanDisconnect(handle, &guid, None);
                             }
-                            Msg::Connect(profile) => {
-                                let mut name: Vec<u16> = profile.encode_utf16().collect();
-                                name.push(0);
-                                let params = WLAN_CONNECTION_PARAMETERS {
-                                    wlanConnectionMode: wlan_connection_mode_profile,
-                                    strProfile: PCWSTR(name.as_ptr()),
-                                    pDot11Ssid: std::ptr::null_mut(),
-                                    pDesiredBssidList: std::ptr::null_mut(),
-                                    dot11BssType: dot11_BSS_type_any,
-                                    dwFlags: 0,
-                                };
-                                let _ = WlanConnect(handle, &guid, &params, None);
-                            }
+                            Msg::Connect(profile) => connect_profile(handle, &guid, &profile),
+                            Msg::Join { ssid, password } => join_now(handle, &guid, &ssid, password.as_deref()),
                         }
                     }
                 }

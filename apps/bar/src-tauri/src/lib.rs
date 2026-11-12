@@ -88,6 +88,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::set_wifi_enabled,
             commands::scan_wifi,
             commands::connect_wifi,
+            commands::join_wifi,
             commands::disconnect_wifi,
             commands::get_bluetooth,
             commands::set_bluetooth_enabled,

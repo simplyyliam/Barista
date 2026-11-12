@@ -208,6 +208,28 @@ pub fn connect(ssid: &str) {
     let _ = profile;
 }
 
+/// Joins a network that has no saved profile. Open networks take `None`; the others need the
+/// password (8 to 63 characters). Only names that are in the list right now are accepted, so a
+/// bad client can't make the bar write a profile for any name it likes.
+pub fn join(ssid: &str, password: Option<String>) {
+    if !super::control_center_active() || ssid.len() > MAX_SSID {
+        return;
+    }
+    let in_range = INPUTS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .networks
+        .iter()
+        .any(|n| n.ssid == ssid);
+    if !in_range {
+        return;
+    }
+    #[cfg(windows)]
+    crate::platform::windows::wlan::join(ssid.to_string(), password);
+    #[cfg(not(windows))]
+    let _ = password;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
