@@ -25,7 +25,7 @@ use tauri_specta::Event;
 pub const LABEL: &str = "panel";
 
 /// If the UI never reports its size (it should within a frame), show the window anyway.
-const REVEAL_FALLBACK: Duration = Duration::from_millis(30);
+const REVEAL_FALLBACK: Duration = Duration::from_millis(20);
 
 /// A panel and the item it hangs from. The UI shows the route for `name` and the item as open.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
@@ -68,6 +68,13 @@ pub fn get() -> Option<&'static PanelWindow> {
 pub fn close() {
     if let Some(p) = get() {
         p.close();
+    }
+}
+
+/// Another window got the foreground (the shared hook in `popover.rs` calls this).
+pub fn foreground_changed(pid: u32) {
+    if let Some(p) = get() {
+        p.foreground_changed(pid);
     }
 }
 
@@ -254,6 +261,28 @@ impl PanelWindow {
             return;
         }
         self.lock().machine.blur(Instant::now());
+        self.close_after_grace();
+    }
+
+    /// A program other than the bar took the foreground. Covers the case where the panel never got
+    /// focus itself (Windows refused it), so no `Focused(false)` will ever come.
+    pub fn foreground_changed(&self, pid: u32) {
+        {
+            let mut inner = self.lock();
+            if inner.open.is_none() {
+                return;
+            }
+            if pid == std::process::id() {
+                inner.machine.focus();
+                return;
+            }
+            inner.machine.blur(Instant::now());
+        }
+        self.close_after_grace();
+    }
+
+    /// Hides the panel after the grace unless a click on an icon or the focus decided first.
+    fn close_after_grace(&self) {
         tauri::async_runtime::spawn(async {
             tokio::time::sleep(BLUR_GRACE).await;
             if let Some(p) = get() {

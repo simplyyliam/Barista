@@ -31,13 +31,15 @@ close: closePanel | same anchor again | focus lost (150 ms grace) | menu, popove
 - **Open/close rules are the shared `dismiss::Machine`.** Anchors are the machine's keys. One thing is open
   in the whole bar: opening a panel closes the menu and the popover; `route_click` (all three branches)
   and the popover's `close_menu` closure close the panel.
-- **Focus loss uses the window's own `Focused` event**, like the menu (it is our window). The foreground
-  hook (`platform/windows/foreground.rs`) stays what it is: the tool for windows that belong to another
-  program (popovers).
+- **Focus loss has two sources, both feeding the same machine.** The window's own `Focused(false)` event (like
+  the menu), and the shared foreground hook (`platform/windows/foreground.rs`, one hook for the whole bar:
+  `popover.rs` hands every event to `panel::foreground_changed`). The hook covers a panel that never got
+  focus (Windows refused it), where no `Focused(false)` would ever come.
 - **Esc is the UI's job** (`closePanel`), the same as `closeMenu`: the window has focus, so the page sees
   the key; a global hook would steal Esc from other apps.
 - **Size comes from the UI, placement from Rust.** `openPanel` carries a first guess; the window is shown
-  when `panelResized` arrives, or after 30 ms if the UI never answers.
+  when `panelResized` arrives, or after 20 ms if the UI never answers. (Windows timers tick in about 15 ms steps, so 30 ms measured 41 ms
+  and put the no-UI open at 55 ms; the window show itself takes under 1 ms.)
 - Names are `[a-z0-9-]`, 32 chars at most; anchors 256; sizes go through `clean_size`.
 - Clicking the same anchor with another `name` closes the panel (the anchor is the toggle key).
 
