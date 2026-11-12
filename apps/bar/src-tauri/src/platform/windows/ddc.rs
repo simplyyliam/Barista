@@ -183,6 +183,17 @@ mod tests {
         assert_eq!(from_percent(10, 90, 200), 90);
     }
 
+    /// Writes the value it just read, so the monitor does not change.
+    #[test]
+    #[ignore = "needs a DDC/CI monitor"]
+    fn sets_a_monitor_to_itself() {
+        let m = read_all(None).into_iter().find(|m| m.percent.is_some()).expect("a DDC monitor");
+        let p = m.percent.unwrap();
+        let ok = set(&m.id, p);
+        println!("set {} to {p}: {ok}, last error {:?}", m.id, windows::core::Error::from_thread());
+        assert!(ok);
+    }
+
     #[test]
     #[ignore = "needs a desktop session"]
     fn lists_monitors() {

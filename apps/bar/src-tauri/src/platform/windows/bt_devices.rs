@@ -18,8 +18,9 @@ pub struct RawDevice {
     pub connected: bool,
 }
 
-/// Paired devices of the classic Bluetooth protocol (the GUID is `Aep.ProtocolId` for Bluetooth).
-const FILTER: &str = "System.Devices.Aep.ProtocolId:=\"{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}\" AND System.Devices.Aep.IsPaired:=System.StructuredQueryType.Boolean#True";
+/// Paired devices of both Bluetooth protocols: classic (headphones, keyboards) and Low Energy
+/// (many mice and trackers). The GUIDs are Windows' `Aep.ProtocolId` values.
+const FILTER: &str = "(System.Devices.Aep.ProtocolId:=\"{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}\" OR System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\") AND System.Devices.Aep.IsPaired:=System.StructuredQueryType.Boolean#True";
 const CONNECTED: &str = "System.Devices.Aep.IsConnected";
 
 static DEVICES: Mutex<Option<HashMap<String, RawDevice>>> = Mutex::new(None);
