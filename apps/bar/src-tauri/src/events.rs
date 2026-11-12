@@ -149,3 +149,18 @@ pub struct SubmenuHighlight {
 pub struct SubmenuHovered {
     pub index: Option<u32>,
 }
+
+/// The clock settings changed (12/24 h, first weekday, time zone). Carries the full snapshot, at
+/// most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct ClockSettingsChanged(pub crate::system::clock::ClockSettings);
+
+/// The battery changed (level, charging, power source, battery saver). Full snapshot, at most
+/// once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct BatteryChanged(pub crate::system::battery::Battery);
+
+/// The volume or mute of the output device changed, or the default device did. Full snapshot, at
+/// most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct VolumeChanged(pub crate::system::volume::Volume);

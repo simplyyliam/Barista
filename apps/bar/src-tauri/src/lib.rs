@@ -14,6 +14,7 @@ mod platform;
 mod radius;
 mod registry;
 mod settings;
+mod system;
 mod tray;
 mod window_radius;
 
@@ -48,7 +49,12 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::close_menu,
             commands::get_open_menu,
             commands::set_item_bounds,
-            commands::get_open_popover
+            commands::get_open_popover,
+            commands::get_clock_settings,
+            commands::get_battery,
+            commands::get_volume,
+            commands::set_volume,
+            commands::set_muted
         ])
         .events(collect_events![
             events::BarChanged,
@@ -63,6 +69,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::SubmenuPlaced,
             events::SubmenuHighlight,
             events::SubmenuHovered,
+            events::ClockSettingsChanged,
+            events::BatteryChanged,
+            events::VolumeChanged,
             appearance::BarAppearanceChanged
         ])
 }
@@ -150,6 +159,7 @@ pub fn run() {
             app.manage(registry.clone());
             menu_window::init(app.handle(), registry.clone())?;
             popover::init(app.handle(), registry.clone());
+            system::init(app.handle());
             ipc::start(registry.clone());
             events::forward_changes(app.handle().clone(), registry);
             Ok(())

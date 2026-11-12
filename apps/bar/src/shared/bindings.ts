@@ -92,12 +92,36 @@ export const commands = {
 	 *  the UI starts; `popoverChanged` keeps it fresh. Show that item as "open".
 	 */
 	getOpenPopover: () => __TAURI_INVOKE<string | null>("get_open_popover"),
+	/**
+	 *  How the user wants the clock shown: 12 or 24 hour, first day of the week, time zone. The time
+	 *  itself comes from JS. Call once when the UI starts; `clockSettingsChanged` keeps it fresh.
+	 */
+	getClockSettings: () => __TAURI_INVOKE<ClockSettings>("get_clock_settings"),
+	/**
+	 *  The battery right now. `present` is false on a desktop PC. Call once when the UI starts;
+	 *  `batteryChanged` keeps it fresh.
+	 */
+	getBattery: () => __TAURI_INVOKE<Battery_Serialize>("get_battery"),
+	/**
+	 *  The output volume right now. `available` is false when there is no output device. Call once
+	 *  when the UI starts; `volumeChanged` keeps it fresh.
+	 */
+	getVolume: () => __TAURI_INVOKE<Volume>("get_volume"),
+	/**
+	 *  Sets the output volume (0 to 1; values outside are clamped, NaN is ignored). `volumeChanged`
+	 *  follows with the real value.
+	 */
+	setVolume: (level: number | null) => __TAURI_INVOKE<void>("set_volume", { level }),
+	/**  Mutes or unmutes the output. `volumeChanged` follows. */
+	setMuted: (muted: boolean) => __TAURI_INVOKE<void>("set_muted", { muted }),
 };
 
 /** Events */
 export const events = {
 	barAppearanceChanged: makeEvent<BarAppearanceChanged, BarAppearanceChanged>("bar-appearance-changed"),
 	barChanged: makeEvent<BarChanged, BarChanged>("bar-changed"),
+	batteryChanged: makeEvent<BatteryChanged_Serialize, BatteryChanged_Deserialize>("battery-changed"),
+	clockSettingsChanged: makeEvent<ClockSettingsChanged, ClockSettingsChanged>("clock-settings-changed"),
 	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
@@ -108,6 +132,7 @@ export const events = {
 	submenuHovered: makeEvent<SubmenuHovered_Serialize, SubmenuHovered_Deserialize>("submenu-hovered"),
 	submenuPlaced: makeEvent<SubmenuPlaced, SubmenuPlaced>("submenu-placed"),
 	submenuShow: makeEvent<SubmenuShow_Serialize, SubmenuShow_Deserialize>("submenu-show"),
+	volumeChanged: makeEvent<VolumeChanged, VolumeChanged>("volume-changed"),
 	windowRadiusChanged: makeEvent<WindowRadiusChanged_Serialize, WindowRadiusChanged_Deserialize>("window-radius-changed"),
 };
 
@@ -134,6 +159,71 @@ export type BarInfo = {
 	monitors: Monitor[],
 	hiddenForFullscreen: boolean,
 };
+
+export type Battery = Battery_Serialize | Battery_Deserialize;
+
+/**
+ *  The battery changed (level, charging, power source, battery saver). Full snapshot, at most
+ *  once per frame.
+ */
+export type BatteryChanged = BatteryChanged_Serialize | BatteryChanged_Deserialize;
+
+/**
+ *  The battery changed (level, charging, power source, battery saver). Full snapshot, at most
+ *  once per frame.
+ */
+export type BatteryChanged_Deserialize = Battery_Deserialize;
+
+/**
+ *  The battery changed (level, charging, power source, battery saver). Full snapshot, at most
+ *  once per frame.
+ */
+export type BatteryChanged_Serialize = Battery_Serialize;
+
+export type Battery_Deserialize = {
+	/**  False on a desktop PC (no battery): the other fields mean nothing then. */
+	present: boolean,
+	/**  0 to 100, or `None` if Windows does not know. */
+	percent?: number | null,
+	charging: boolean,
+	/**  On mains power. `None` if unknown. */
+	pluggedIn?: boolean | null,
+	/**  Seconds of battery left, only while unplugged and when Windows can estimate it. */
+	secondsLeft?: number | null,
+	/**  Battery saver is on. */
+	saver: boolean,
+};
+
+export type Battery_Serialize = {
+	/**  False on a desktop PC (no battery): the other fields mean nothing then. */
+	present: boolean,
+	/**  0 to 100, or `None` if Windows does not know. */
+	percent: number | null,
+	charging: boolean,
+	/**  On mains power. `None` if unknown. */
+	pluggedIn: boolean | null,
+	/**  Seconds of battery left, only while unplugged and when Windows can estimate it. */
+	secondsLeft: number | null,
+	/**  Battery saver is on. */
+	saver: boolean,
+};
+
+export type ClockSettings = {
+	/**  True for a 24 hour clock. */
+	hour24: boolean,
+	/**  0 = Sunday ... 6 = Saturday (the same numbers as JS `Date.getDay()`). */
+	firstWeekday: number,
+	/**  Windows time zone id (`W. Europe Standard Time`). Empty if Windows did not say. */
+	timeZone: string,
+	/**  Minutes east of UTC right now, daylight saving included. */
+	utcOffsetMinutes: number,
+};
+
+/**
+ *  The clock settings changed (12/24 h, first weekday, time zone). Carries the full snapshot, at
+ *  most once per frame.
+ */
+export type ClockSettingsChanged = ClockSettings;
 
 /**
  *  Where an item sits inside the bar window, in logical pixels (CSS pixels, what the UI
@@ -433,6 +523,21 @@ export type SubmenuSide = "right" | "left";
 
 /**  How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round. */
 export type Tone = "light" | "dark";
+
+export type Volume = {
+	/**  False when there is no output device: the other fields mean nothing then. */
+	available: boolean,
+	/**  0.0 to 1.0. */
+	level: number | null,
+	muted: boolean,
+	deviceName: string,
+};
+
+/**
+ *  The volume or mute of the output device changed, or the default device did. Full snapshot, at
+ *  most once per frame.
+ */
+export type VolumeChanged = Volume;
 
 /**  What the frontend gets from `getWindowRadius` and the `window-radius-changed` event. */
 export type WindowRadius = WindowRadius_Serialize | WindowRadius_Deserialize;

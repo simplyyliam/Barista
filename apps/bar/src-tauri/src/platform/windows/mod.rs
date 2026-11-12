@@ -4,10 +4,13 @@
 //! Tray bridging helpers come later.
 
 pub mod appbar;
+pub mod audio;
 pub mod foreground;
+pub mod locale;
 pub mod fullscreen;
 pub mod monitors;
 pub mod pipe;
+pub mod power;
 pub mod wallpaper;
 pub mod wallpaper_watch;
 pub mod windhawk;

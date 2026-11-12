@@ -32,10 +32,23 @@ base64 = "0.23"
 
 # Win32 calls (AppBar, monitors, window styles). Same version Tauri already uses, so Cargo
 # builds only one copy. Each feature is one Win32 header group; add one only when needed.
+# #[implement] (the audio callbacks) expands to code that names this crate. Same version as `windows`.
+[target.'cfg(windows)'.dependencies]
+windows-core = "0.62"
+
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [
   "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_System_Power",
+  "Win32_System_Time",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_Devices_FunctionDiscovery",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
   "Win32_Graphics_Dwm",
   "Win32_Graphics_Gdi",
   "Win32_Graphics_Imaging",

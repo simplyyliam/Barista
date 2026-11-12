@@ -222,3 +222,42 @@ pub fn get_open_popover() -> Option<String> {
 pub fn set_item_bounds(bounds: Vec<ItemBounds>) {
     crate::placement::set_item_bounds(bounds);
 }
+
+/// How the user wants the clock shown: 12 or 24 hour, first day of the week, time zone. The time
+/// itself comes from JS. Call once when the UI starts; `clockSettingsChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_clock_settings() -> crate::system::clock::ClockSettings {
+    crate::system::clock::service().get()
+}
+
+/// The battery right now. `present` is false on a desktop PC. Call once when the UI starts;
+/// `batteryChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_battery() -> crate::system::battery::Battery {
+    crate::system::battery::service().get()
+}
+
+/// The output volume right now. `available` is false when there is no output device. Call once
+/// when the UI starts; `volumeChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_volume() -> crate::system::volume::Volume {
+    crate::system::volume::service().get()
+}
+
+/// Sets the output volume (0 to 1; values outside are clamped, NaN is ignored). `volumeChanged`
+/// follows with the real value.
+#[tauri::command]
+#[specta::specta]
+pub fn set_volume(level: f64) {
+    crate::system::volume::set_volume(level);
+}
+
+/// Mutes or unmutes the output. `volumeChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_muted(muted: bool) {
+    crate::system::volume::set_muted(muted);
+}
