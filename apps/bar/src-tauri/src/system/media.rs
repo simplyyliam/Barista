@@ -70,39 +70,72 @@ pub fn build(
     }
 }
 
+/// Asks for a fresh read. Never blocks: the WinRT reads (and the cover) wait on other processes, so
+/// they run on one worker thread, and a burst of events becomes one read. Calling this from a
+/// command (the panel opening) used to freeze the click that opened it.
 pub fn refresh() {
+    #[cfg(windows)]
+    if let Some(tx) = WORKER.get() {
+        let _ = tx.send(());
+    }
+}
+
+#[cfg(windows)]
+static WORKER: std::sync::OnceLock<std::sync::mpsc::Sender<()>> = std::sync::OnceLock::new();
+
+#[cfg(windows)]
+fn read_and_publish() {
     if !super::control_center_active() {
         return;
     }
-    #[cfg(windows)]
-    {
-        let media = match crate::platform::windows::media::read() {
-            Some(r) => build(
-                &r.app_id, &r.title, &r.artist, r.playing, r.can_next, r.can_previous,
-                r.cover.as_deref(),
-            ),
-            None => Media::default(),
-        };
-        super::publish_gated(service(), media);
-    }
+    let media = match crate::platform::windows::media::read() {
+        Some(r) => build(&r.app_id, &r.title, &r.artist, r.playing, r.can_next, r.can_previous, r.cover.as_deref()),
+        None => Media::default(),
+    };
+    super::publish_gated(service(), media);
 }
 
 pub fn start() {
     #[cfg(windows)]
-    crate::platform::windows::media::start(refresh);
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        if WORKER.set(tx).is_err() {
+            return;
+        }
+        let spawned = std::thread::Builder::new().name("barista-media-read".into()).spawn(move || {
+            while rx.recv().is_ok() {
+                while rx.try_recv().is_ok() {}
+                read_and_publish();
+            }
+        });
+        if spawned.is_err() {
+            eprintln!("barista: media reader not started");
+            return;
+        }
+        crate::platform::windows::media::start(refresh);
+    }
 }
 
 pub fn play_pause() {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     crate::platform::windows::media::play_pause();
 }
 
 pub fn next() {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     crate::platform::windows::media::next();
 }
 
 pub fn previous() {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     crate::platform::windows::media::previous();
 }

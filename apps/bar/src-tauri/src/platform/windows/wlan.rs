@@ -13,7 +13,7 @@ use windows::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_SUCCESS, HANDLE};
 use windows::Win32::NetworkManagement::WiFi::{
     dot11_BSS_type_any, wlan_connection_mode_profile, WlanCloseHandle, WlanConnect, WlanDisconnect,
     WlanEnumInterfaces, WlanFreeMemory, WlanGetAvailableNetworkList, WlanOpenHandle,
-    WlanRegisterNotification, WlanScan, WlanSetProfile, L2_NOTIFICATION_DATA, WLAN_AVAILABLE_NETWORK_LIST,
+    WlanRegisterNotification, WlanScan, WlanSetProfile, WlanDeleteProfile, L2_NOTIFICATION_DATA, WLAN_AVAILABLE_NETWORK_LIST,
     WLAN_CONNECTION_PARAMETERS, WLAN_INTERFACE_INFO_LIST, WLAN_NOTIFICATION_SOURCE_ACM,
 };
 
@@ -47,6 +47,8 @@ enum Msg {
     /// A network without a saved profile: make one (with the password, if it needs one), then join.
     Join { ssid: String, password: Option<String> },
     Disconnect,
+    /// Deletes a saved profile (a wrong password must not stay saved).
+    Forget(String),
 }
 
 static TX: OnceLock<Sender<Msg>> = OnceLock::new();
@@ -68,6 +70,13 @@ pub fn connect(profile: String) {
 pub fn join(ssid: String, password: Option<String>) {
     if let Some(tx) = TX.get() {
         let _ = tx.send(Msg::Join { ssid, password });
+    }
+}
+
+/// Deletes the saved profile with this name.
+pub fn forget(profile: String) {
+    if let Some(tx) = TX.get() {
+        let _ = tx.send(Msg::Forget(profile));
     }
 }
 
@@ -248,6 +257,11 @@ pub fn start(on_change: fn(RawWifi)) {
                             }
                             Msg::Disconnect => {
                                 let _ = WlanDisconnect(handle, &guid, None);
+                            }
+                            Msg::Forget(profile) => {
+                                let mut name: Vec<u16> = profile.encode_utf16().collect();
+                                name.push(0);
+                                let _ = WlanDeleteProfile(handle, &guid, PCWSTR(name.as_ptr()), None);
                             }
                             Msg::Connect(profile) => connect_profile(handle, &guid, &profile),
                             Msg::Join { ssid, password } => join_now(handle, &guid, &ssid, password.as_deref()),

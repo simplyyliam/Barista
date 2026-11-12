@@ -42,6 +42,9 @@ pub fn refresh() {
 
 /// Switches airplane mode for real. The registry watch publishes the result.
 pub fn set(on: bool) {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     if crate::platform::windows::radio_manager::radios_enabled() == Some(!on) {
         // Already in that state.

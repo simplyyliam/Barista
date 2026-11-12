@@ -549,6 +549,14 @@ pub fn join_wifi(ssid: String, password: Option<String>) {
     crate::system::wifi::join(&ssid, password);
 }
 
+/// Deletes Windows' saved profile for a network, so a wrong password doesn't stay saved. Call it
+/// before asking for the password again.
+#[tauri::command]
+#[specta::specta]
+pub fn forget_wifi(ssid: String) {
+    crate::system::wifi::forget(&ssid);
+}
+
 /// Disconnects from the current network.
 #[tauri::command]
 #[specta::specta]

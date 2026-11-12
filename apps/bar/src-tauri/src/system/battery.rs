@@ -86,6 +86,9 @@ pub fn plan_saver(
 
 /// Turns energy saver on or off for real (no settings page).
 pub fn set_saver(on: bool) {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     {
         use crate::platform::windows::power_scheme;

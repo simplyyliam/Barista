@@ -76,6 +76,14 @@ export function WifiList() {
 
   const pick = (network: WifiNetwork) => {
     if (network.connected) return void commands.disconnectWifi()
+    // A join that just failed left a profile with the wrong password: delete it and ask again.
+    if (failed === network.ssid && network.secured) {
+      void commands.forgetWifi(network.ssid)
+      setFailed(null)
+      setAsking(network.ssid)
+      setPassword("")
+      return
+    }
     setFailed(null)
     if (network.known) {
       setTrying(network.ssid)

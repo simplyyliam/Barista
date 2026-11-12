@@ -240,6 +240,11 @@ export const commands = {
 	 *  connecting (`wifiChanged`). Enterprise networks open Windows' own flyout.
 	 */
 	joinWifi: (ssid: string, password: string | null) => __TAURI_INVOKE<void>("join_wifi", { ssid, password }),
+	/**
+	 *  Deletes Windows' saved profile for a network, so a wrong password doesn't stay saved. Call it
+	 *  before asking for the password again.
+	 */
+	forgetWifi: (ssid: string) => __TAURI_INVOKE<void>("forget_wifi", { ssid }),
 	/**  Disconnects from the current network. */
 	disconnectWifi: () => __TAURI_INVOKE<void>("disconnect_wifi"),
 	/**

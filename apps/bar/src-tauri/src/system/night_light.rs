@@ -154,6 +154,9 @@ pub fn refresh() {
 
 /// Switches night light. The registry watch publishes the result.
 pub fn set(on: bool) {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     {
         use crate::platform::windows::registry_watch::{read_user_binary, write_user_binary};

@@ -37,13 +37,19 @@ pub fn refresh() {
 }
 
 pub fn set_dark(dark: bool) {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     {
         use crate::platform::windows::registry_watch::write_user_dword;
         let light = u32::from(!dark);
         write_user_dword(KEY, "AppsUseLightTheme", light);
         write_user_dword(KEY, "SystemUsesLightTheme", light);
-        crate::platform::windows::shell::broadcast_setting_change("ImmersiveColorSet");
+        // The broadcast waits up to a second for every slow window, so not on the command thread.
+        let _ = std::thread::Builder::new()
+            .name("barista-theme-broadcast".into())
+            .spawn(|| crate::platform::windows::shell::broadcast_setting_change("ImmersiveColorSet"));
     }
     #[cfg(not(windows))]
     let _ = dark;
