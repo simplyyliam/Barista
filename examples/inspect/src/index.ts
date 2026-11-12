@@ -3,6 +3,9 @@
 //   pnpm inspect --watch             list again every 250 ms until Ctrl+C
 //   pnpm inspect --click s1/counter  click an item (add "right" or "middle" for another button)
 //   pnpm inspect --menu-click s1/timer sounds   pick an entry in an item's menu
+//   pnpm inspect --system [--watch]  print clock settings, battery and volume (--watch: on change)
+//   pnpm inspect --panel test s1/counter [width height]   open a system panel under an item
+//   pnpm inspect --close-panel       close the panel
 //
 // It speaks the protocol by hand (about 20 lines) because `debug.*` messages are not part of
 // the public SDK.
@@ -70,6 +73,7 @@ const args = process.argv.slice(2)
 const clickAt = args.indexOf("--click")
 const menuClickAt = args.indexOf("--menu-click")
 const watch = args.includes("--watch")
+const panelAt = args.indexOf("--panel")
 
 /** Sends one debug request, then reports success (no error within 200 ms) or the error. */
 function request(message: ClientMessage, done: string) {
@@ -90,7 +94,43 @@ function request(message: ClientMessage, done: string) {
   })
 }
 
-if (menuClickAt >= 0) {
+if (args.includes("--system")) {
+  // Asks again every 250 ms in watch mode (this tool polls; the bar itself does not) and prints
+  // only when something differs, so a plugged-in charger or a volume key shows up on its own line.
+  let last = ""
+  let timer: NodeJS.Timeout | undefined
+  const socket = open((message, send) => {
+    if (message.type === "welcome") {
+      send({ type: "debug.system" })
+      if (watch) timer = setInterval(() => send({ type: "debug.system" }), 250)
+    } else if (message.type === "debug.system") {
+      if (message.snapshot !== last) {
+        last = message.snapshot
+        const s = JSON.parse(message.snapshot) as Record<string, unknown>
+        console.log(new Date().toLocaleTimeString(), "---")
+        for (const [name, value] of Object.entries(s)) console.log(`${name.padEnd(8)}${JSON.stringify(value)}`)
+      }
+      if (!watch) socket.end()
+    } else if (message.type === "error") {
+      console.error(`${message.code}: ${message.message}`)
+      process.exitCode = 1
+      clearInterval(timer)
+      socket.end()
+    }
+  })
+} else if (args.includes("--close-panel")) {
+  request({ type: "debug.closePanel" }, "panel closed")
+} else if (panelAt >= 0) {
+  const [name, anchor, w, h] = args.slice(panelAt + 1)
+  if (!name || !anchor) {
+    console.error("usage: pnpm inspect --panel <name, like battery> <item id, like s1/counter> [width height]")
+    process.exit(1)
+  }
+  request(
+    { type: "debug.openPanel", name, anchor, width: Number(w ?? 320), height: Number(h ?? 240) },
+    `panel ${name} opened under ${anchor}`,
+  )
+} else if (menuClickAt >= 0) {
   const id = args[menuClickAt + 1]
   const menuItemId = args[menuClickAt + 2]
   if (!id || !menuItemId) {

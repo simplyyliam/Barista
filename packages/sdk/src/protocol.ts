@@ -49,7 +49,12 @@ anchor?: ScreenRect | null } |
  */
 { type: "menu.click"; id: string; menuItemId: string; checked?: boolean | null } | 
 /**  Reply to `debug.listItems`. */
-{ type: "debug.items"; requestId: string | null; items: ItemInfo[] };
+{ type: "debug.items"; requestId: string | null; items: ItemInfo[] } | 
+/**
+ *  Reply to `debug.system`: a JSON object text with `clock`, `battery` and `volume` (the same
+ *  snapshots the UI gets). Text, so the protocol does not depend on the bar's types.
+ */
+{ type: "debug.system"; requestId: string | null; snapshot: string };
 
 /**
  *  Client -> bar. Every request may carry a `requestId`; errors echo it.
@@ -89,7 +94,16 @@ export type ClientMessage =
  *  Fakes a click on a menu entry of any item, as if the user picked it. `id` is the item's
  *  key (`s3/counter`). Same availability as `debug.listItems`.
  */
-{ type: "debug.menuClick"; requestId?: string | null; id: string; menuItemId: string };
+{ type: "debug.menuClick"; requestId?: string | null; id: string; menuItemId: string } | 
+/**  Asks for the clock settings, battery and volume. Same availability as `debug.listItems`. */
+{ type: "debug.system"; requestId?: string | null } | 
+/**
+ *  Opens a system panel as if the UI had called `openPanel`. Same availability as
+ *  `debug.listItems`. `width` and `height` are logical px.
+ */
+{ type: "debug.openPanel"; requestId?: string | null; name: string; anchor: string; width: number | null; height: number | null } | 
+/**  Closes the open panel. Same availability as `debug.listItems`. */
+{ type: "debug.closePanel"; requestId?: string | null };
 
 /**  Machine-readable reason in an `error` message. */
 export type ErrorCode = 
