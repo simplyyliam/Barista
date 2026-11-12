@@ -92,8 +92,8 @@
   --spacing-bar-item-x: 10px;
 
   /* --- Panels --- */
-  /* App.png: 340px wide, 14px below the bar, 16px content padding, 8px inset for inner blocks. */
-  --spacing-panel-w: 340px;
+  /* App.png: 340px wide, but that reads wider on a scaled screen than in the 2560 px mock, so 300px (Liam, 2026-11-12). 14px below the bar, 16px content padding, 8px inset for inner blocks. */
+  --spacing-panel-w: 300px;
   --spacing-panel-offset: 14px;
   --spacing-panel-pad: 16px;
   --spacing-panel-inset: 8px;

@@ -18,6 +18,8 @@ export function CalendarCard() {
   const clock = useClockSettings()
   const [open, setOpen] = useState(true)
   const today = new Date()
+  // The picked day (today to start with). Picking one only highlights it for now.
+  const [selected, setSelected] = useState<Date>(today)
 
   return (
     <section
@@ -36,6 +38,10 @@ export function CalendarCard() {
 
       {open && (
         <Calendar
+          mode="single"
+          selected={selected}
+          // Clicking the picked day again must not clear it.
+          onSelect={(day) => day && setSelected(day)}
           // The first weekday comes from Windows, the same setting the clock service reads.
           weekStartsOn={(clock?.firstWeekday ?? 0) as 0 | 1 | 2 | 3 | 4 | 5 | 6}
           showOutsideDays
@@ -62,7 +68,9 @@ export function CalendarCard() {
             week: "mt-1 flex w-full",
             // Fixed-size round cells (the default is a square as wide as the column).
             day: "group/day relative flex h-8 w-full items-center justify-center p-0 text-center text-[12px] select-none [&_button]:size-7 [&_button]:min-w-0 [&_button]:rounded-full [&_button]:text-[12px] [&_button]:font-normal",
-            today: "[&_button]:bg-panel-fg [&_button]:text-panel [&_button]:hover:bg-panel-fg [&_button]:hover:text-panel",
+            // Today has a ring; the picked day is filled (shadcn fills it with the theme's primary colour, which is wrong on a black card).
+            today: "[&_button]:ring-1 [&_button]:ring-panel-fg/60",
+            selected: "[&_button[data-selected-single=true]]:bg-panel-fg [&_button[data-selected-single=true]]:text-panel [&_button[data-selected-single=true]]:hover:bg-panel-fg",
             outside: "text-panel-fg-muted [&_button]:text-panel-fg-muted",
           }}
         />

@@ -35,7 +35,7 @@ export function DateItem() {
     if (mode === "windows") {
       void commands.openWindowsNotifications();
     } else {
-      void commands.openPanel("notifications", ITEM_ID, 340, 400, "none");
+      void commands.openPanel("notifications", ITEM_ID, 300, 400, "none");
     }
   };
 
