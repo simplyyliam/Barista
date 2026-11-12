@@ -61,6 +61,8 @@ fn run() -> R<()> {
             println!("status after: {:?}", l.GetAccessStatus()?);
         }
         Some("list") => list(&l)?,
+        Some("db") => db(),
+        Some("db-images") => db_images(),
         Some("watch") => {
             let secs: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(60);
             let token = l.NotificationChanged(&TypedEventHandler::new(
@@ -94,4 +96,39 @@ fn main() {
     if let Err(e) = run() {
         println!("ERROR 0x{:08X}: {}", e.code().0, e.message());
     }
+}
+
+// db: read Windows' notification database (read-only) to see what the toast XML holds.
+pub fn db() {
+    let path = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap()).join("Microsoft").join("Windows").join("Notifications").join("wpndatabase.db");
+    let conn = rusqlite::Connection::open_with_flags(
+        &path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_URI,
+    );
+    let conn = match conn { Ok(c) => c, Err(e) => return println!("open error: {e}") };
+    let tables: Vec<String> = conn
+        .prepare("select name from sqlite_master where type='table'").unwrap()
+        .query_map([], |r| r.get(0)).unwrap().flatten().collect();
+    println!("tables: {tables:?}");
+    for t in ["Notification", "NotificationHandler"] {
+        let cols: Vec<String> = conn.prepare(&format!("pragma table_info({t})")).unwrap()
+            .query_map([], |r| r.get::<_, String>(1)).unwrap().flatten().collect();
+        println!("{t}: {cols:?}");
+    }
+}
+
+// db-images: ids, app ids and only the image/action tags (never the text, it is private).
+pub fn db_images() {
+    let path = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap()).join("Microsoft").join("Windows").join("Notifications").join("wpndatabase.db");
+    let conn = rusqlite::Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    let mut st = conn.prepare("select n.Id, h.PrimaryId, n.Type, n.PayloadType, n.Payload, n.ArrivalTime from Notification n join NotificationHandler h on h.RecordId = n.HandlerId order by n.Id").unwrap();
+    let rows = st.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, Vec<u8>>(4)?, r.get::<_, i64>(5)?))).unwrap();
+    let (mut n, mut with_img) = (0, 0);
+    for row in rows.flatten() {
+        n += 1;
+        let xml = String::from_utf8_lossy(&row.4).to_string();
+        let tags: Vec<&str> = xml.match_indices("<image").chain(xml.match_indices("<action")).map(|(i, _)| &xml[i..(xml[i..].find('>').map(|e| i + e + 1).unwrap_or(xml.len()))]).collect();
+        if !tags.is_empty() { with_img += 1; println!("id {} app {} type {} ptype {:?} arrival {} tags {:?}", row.0, row.1, row.2, row.3, row.5, tags); }
+    }
+    println!("{n} rows, {with_img} with image/action tags");
 }

@@ -17,3 +17,4 @@ windows = { version = "0.62", features = [
   "UI_Notifications_Management",
   "Win32_System_WinRT",
 ] }
+rusqlite = { version = "0.37", features = ["bundled"] }
