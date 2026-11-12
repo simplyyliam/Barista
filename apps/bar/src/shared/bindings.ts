@@ -404,6 +404,11 @@ export type Battery_Deserialize = {
 	secondsLeft?: number | null,
 	/**  Battery saver is on. */
 	saver: boolean,
+	/**
+	 *  The Barista helper service is installed, so the bar can switch battery saver itself. Without
+	 *  it only Windows can (the switch needs administrator rights, ADR 0020).
+	 */
+	saverControllable: boolean,
 };
 
 export type Battery_Serialize = {
@@ -418,6 +423,11 @@ export type Battery_Serialize = {
 	secondsLeft: number | null,
 	/**  Battery saver is on. */
 	saver: boolean,
+	/**
+	 *  The Barista helper service is installed, so the bar can switch battery saver itself. Without
+	 *  it only Windows can (the switch needs administrator rights, ADR 0020).
+	 */
+	saverControllable: boolean,
 };
 
 export type Bluetooth = {

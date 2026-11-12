@@ -147,8 +147,8 @@ export function ControlCenterPanel({ active }: { active: boolean }) {
                   icon={BatteryEcoChargingIcon}
                   label="Battery Saver"
                   active={battery?.saver === true}
-                  // Windows only switches energy saver on while running on battery.
-                  disabled={!battery?.present || (battery.pluggedIn === true && !battery.saver)}
+                  // Switching needs the helper service (`pnpm helper:install`); the tile still shows the state.
+                  disabled={!battery?.present || !battery.saverControllable}
                   onClick={() => void commands.setBatterySaver(!battery?.saver)}
                 />
               </Cell>

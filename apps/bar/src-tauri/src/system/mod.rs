@@ -137,6 +137,7 @@ fn refresh_control_center() {
     hotspot::refresh();
     user::refresh();
     airplane::refresh();
+    battery::refresh();
     media::refresh();
     night_light::refresh();
     wifi::scan();

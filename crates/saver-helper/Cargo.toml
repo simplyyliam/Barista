@@ -1,0 +1,20 @@
+[package]
+name = "barista-saver-helper"
+version = "0.1.0"
+edition = "2021"
+description = "Tiny Windows service that lets the Barista bar switch energy saver (the one setting that needs administrator rights)."
+publish = false
+
+[[bin]]
+name = "barista-helper"
+path = "src/main.rs"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.62"
+features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_Registry",
+  "Win32_System_Services",
+  "Win32_System_Threading",
+]
