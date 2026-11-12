@@ -12,6 +12,7 @@ pub mod actions;
 pub mod brightness;
 pub mod hotspot;
 pub mod media;
+pub mod night_light;
 pub mod user;
 pub mod output_devices;
 pub mod airplane;
@@ -123,6 +124,7 @@ pub fn set_control_center_mode(mode: crate::settings::Mode) {
         output_devices::service().set(Default::default());
         user::service().set(Default::default());
         media::service().set(Default::default());
+        night_light::service().set(Default::default());
     }
 }
 
@@ -136,6 +138,7 @@ fn refresh_control_center() {
     user::refresh();
     airplane::refresh();
     media::refresh();
+    night_light::refresh();
     wifi::scan();
     output_devices::refresh();
     #[cfg(windows)]
@@ -209,6 +212,10 @@ pub fn init(app: &tauri::AppHandle) {
         let _ = crate::events::MediaChanged(v).emit(&a);
     });
     let a = app.clone();
+    night_light::service().forward(move |v| {
+        let _ = crate::events::NightLightChanged(v).emit(&a);
+    });
+    let a = app.clone();
     theme::service().forward(move |v| {
         let _ = crate::events::ThemeModeChanged(v).emit(&a);
     });
@@ -226,6 +233,7 @@ pub fn init(app: &tauri::AppHandle) {
     airplane::start();
     theme::start();
     media::start();
+    night_light::start();
 }
 
 /// One radios thread serves Wi-Fi and Bluetooth: fan its state out to both services.

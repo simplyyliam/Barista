@@ -234,6 +234,12 @@ export const commands = {
 	 *  flyout (joining a new secured network is not done by the bar).
 	 */
 	connectWifi: (ssid: string) => __TAURI_INVOKE<void>("connect_wifi", { ssid }),
+	/**
+	 *  Joins a network that Windows has no saved profile for: `password` is `null` for an open
+	 *  network, otherwise 8 to 63 characters. A wrong password shows up as the network not
+	 *  connecting (`wifiChanged`). Enterprise networks open Windows' own flyout.
+	 */
+	joinWifi: (ssid: string, password: string | null) => __TAURI_INVOKE<void>("join_wifi", { ssid, password }),
 	/**  Disconnects from the current network. */
 	disconnectWifi: () => __TAURI_INVOKE<void>("disconnect_wifi"),
 	/**
@@ -250,6 +256,13 @@ export const commands = {
 	openSettings: (page: SettingsPage) => __TAURI_INVOKE<void>("open_settings", { page }),
 	/**  Starts one of the apps a quick action knows (calculator, the Clock app's timer, the camera). */
 	openApp: (app: App) => __TAURI_INVOKE<void>("open_app", { app }),
+	/**
+	 *  Night light right now (`supported` is false when this Windows build stores it differently).
+	 *  Call once when the UI starts; `nightLightChanged` keeps it fresh.
+	 */
+	getNightLight: () => __TAURI_INVOKE<NightLight>("get_night_light"),
+	/**  Switches night light on or off. `nightLightChanged` follows. */
+	setNightLight: (on: boolean) => __TAURI_INVOKE<void>("set_night_light", { on }),
 	/**  Switches airplane mode on or off. `airplaneModeChanged` follows. */
 	setAirplaneMode: (on: boolean) => __TAURI_INVOKE<void>("set_airplane_mode", { on }),
 	/**  Switches energy saver ("battery saver") on or off. `batteryChanged` follows. */
@@ -287,6 +300,7 @@ export const events = {
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
 	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
+	nightLightChanged: makeEvent<NightLightChanged, NightLightChanged>("night-light-changed"),
 	notificationModeChanged: makeEvent<NotificationModeChanged, NotificationModeChanged>("notification-mode-changed"),
 	notificationsChanged: makeEvent<NotificationsChanged_Serialize, NotificationsChanged_Deserialize>("notifications-changed"),
 	outputDevicesChanged: makeEvent<OutputDevicesChanged, OutputDevicesChanged>("output-devices-changed"),
@@ -739,6 +753,18 @@ export type Monitor = {
 /**  Which mouse button clicked an item. */
 export type MouseButton = "left" | "right" | "middle";
 
+export type NightLight = {
+	/**  False when the stored value has a layout we don't know: `on` means nothing then. */
+	supported: boolean,
+	on: boolean,
+};
+
+/**
+ *  Night light was switched (by the bar or in Windows' settings). Full snapshot, at most once per
+ *  frame.
+ */
+export type NightLightChanged = NightLight;
+
 /**  The notification panel is now ours or Windows' (a setting, see `setNotificationMode`). */
 export type NotificationModeChanged = Mode;
 
@@ -1031,6 +1057,8 @@ export type User_Deserialize = {
 	/**  False until the first read finished (or Windows gave no name). */
 	available: boolean,
 	name: string,
+	/**  The sign-in address, when Windows gives it (a Microsoft account); `None` otherwise. */
+	email?: string | null,
 	/**  The picture as a data URL; `None`: draw the initials. */
 	avatar?: string | null,
 };
@@ -1039,6 +1067,8 @@ export type User_Serialize = {
 	/**  False until the first read finished (or Windows gave no name). */
 	available: boolean,
 	name: string,
+	/**  The sign-in address, when Windows gives it (a Microsoft account); `None` otherwise. */
+	email: string | null,
 	/**  The picture as a data URL; `None`: draw the initials. */
 	avatar: string | null,
 };

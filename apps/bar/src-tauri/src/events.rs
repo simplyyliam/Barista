@@ -221,6 +221,11 @@ pub struct HotspotChanged(pub crate::system::hotspot::Hotspot);
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct BrightnessChanged(pub crate::system::brightness::Brightness);
 
+/// Night light was switched (by the bar or in Windows' settings). Full snapshot, at most once per
+/// frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct NightLightChanged(pub crate::system::night_light::NightLight);
+
 /// The track, the playing state or the player changed. Full snapshot, at most once per frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct MediaChanged(pub crate::system::media::Media);

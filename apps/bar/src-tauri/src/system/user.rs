@@ -12,6 +12,8 @@ pub struct User {
     /// False until the first read finished (or Windows gave no name).
     pub available: bool,
     pub name: String,
+    /// The sign-in address, when Windows gives it (a Microsoft account); `None` otherwise.
+    pub email: Option<String>,
     /// The picture as a data URL; `None`: draw the initials.
     pub avatar: Option<String>,
 }
@@ -51,6 +53,7 @@ pub fn refresh() {
                 super::publish_gated(service(), User {
                     available: true,
                     name: u.name,
+                    email: u.email.map(|e| e.chars().take(120).collect()),
                     avatar: u.avatar.and_then(|b| avatar_data_url(&b, MAX_AVATAR_BYTES)),
                 });
             }

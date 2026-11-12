@@ -13,6 +13,8 @@ pub const MAX_AVATAR_BYTES: usize = 512 * 1024;
 
 pub struct RawUser {
     pub name: String,
+    /// The sign-in address (a Microsoft account's email), if Windows gives it to us.
+    pub email: Option<String>,
     /// The picture file as Windows has it (JPEG or PNG).
     pub avatar: Option<Vec<u8>>,
 }
@@ -25,6 +27,19 @@ fn winrt_name(user: &User) -> Option<String> {
         .ok()?;
     let name = value.cast::<IReference<HSTRING>>().ok()?.Value().ok()?.to_string();
     (!name.trim().is_empty()).then_some(name)
+}
+
+fn winrt_text(user: &User, key: windows_core::Result<HSTRING>) -> Option<String> {
+    let value = user.GetPropertyAsync(&key.ok()?).ok()?.join().ok()?;
+    let text = value.cast::<IReference<HSTRING>>().ok()?.Value().ok()?.to_string();
+    (!text.trim().is_empty()).then_some(text)
+}
+
+/// The sign-in address. Local accounts have a plain user name here, so only `a@b` shapes count.
+fn winrt_email(user: &User) -> Option<String> {
+    [KnownUserProperties::PrincipalName(), KnownUserProperties::AccountName()]
+        .into_iter()
+        .find_map(|key| winrt_text(user, key).filter(|t| t.contains('@')))
 }
 
 fn winrt_avatar(user: &User) -> Option<Vec<u8>> {
@@ -71,8 +86,9 @@ pub fn read() -> Option<RawUser> {
     let users = User::FindAllAsync().ok().and_then(|op| op.join().ok());
     let user = users.and_then(|list| list.into_iter().next());
     let name = user.as_ref().and_then(winrt_name).or_else(win32_name)?;
+    let email = user.as_ref().and_then(winrt_email);
     let avatar = user.as_ref().and_then(winrt_avatar);
-    Some(RawUser { name, avatar })
+    Some(RawUser { name, email, avatar })
 }
 
 #[cfg(test)]

@@ -415,6 +415,21 @@ pub fn open_settings(page: crate::system::actions::SettingsPage) {
     crate::system::actions::open_settings(page);
 }
 
+/// Night light right now (`supported` is false when this Windows build stores it differently).
+/// Call once when the UI starts; `nightLightChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_night_light() -> crate::system::night_light::NightLight {
+    crate::system::night_light::service().get()
+}
+
+/// Switches night light on or off. `nightLightChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_night_light(on: bool) {
+    crate::system::night_light::set(on);
+}
+
 /// Switches airplane mode on or off. `airplaneModeChanged` follows.
 #[tauri::command]
 #[specta::specta]
