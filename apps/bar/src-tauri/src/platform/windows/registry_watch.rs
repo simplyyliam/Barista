@@ -79,6 +79,11 @@ pub fn write_user_binary(subkey: &str, name: &str, data: &[u8]) -> bool {
     status == ERROR_SUCCESS
 }
 
+/// The DWORD `name` in `HKLM\<subkey>` (reading is allowed for everyone), or `None` if it is missing.
+pub fn read_machine_dword(subkey: &str, name: &str) -> Option<u32> {
+    read_dword_in(HKEY_LOCAL_MACHINE, subkey, Some(name))
+}
+
 /// Like `watch`, for a key under `HKEY_CURRENT_USER`.
 pub fn watch_user(subkey: &str, on_change: fn()) -> bool {
     watch_in(HKEY_CURRENT_USER, subkey, on_change)

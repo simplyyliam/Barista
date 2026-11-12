@@ -221,6 +221,7 @@ pub fn init(app: &tauri::AppHandle) {
     });
     clock::refresh();
     battery::refresh();
+    battery::start_saver_watch();
     volume::start();
     notifications::start();
     #[cfg(windows)]

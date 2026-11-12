@@ -105,16 +105,32 @@ pub fn set_saver(on: bool) {
     let _ = on;
 }
 
+/// Windows keeps the energy saver switch (Quick Settings) in this value: 1 = on, 2 = off. The power
+/// status flag does not show it while plugged in, so we read the value too. Only Windows' own
+/// service may write it (an ordinary program can't, it needs administrator rights).
+#[cfg(windows)]
+const SAVER_KEY: &str = r"SYSTEM\CurrentControlSet\Control\Power";
+
+/// Watches that value, so the tile follows a change made in Windows.
+pub fn start_saver_watch() {
+    #[cfg(windows)]
+    if !crate::platform::windows::registry_watch::watch(SAVER_KEY, refresh) {
+        eprintln!("barista: energy saver switch not watched");
+    }
+}
+
 /// Reads the status from Windows and publishes it if it changed.
 pub fn refresh() {
     #[cfg(windows)]
     if let Some(p) = crate::platform::windows::power::read() {
+        let switch = crate::platform::windows::registry_watch::read_machine_dword(SAVER_KEY, "EnergySaverState");
+        let saver = p.saver | u8::from(switch == Some(1));
         service().set(from_status(
             p.ac_line,
             p.battery_flag,
             p.percent,
             p.seconds_left,
-            p.saver,
+            saver,
         ));
     }
 }
