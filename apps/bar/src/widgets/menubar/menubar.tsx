@@ -1,4 +1,4 @@
-import { Clock, MenubarItemGroup, StatusItems } from "@/features/menubar"
+import { Clock, ControlCenter, MenubarItemGroup, StatusItems } from "@/features/menubar"
 import { commands } from "@/shared/bindings"
 import { useState, useEffect } from "react"
 
@@ -21,6 +21,7 @@ export default function Menubar() {
       <MenubarItemGroup className="justify-self-end">
         <StatusItems />
         <Clock />
+        <ControlCenter />
       </MenubarItemGroup>
     </div>
   )
