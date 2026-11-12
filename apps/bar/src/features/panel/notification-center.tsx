@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { cn } from "cn"
 import { commands } from "@/shared/bindings"
 import { useNotifications } from "@/shared/stores/notifications"
@@ -27,6 +27,13 @@ export function NotificationCenter({ active }: { active: boolean }) {
     .sort((a, b) => b.item.arrivedAt - a.item.arrivedAt || b.item.id - a.item.id)
   const unread = notifications?.unread ?? false
   const height = listHeight()
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // The list starts at the top every time. Reset it while the window is hidden, so the open itself
+  // never scrolls (a jump after the window shows reads as a stagger).
+  useEffect(() => {
+    if (!active && listRef.current) listRef.current.scrollTop = 0
+  }, [active])
 
   // Opening the panel counts as reading, and so does something arriving while it is open. A hidden,
   // prebaked panel must not mark anything as read.
@@ -68,6 +75,7 @@ export function NotificationCenter({ active }: { active: boolean }) {
         <p className="pt-10 pb-8 text-center text-panel-small text-panel-fg-muted">No notifications</p>
       ) : (
         <div
+          ref={listRef}
           style={{ maxHeight: height }}
           // Full card width with its own padding: a scrolling box clips whatever sticks out of it, and
           // the pictures stick out 8 px past the text. Snapping lands a picture notification exactly

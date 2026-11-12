@@ -86,10 +86,20 @@ event `notificationModeChanged`. No UI for it until the v0.8 settings window.
   the layout, invisible). The snapshot, app icons and decoded pictures (`Image.decode()` before they are
   shown) are already there when you click, so the panel opens with nothing to load. A hidden panel never
   marks anything as read: only an open one does (`active`).
-- **Motion.** Windows' own open animation (the one SDK popovers get) was switched on for the panel
-  window, but measured with a screen burst capture it does not play on a bare transparent window: the
-  panel appeared in one frame. So the cards animate in the page: while closed they sit 8 px up at 96%
-  scale and transparent; on open they fade, slide down and grow from the top in 260 ms
-  (`cubic-bezier(0.16, 1, 0.3, 1)`, off with reduced motion). The size reported to Rust uses
-  `offsetWidth`/`offsetHeight`, because `getBoundingClientRect` includes the scale and made the window
-  4% too small at the first frame. Closing is still instant.
+- **One window, no motion in the page.** The SDK popovers (quick-note, Spotify) are opaque, frameless
+  windows that the app shows, so Windows gives them its own open animation. The panel has to be
+  transparent for the floating cards, and measured with a screen burst capture Windows does not animate
+  such a window: it appears in one frame. A first version faked motion in the page (fade, slide, scale
+  over 260 ms); it felt staggered, so it was removed. Now the window appears whole, at its final size and
+  place, already painted: 73 to 115 ms from the click to fully shown in a debug build, in a single frame.
+  Nothing changes after it shows: the calendar is reset while the window is hidden, not on open, and the
+  size is read with `offsetWidth`/`offsetHeight`. Closing keeps Windows' fade.
+- **One beat, not "top then bottom".** A real-click screen capture showed every open as two frames:
+  the top (down to the 400 px *guess* height) and, 50 ms later, the rest. The cause was resizing the hidden
+  window around the open: WebView2 resizes asynchronously. Now `sizes` remembers each route's last
+  measured size and the open places the window at that size (no resize), the startup warm-up lets the page
+  measure itself so even the first open needs no resize, and if the size really changed Rust waits 40 ms
+  before showing. The safety-net reveal is 150 ms (it was 20 ms, sooner than the page can answer).
+- **Warm-up.** The first show of a window is slower (about 200 ms against 70 ms). At startup Rust shows
+  the panel cloaked (invisible, no focus) for about 0.5 s while the page paints its content (`panelWarm`).
+  Measured on real clicks: a single frame that already covers the whole window, from the first open on.

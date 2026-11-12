@@ -13,10 +13,11 @@
 
 use crate::bar::Rect;
 use crate::dismiss::{Action, Machine, BLUR_GRACE};
-use crate::events::PanelChanged;
+use crate::events::{PanelChanged, PanelWarm};
 use crate::placement::{self, geometry};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
@@ -25,7 +26,7 @@ use tauri_specta::Event;
 pub const LABEL: &str = "panel";
 
 /// If the UI never reports its size (it should within a frame), show the window anyway.
-const REVEAL_FALLBACK: Duration = Duration::from_millis(20);
+const REVEAL_FALLBACK: Duration = Duration::from_millis(150);
 
 /// How the panel window looks. `Glass` is the system backdrop, rounded corners and shadow of a menu.
 /// `None` is a bare transparent window: the page draws its own cards (the notification and control
@@ -64,6 +65,12 @@ struct Inner {
     generation: u64,
     acrylic: bool,
     chrome: PanelChrome,
+    /// The last measured size of each route (logical px). A new open places the window at this size
+    /// at once, so it is not resized around the open (a resize makes WebView2 paint the top first and
+    /// the bottom a beat later).
+    sizes: HashMap<String, (f64, f64)>,
+    /// Startup warm-up: the route whose size the page may report while nothing is open.
+    warming: Option<&'static str>,
 }
 
 pub struct PanelWindow {
@@ -128,12 +135,67 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             generation: 0,
             acrylic,
             chrome: PanelChrome::Glass,
+            sizes: HashMap::new(),
+            warming: None,
         }),
     });
     crate::menu_window::tone_changed(
         crate::appearance::current().tone == crate::appearance::luminance::Tone::Dark,
     );
+    warm_up(app);
     Ok(())
+}
+
+/// The very first show of a window costs about 130 ms more than the next ones (Windows and WebView2
+/// build their surfaces then), which is what the first click on the clock would feel like. Pay it
+/// at startup instead: show the window cloaked (invisible) and without taking focus, then hide it.
+fn warm_up(app: &AppHandle) {
+    #[cfg(windows)]
+    {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            // Let the page load and the bar settle first.
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            if get().and_then(|p| p.current()).is_some() {
+                return; // already opened by the user: nothing to warm
+            }
+            let Some(raw) = app
+                .get_webview_window(LABEL)
+                .and_then(|w| w.hwnd().ok())
+                .map(|h| h.0 as isize)
+            else {
+                return;
+            };
+            // Let the page draw its content (the notification pictures are the expensive part to
+            // paint) and report its real size (`resized` sizes the hidden window), then show it
+            // cloaked. Window calls belong on the thread that owns the window.
+            if let Some(p) = get() {
+                p.lock().warming = Some("notifications");
+            }
+            let _ = PanelWarm(true).emit(&app);
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            let _ = app.run_on_main_thread(move || {
+                crate::platform::windows::window::warm_show(windows::Win32::Foundation::HWND(
+                    raw as *mut _,
+                ));
+            });
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            let _ = PanelWarm(false).emit(&app);
+            if let Some(p) = get() {
+                p.lock().warming = None;
+            }
+            let _ = app.run_on_main_thread(move || {
+                // If the user opened the panel in the meantime, leave it showing.
+                let keep = get().and_then(|p| p.current()).is_some();
+                crate::platform::windows::window::warm_end(
+                    windows::Win32::Foundation::HWND(raw as *mut _),
+                    keep,
+                );
+            });
+        });
+    }
+    #[cfg(not(windows))]
+    let _ = app;
 }
 
 /// What the panel hangs from. A glass panel hangs from the item itself (left edges line up, right
@@ -202,15 +264,19 @@ impl PanelWindow {
             menu.close();
         }
         crate::popover::close();
+        // Place the window at the size this route had last time (the UI's number is only a first
+        // guess), so the open does not resize it.
+        let size = self.lock().sizes.get(name).copied().unwrap_or(size);
 
         // Windows sends no event when the battery estimate drifts or a DST change slips by:
         // read both fresh whenever a panel opens (one cheap call each, no polling).
         crate::system::battery::refresh();
         crate::system::clock::refresh();
         // The folder watcher is quick for new toasts but Windows signals removals late (seconds to
-        // never), so opening the notification panel always reads fresh.
+        // never), so opening the notification panel checks for that. Only a real change reads again:
+        // otherwise the list would re-layout right after the window shows.
         if name == "notifications" {
-            crate::system::notifications::refresh();
+            crate::system::notifications::refresh_if_changed();
         }
         // The frame decides the invisible border, so set the chrome before measuring it.
         if self.lock().chrome != chrome {
@@ -270,8 +336,21 @@ impl PanelWindow {
         let Some((bar, work, scale)) = geometry() else {
             return;
         };
+        // Startup warm-up: nothing is open, but the page measured its content. Remember that size and
+        // put the hidden window at it, so the first real open needs no resize.
+        let warming = {
+            let inner = self.lock();
+            if inner.open.is_none() { inner.warming } else { None }
+        };
+        if let Some(name) = warming {
+            self.lock().sizes.insert(name.to_string(), (width, height));
+            if let Some(window) = self.window() {
+                let _ = window.set_size(tauri::LogicalSize::new(width, height));
+            }
+            return;
+        }
         let extra = crate::menu_window::frame_extra(self.window().as_ref());
-        let (rect, reveal, changed) = {
+        let (rect, reveal, changed, size_changed, generation) = {
             let mut inner = self.lock();
             let Some(open) = inner.open.as_mut() else {
                 return;
@@ -281,16 +360,39 @@ impl PanelWindow {
             let rect = crate::menu_window::place_logical(&item, (width, height), extra, &work, scale);
             open.rect = rect;
             open.scale = scale;
+            let name = open.name.clone();
             let changed = open.clone();
+            // `inner.size` is what the window was placed at; if the page measured something else
+            // (fewer notifications, say), the window is about to be resized.
+            let size_changed = inner.size != (width, height);
             inner.size = (width, height);
-            (rect, inner.pending_show, changed)
+            inner.sizes.insert(name, (width, height));
+            (rect, inner.pending_show, changed, size_changed, inner.generation)
         };
         if let Some(window) = self.window() {
             crate::menu_window::move_to(&window, &rect);
         }
         // The UI reads `rect` and `scale` from this event: keep them true after the re-place.
         let _ = PanelChanged { open: Some(changed) }.emit(&self.app);
-        if reveal {
+        if !reveal {
+            return;
+        }
+        if size_changed {
+            // The window was just resized: give the page's surface two frames to catch up, or the
+            // first frame shows only the old height and the rest follows a beat later.
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(40)).await;
+                if let Some(p) = get() {
+                    let go = {
+                        let inner = p.lock();
+                        inner.generation == generation && inner.pending_show
+                    };
+                    if go {
+                        p.reveal();
+                    }
+                }
+            });
+        } else {
             self.reveal();
         }
     }
@@ -305,9 +407,9 @@ impl PanelWindow {
             inner.pending_show = false;
         }
         if let Some(window) = self.window() {
-            // Windows' own show animation, on for panels like it is for the SDK popovers (menus open
-            // instantly; a panel is bigger and slides in nicely).
-            crate::menu_window::transitions(&window, true);
+            // Off while it opens: the panel appears whole and instantly (Windows does not animate a bare
+            // transparent window anyway), and on again when it hides.
+            crate::menu_window::transitions(&window, false);
             let _ = window.show();
             let _ = window.set_focus();
         }

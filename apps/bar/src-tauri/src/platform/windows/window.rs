@@ -180,6 +180,44 @@ pub fn set_panel_chrome(hwnd: HWND, glass: bool) {
     }
 }
 
+/// Shows `hwnd` without activating it and without anyone seeing it (cloaked), so Windows and
+/// WebView2 build the window's surfaces now instead of during the user's first click.
+pub fn warm_show(hwnd: HWND) {
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CLOAK};
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWNOACTIVATE};
+    let on: i32 = 1;
+    // SAFETY: a plain i32 that lives for the call, and a window handle that belongs to us.
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_CLOAK,
+            std::ptr::addr_of!(on).cast(),
+            std::mem::size_of_val(&on) as u32,
+        );
+        let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+    }
+}
+
+/// Ends `warm_show`: hides the window again (unless `keep` says it was really opened meanwhile) and
+/// takes the cloak off.
+pub fn warm_end(hwnd: HWND, keep: bool) {
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CLOAK};
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+    let off: i32 = 0;
+    // SAFETY: as in `warm_show`.
+    unsafe {
+        if !keep {
+            let _ = ShowWindow(hwnd, SW_HIDE);
+        }
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_CLOAK,
+            std::ptr::addr_of!(off).cast(),
+            std::mem::size_of_val(&off) as u32,
+        );
+    }
+}
+
 /// Makes DWM draw the window as "active" without activating it. The system acrylic turns flat
 /// on an inactive window, and the submenu window can never be active (it would take the keyboard
 /// from the main menu), so it gets the active look this way.

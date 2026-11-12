@@ -363,6 +363,13 @@ fn lock_fingerprint() -> std::sync::MutexGuard<'static, Option<u64>> {
     FINGERPRINT.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Reads again only if the set of toasts really changed (a cheap database check). Used when the panel
+/// opens: it catches removals Windows never signalled, and when nothing changed it does nothing, so
+/// the open is not followed by a second layout.
+pub fn refresh_if_changed() {
+    folder_changed();
+}
+
 /// Windows wrote in its notification folder. Reading through the listener writes there too, so a
 /// plain "refresh on every write" would feed itself. Instead ask the database cheaply whether the set
 /// of toasts really changed, and only then read for real.

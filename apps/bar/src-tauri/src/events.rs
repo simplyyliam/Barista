@@ -174,6 +174,11 @@ pub struct NotificationsChanged(pub crate::system::notifications::Notifications)
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct NotificationModeChanged(pub crate::settings::Mode);
 
+/// Startup only: the panel window is being warmed up (shown invisibly) while this is `true`. The
+/// panel page draws its content meanwhile, so the first real open is as fast as the next ones.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct PanelWarm(pub bool);
+
 /// The panel opened, moved to another item or closed (`None`). Carries what the UI needs: which
 /// route to show (`name`), which item is open (`anchor`) and where the window landed. Sent to
 /// every window; the panel window draws the route, the bar can show `anchor` as open.

@@ -178,6 +178,7 @@ export const events = {
 	notificationModeChanged: makeEvent<NotificationModeChanged, NotificationModeChanged>("notification-mode-changed"),
 	notificationsChanged: makeEvent<NotificationsChanged_Serialize, NotificationsChanged_Deserialize>("notifications-changed"),
 	panelChanged: makeEvent<PanelChanged_Serialize, PanelChanged_Deserialize>("panel-changed"),
+	panelWarm: makeEvent<PanelWarm, PanelWarm>("panel-warm"),
 	popoverChanged: makeEvent<PopoverChanged_Serialize, PopoverChanged_Deserialize>("popover-changed"),
 	submenuHide: makeEvent<SubmenuHide, SubmenuHide>("submenu-hide"),
 	submenuHighlight: makeEvent<SubmenuHighlight_Serialize, SubmenuHighlight_Deserialize>("submenu-highlight"),
@@ -577,6 +578,12 @@ export type PanelOpen = {
 	acrylic: boolean,
 	chrome: PanelChrome,
 };
+
+/**
+ *  Startup only: the panel window is being warmed up (shown invisibly) while this is `true`. The
+ *  panel page draws its content meanwhile, so the first real open is as fast as the next ones.
+ */
+export type PanelWarm = boolean;
 
 /**
  *  The popover that is open changed: `item_id` is the item it hangs from, `None` = none is open.

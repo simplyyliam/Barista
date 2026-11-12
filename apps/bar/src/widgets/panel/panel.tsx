@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 import { commands, type PanelOpen } from "@/shared/bindings"
-import { PanelBody, PanelFrame, useOpenPanel } from "@/features/panel"
+import { PanelBody, PanelFrame, useOpenPanel, useWarm } from "@/features/panel"
 
 /**
  * The panel window (label `panel`): one window, reused for every system panel. Rust decides when
@@ -12,6 +12,7 @@ import { PanelBody, PanelFrame, useOpenPanel } from "@/features/panel"
  */
 export default function PanelWindow() {
   const open = useOpenPanel()
+  const warm = useWarm()
   // Closed: remember how the last panel looked, so nothing flips while the window is hidden.
   const last = useRef<PanelOpen | null>(null)
   if (open) last.current = open
@@ -29,9 +30,11 @@ export default function PanelWindow() {
     <PanelFrame
       acrylic={look?.acrylic ?? false}
       chrome={look?.chrome ?? "none"}
-      openKey={open ? `${open.name}|${open.anchor}` : null}
+      // While Rust warms the hidden window up, report the size as if it were open (the key is only
+      // used to start the report; Rust sizes the hidden window from it).
+      openKey={open ? `${open.name}|${open.anchor}` : warm ? "warm" : null}
     >
-      <PanelBody name={open?.name ?? null} />
+      <PanelBody name={open?.name ?? null} warm={warm} />
     </PanelFrame>
   )
 }

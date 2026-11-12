@@ -92,6 +92,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::NotificationsChanged,
             events::NotificationModeChanged,
             events::PanelChanged,
+            events::PanelWarm,
             appearance::BarAppearanceChanged
         ])
 }
