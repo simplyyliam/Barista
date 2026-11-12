@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { cn } from "cn"
 import { commands } from "@/shared/bindings"
 import { useNotifications } from "@/shared/stores/notifications"
 import { Icon, LucideBell } from "@barista/ui/icons"
@@ -18,6 +19,8 @@ export function NotificationCenter() {
   const notifications = useNotifications()
   const groups = notifications?.groups ?? []
   const unread = notifications?.unread ?? false
+  // A picture at the bottom sits 8 px from the card edge, like App.png, not 16.
+  const endsWithPicture = groups.at(-1)?.items.at(-1)?.hasImage === true
 
   // Opening the panel counts as reading (the first snapshot arrives with `unread` true), and so
   // does something arriving while it is open.
@@ -28,7 +31,10 @@ export function NotificationCenter() {
   return (
     <section
       aria-label="Notifications"
-      className="w-panel-w rounded-panel bg-panel p-panel-pad text-panel-fg"
+      className={cn(
+        "w-panel-w rounded-panel bg-panel p-panel-pad text-panel-fg",
+        endsWithPicture && "pb-panel-inset",
+      )}
     >
       <header className="flex items-center justify-between">
         <h2 className="text-panel-title font-normal">Notifications</h2>
@@ -59,7 +65,9 @@ export function NotificationCenter() {
       ) : (
         <div
           style={{ maxHeight: listMaxHeight() }}
-          className="mt-4 flex flex-col gap-panel-gap overflow-y-auto"
+          // Full card width with its own padding: a scrolling box clips whatever sticks out of it, and
+          // the pictures stick out 8 px past the text.
+          className="-mx-panel-pad mt-4 flex flex-col gap-panel-gap overflow-y-auto px-panel-pad"
         >
           {groups.map((group) => (
             <div key={group.appId} className="flex flex-col gap-2">

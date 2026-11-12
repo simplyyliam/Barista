@@ -20,6 +20,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Debug a panel without a click: run the bar with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then from
   the `panel` page call `close_panel`, then `open_panel` and capture within ~1 s (the panel closes on blur because Windows won't
   focus it without a real click). Same-anchor `open_panel` toggles.
+- CSS gotcha: a `<button>` and a scrolling (`overflow-y-auto`) box clip anything that sticks out of them, even with negative
+  margins; the DOM rect still says it is fine. Notification pictures therefore sit in their own full-width wrapper
+  (`overflow-hidden rounded-panel-child`) and the list has `-mx-panel-pad px-panel-pad`. Check by looking, not by `getBoundingClientRect`.
 - New for the UI (slice C, wired already): see ADR 0018. `openPanel` has a 5th argument `chrome: "glass" | "none"`.
 
 ## Facts a new session needs

@@ -10,12 +10,13 @@ type NotificationRowProps = {
 
 /** One notification: title, lines, optional small line and picture. Click opens the app. */
 export function NotificationRow({ item, appName }: NotificationRowProps) {
+  const open = () => void commands.openNotification(item.id)
   const showTitle = item.title !== "" && item.title !== appName
   return (
     <div className="group/row relative">
       <button
         type="button"
-        onClick={() => void commands.openNotification(item.id)}
+        onClick={open}
         className="block w-full cursor-default rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-panel-fg/50"
       >
         {showTitle && <p className="pr-6 text-[13px] leading-[17px] text-panel-fg">{item.title}</p>}
@@ -27,8 +28,8 @@ export function NotificationRow({ item, appName }: NotificationRowProps) {
         {item.attribution && (
           <p className="pr-6 text-panel-small leading-[14px] text-panel-fg-muted">{item.attribution}</p>
         )}
-        {item.hasImage && <NotificationImage id={item.id} />}
       </button>
+      {item.hasImage && <NotificationImage id={item.id} onOpen={open} />}
       <button
         type="button"
         aria-label={`Dismiss notification from ${appName}`}
