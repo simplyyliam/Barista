@@ -43,7 +43,7 @@ pub fn refresh() {
 /// Switches airplane mode for real. The registry watch publishes the result.
 pub fn set(on: bool) {
     #[cfg(windows)]
-    if crate::platform::windows::radio_manager::radios_enabled() != Some(on) {
+    if crate::platform::windows::radio_manager::radios_enabled() == Some(!on) {
         // Already in that state.
     } else if !crate::platform::windows::radio_manager::set_airplane(on) {
         eprintln!("barista: airplane mode could not be switched");
