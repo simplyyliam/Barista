@@ -7,34 +7,38 @@ import { AppIcon } from "./app-icon"
 import { NotificationRow } from "./notification-row"
 
 /**
- * How tall the list may get. The calendar card, Focus pills, gaps and the bar take about 600 px, and
- * the whole stack must fit the screen, so a short screen gets a shorter (scrolling) list.
+ * How tall the list is: about what one notification with a picture takes. A picture notification
+ * fills it (you scroll for the next one); text notifications are packed in as many as fit. The
+ * whole card stack must also fit the screen (the calendar, Focus pills, gaps and the bar take about
+ * 600 px), so a short screen gets a shorter list.
  */
-function listMaxHeight() {
-  return Math.min(420, Math.max(140, window.screen.availHeight - 600))
+function listHeight() {
+  return Math.min(300, Math.max(140, window.screen.availHeight - 600))
 }
 
-/** The black "Notifications" card of App.png. */
-export function NotificationCenter() {
+/** The black "Notifications" card of App.png. `active`: the panel is open (not just prebaked). */
+export function NotificationCenter({ active }: { active: boolean }) {
   const notifications = useNotifications()
   const groups = notifications?.groups ?? []
+  // One block per notification, newest first, each with its own app header like App.png (WhatsApp and
+  // Discord are separate cards there), so a picture notification can be the only thing in view.
+  const entries = groups
+    .flatMap((group) => group.items.map((item) => ({ group, item })))
+    .sort((a, b) => b.item.arrivedAt - a.item.arrivedAt || b.item.id - a.item.id)
   const unread = notifications?.unread ?? false
-  // A picture at the bottom sits 8 px from the card edge, like App.png, not 16.
-  const endsWithPicture = groups.at(-1)?.items.at(-1)?.hasImage === true
+  const height = listHeight()
 
-  // Opening the panel counts as reading (the first snapshot arrives with `unread` true), and so
-  // does something arriving while it is open.
+  // Opening the panel counts as reading, and so does something arriving while it is open. A hidden,
+  // prebaked panel must not mark anything as read.
   useEffect(() => {
-    if (unread) void commands.markNotificationsSeen()
-  }, [unread])
+    if (active && unread) void commands.markNotificationsSeen()
+  }, [active, unread])
 
   return (
     <section
       aria-label="Notifications"
-      className={cn(
-        "w-panel-w rounded-panel bg-panel p-panel-pad text-panel-fg",
-        endsWithPicture && "pb-panel-inset",
-      )}
+      // 8 px at the bottom like App.png; text groups add their own space, pictures keep the 8.
+      className="w-panel-w rounded-panel bg-panel p-panel-pad pb-panel-inset text-panel-fg"
     >
       <header className="flex items-center justify-between">
         <h2 className="text-panel-title font-normal">Notifications</h2>
@@ -49,7 +53,7 @@ export function NotificationCenter() {
           </button>
           <button
             type="button"
-            disabled={groups.length === 0}
+            disabled={entries.length === 0}
             onClick={() => void commands.clearNotifications()}
             className="text-panel-title outline-none focus-visible:ring-2 focus-visible:ring-panel-fg/50 disabled:text-panel-fg-muted"
           >
@@ -60,24 +64,31 @@ export function NotificationCenter() {
 
       {notifications && notifications.access !== "allowed" ? (
         <AccessOff />
-      ) : groups.length === 0 ? (
-        <p className="py-10 text-center text-panel-small text-panel-fg-muted">No notifications</p>
+      ) : entries.length === 0 ? (
+        <p className="pt-10 pb-8 text-center text-panel-small text-panel-fg-muted">No notifications</p>
       ) : (
         <div
-          style={{ maxHeight: listMaxHeight() }}
+          style={{ maxHeight: height }}
           // Full card width with its own padding: a scrolling box clips whatever sticks out of it, and
-          // the pictures stick out 8 px past the text.
-          className="-mx-panel-pad mt-4 flex flex-col gap-panel-gap overflow-y-auto px-panel-pad"
+          // the pictures stick out 8 px past the text. Snapping lands a picture notification exactly
+          // in the window, nothing else beside it.
+          className="-mx-panel-pad mt-4 flex snap-y snap-proximity flex-col gap-panel-gap overflow-y-auto px-panel-pad"
         >
-          {groups.map((group) => (
-            <div key={group.appId} className="flex flex-col gap-2">
+          {entries.map(({ group, item }, index) => (
+            <div
+              key={item.id}
+              // A picture notification fills the window, so it is the only thing in view.
+              style={item.hasImage ? { minHeight: height } : undefined}
+              className={cn(
+                "flex snap-start flex-col gap-2",
+                index === entries.length - 1 && !item.hasImage && "pb-2",
+              )}
+            >
               <div className="flex items-center gap-2">
                 <AppIcon appId={group.appId} name={group.appName} />
                 <h3 className="truncate text-panel-title font-normal">{group.appName}</h3>
               </div>
-              {group.items.map((item) => (
-                <NotificationRow key={item.id} item={item} appName={group.appName} />
-              ))}
+              <NotificationRow item={item} appName={group.appName} />
             </div>
           ))}
         </div>
@@ -89,7 +100,7 @@ export function NotificationCenter() {
 /** Windows says no (or has not said yes): send the user to the one switch that fixes it. */
 function AccessOff() {
   return (
-    <div className="mt-4 flex flex-col items-start gap-3 py-2">
+    <div className="mt-4 flex flex-col items-start gap-3 py-2 pb-4">
       <p className="text-panel-small text-panel-fg-muted">
         Turn on notification access for Barista to show your notifications here.
       </p>

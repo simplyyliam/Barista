@@ -305,7 +305,9 @@ impl PanelWindow {
             inner.pending_show = false;
         }
         if let Some(window) = self.window() {
-            crate::menu_window::transitions(&window, false);
+            // Windows' own show animation, on for panels like it is for the SDK popovers (menus open
+            // instantly; a panel is bigger and slides in nicely).
+            crate::menu_window::transitions(&window, true);
             let _ = window.show();
             let _ = window.set_focus();
         }

@@ -17,6 +17,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   (reading through the listener writes to that database: without the gate it looped at 3% CPU). Windows signals removals
   late, so opening the panel reads fresh. Switch `notificationsMode` (barista | windows) saved, no UI until v0.8 (rule 11).
   Left: slice B (display, network, radios, actions). Barista focus timer is in the backlog.
+- Panel is prebaked: `PanelWindow` keeps the frame and the notifications route mounted while hidden, `PanelBody` takes `name: null` when closed, `usePanelSize` takes a `null` key. Opening motion is CSS in `panel-frame.tsx` (Windows' own window animation does not play on a bare transparent window, measured). Notification list = one block per notification; a picture block fills the 300 px list. ADR 0018 has the details.
 - Debug a panel without a click: run the bar with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then from
   the `panel` page call `close_panel`, then `open_panel` and capture within ~1 s (the panel closes on blur because Windows won't
   focus it without a real click). Same-anchor `open_panel` toggles.

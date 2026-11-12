@@ -75,3 +75,21 @@ event `notificationModeChanged`. No UI for it until the v0.8 settings window.
 - The reader costs 0.00 s CPU over 12 s at idle (debug build), and the same as Windows mode.
 - The "Focus" pill only opens Windows' Focus settings. A Barista focus timer is a later release.
 - Undocumented database: this is the one part that may break with a Windows update.
+
+## Layout, prebaking and motion (2026-11-12)
+
+- **One notification per block, each with its own app header** (like WhatsApp and Discord in App.png),
+  newest first. The list is about as tall as one picture notification takes (300 px, less on a short
+  screen). A picture notification is as tall as the list, so it is the only thing in view and the next one
+  is a scroll away (`scroll-snap`, proximity). Text notifications are packed in as many as fit.
+- **Prebaked.** The panel window is hidden, but its page keeps the notifications route mounted (out of
+  the layout, invisible). The snapshot, app icons and decoded pictures (`Image.decode()` before they are
+  shown) are already there when you click, so the panel opens with nothing to load. A hidden panel never
+  marks anything as read: only an open one does (`active`).
+- **Motion.** Windows' own open animation (the one SDK popovers get) was switched on for the panel
+  window, but measured with a screen burst capture it does not play on a bare transparent window: the
+  panel appeared in one frame. So the cards animate in the page: while closed they sit 8 px up at 96%
+  scale and transparent; on open they fade, slide down and grow from the top in 260 ms
+  (`cubic-bezier(0.16, 1, 0.3, 1)`, off with reduced motion). The size reported to Rust uses
+  `offsetWidth`/`offsetHeight`, because `getBoundingClientRect` includes the scale and made the window
+  4% too small at the first frame. Closing is still instant.
