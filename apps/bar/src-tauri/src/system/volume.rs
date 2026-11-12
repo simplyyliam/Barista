@@ -1,5 +1,5 @@
 //! Volume of the default output device: level, mute, and changes (also from the keyboard keys or
-//! another app). Switching the output device is slice B.
+//! another app). The device list and switching are in `output_devices.rs`; the audio thread is shared.
 
 use super::Service;
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ pub fn start() {
             },
             None => Volume::default(),
         });
-    });
+    }, super::output_devices::changed);
 }
 
 pub fn set_volume(level: f64) {

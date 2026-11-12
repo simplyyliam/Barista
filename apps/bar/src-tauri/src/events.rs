@@ -186,3 +186,41 @@ pub struct PanelWarm(pub bool);
 pub struct PanelChanged {
     pub open: Option<crate::panel::PanelOpen>,
 }
+
+/// Bluetooth changed (radio on or off, a paired device connected or removed). Full snapshot, at
+/// most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct BluetoothChanged(pub crate::system::bluetooth::Bluetooth);
+
+/// Wi-Fi changed (radio, current network, networks in range). Full snapshot, at most once per
+/// frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct WifiChanged(pub crate::system::wifi::Wifi);
+
+/// Airplane mode was switched (in Windows settings or Quick Settings). Full snapshot, at most once
+/// per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct AirplaneModeChanged(pub crate::system::airplane::AirplaneMode);
+
+/// An output device was added, removed or became the default. Full snapshot, at most once per
+/// frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct OutputDevicesChanged(pub crate::system::output_devices::OutputDevices);
+
+/// The signed-in user's name or picture changed (read again whenever the control center opens).
+/// Full snapshot, at most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct UserChanged(pub crate::system::user::User);
+
+/// The mobile hotspot changed (state or connected devices). Full snapshot, at most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct HotspotChanged(pub crate::system::hotspot::Hotspot);
+
+/// A display's brightness changed (the brightness keys, Windows settings, or `setBrightness`), or
+/// monitors were plugged in or out. Full snapshot, at most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct BrightnessChanged(pub crate::system::brightness::Brightness);
+
+/// The control center is now ours or Windows' (a setting, see `setControlCenterMode`).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct ControlCenterModeChanged(pub crate::settings::Mode);

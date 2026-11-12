@@ -3,7 +3,7 @@
 //   pnpm inspect --watch             list again every 250 ms until Ctrl+C
 //   pnpm inspect --click s1/counter  click an item (add "right" or "middle" for another button)
 //   pnpm inspect --menu-click s1/timer sounds   pick an entry in an item's menu
-//   pnpm inspect --system [--watch]  print clock settings, battery and volume (--watch: on change)
+//   pnpm inspect --system [--watch]  print clock, battery, volume, brightness, Wi-Fi, Bluetooth, airplane, hotspot, outputs, user (--watch: on change)
 //   pnpm inspect --panel test s1/counter [width height]   open a system panel under an item
 //   pnpm inspect --close-panel       close the panel
 //

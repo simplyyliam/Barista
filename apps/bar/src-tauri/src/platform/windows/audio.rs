@@ -14,9 +14,10 @@ use windows::Win32::Media::Audio::Endpoints::{
 use windows::Win32::Media::Audio::{
     eMultimedia, eRender, EDataFlow, ERole, IMMDevice, IMMDeviceEnumerator, IMMNotificationClient,
     IMMNotificationClient_Impl, MMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE,
+    DEVICE_STATE_ACTIVE,
 };
 use windows::Win32::System::Com::{
-    CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ,
+    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ,
 };
 use windows::Win32::Foundation::PROPERTYKEY;
 
@@ -28,7 +29,24 @@ pub struct RawVolume {
     pub device_name: String,
 }
 
+/// One active output device.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RawOutput {
+    pub id: String,
+    pub name: String,
+    pub default: bool,
+}
+
+/// The active output devices, and whether we can switch between them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RawOutputs {
+    pub devices: Vec<RawOutput>,
+    pub can_switch: bool,
+}
+
 enum Msg {
+    /// Make this output the default (the id must be in the current list).
+    SetDefault(String),
     /// Re-read level and mute (the volume callback fired).
     Refresh,
     /// The default device changed or went away: bind to the current one.
@@ -38,6 +56,19 @@ enum Msg {
 }
 
 static TX: OnceLock<Sender<Msg>> = OnceLock::new();
+
+/// Asks the audio thread to list the output devices again.
+pub fn relist_outputs() {
+    if let Some(tx) = TX.get() {
+        let _ = tx.send(Msg::Rebind);
+    }
+}
+
+pub fn set_default_output(id: String) {
+    if let Some(tx) = TX.get() {
+        let _ = tx.send(Msg::SetDefault(id));
+    }
+}
 
 pub fn set_volume(level: f32) {
     if let Some(tx) = TX.get() {
@@ -74,6 +105,7 @@ impl IMMNotificationClient_Impl for DeviceWatcher_Impl {
         Ok(())
     }
     fn OnDeviceAdded(&self, _id: &PCWSTR) -> WinResult<()> {
+        let _ = self.tx.send(Msg::Rebind);
         Ok(())
     }
     fn OnDeviceRemoved(&self, _id: &PCWSTR) -> WinResult<()> {
@@ -121,6 +153,42 @@ fn friendly_name(device: &IMMDevice) -> String {
     }
 }
 
+fn device_id(device: &IMMDevice) -> Option<String> {
+    // SAFETY: Windows allocates the string; it is copied and freed right away.
+    unsafe {
+        let raw = device.GetId().ok()?;
+        let id = raw.to_string().ok();
+        CoTaskMemFree(Some(raw.0.cast_const().cast()));
+        id
+    }
+}
+
+fn list_outputs(enumerator: &IMMDeviceEnumerator, can_switch: bool) -> RawOutputs {
+    // SAFETY: plain COM calls on live objects.
+    unsafe {
+        let default = enumerator
+            .GetDefaultAudioEndpoint(eRender, eMultimedia)
+            .ok()
+            .and_then(|d| device_id(&d));
+        let Ok(collection) = enumerator.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE) else {
+            return RawOutputs::default();
+        };
+        let count = collection.GetCount().unwrap_or(0);
+        let devices = (0..count)
+            .filter_map(|i| collection.Item(i).ok())
+            .filter_map(|d| {
+                let id = device_id(&d)?;
+                Some(RawOutput {
+                    default: default.as_deref() == Some(id.as_str()),
+                    name: friendly_name(&d),
+                    id,
+                })
+            })
+            .collect();
+        RawOutputs { devices, can_switch }
+    }
+}
+
 fn bind(enumerator: &IMMDeviceEnumerator, tx: &Sender<Msg>) -> Option<Bound> {
     // SAFETY: plain COM calls; `Bound` unregisters the callback when dropped.
     unsafe {
@@ -147,7 +215,12 @@ fn read(bound: &Bound) -> Option<RawVolume> {
     }
 }
 
-fn run(rx: Receiver<Msg>, tx: Sender<Msg>, on_change: fn(Option<RawVolume>)) {
+fn run(
+    rx: Receiver<Msg>,
+    tx: Sender<Msg>,
+    on_change: fn(Option<RawVolume>),
+    on_outputs: fn(RawOutputs),
+) {
     // SAFETY: first COM call on this thread; it keeps the apartment for its whole life.
     let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
     // SAFETY: plain COM creation.
@@ -156,6 +229,7 @@ fn run(rx: Receiver<Msg>, tx: Sender<Msg>, on_change: fn(Option<RawVolume>)) {
     }) else {
         eprintln!("barista: audio not available");
         on_change(None);
+        on_outputs(RawOutputs::default());
         return;
     };
     let watcher: IMMNotificationClient = DeviceWatcher { tx: tx.clone() }.into();
@@ -163,9 +237,15 @@ fn run(rx: Receiver<Msg>, tx: Sender<Msg>, on_change: fn(Option<RawVolume>)) {
     if let Err(e) = unsafe { enumerator.RegisterEndpointNotificationCallback(&watcher) } {
         eprintln!("barista: audio device changes not watched: {e}");
     }
+    // Created on this thread, once. `None` = Windows no longer has the interface: the UI opens the
+    // sound settings page instead of switching.
+    let policy = super::audio_policy::create();
+    let can_switch = policy.is_some();
     let mut bound = bind(&enumerator, &tx);
     on_change(bound.as_ref().and_then(read));
+    on_outputs(list_outputs(&enumerator, can_switch));
     while let Ok(msg) = rx.recv() {
+        let relist = matches!(msg, Msg::Rebind | Msg::SetDefault(_));
         match msg {
             Msg::Rebind => {
                 // Drop first so the old callback is unregistered before the new one is added.
@@ -187,21 +267,36 @@ fn run(rx: Receiver<Msg>, tx: Sender<Msg>, on_change: fn(Option<RawVolume>)) {
                     let _ = unsafe { b.endpoint.SetMute(muted, std::ptr::null()) };
                 }
             }
+            Msg::SetDefault(id) => {
+                // Only ids Windows just listed go to COM, never a string from the UI as it is.
+                let known = list_outputs(&enumerator, can_switch)
+                    .devices
+                    .iter()
+                    .any(|d| d.id == id);
+                let switched = known && policy.as_ref().is_some_and(|p| p.set_default(&id));
+                if !switched {
+                    super::shell::open_uri("ms-settings:sound");
+                }
+            }
             Msg::Refresh => {}
         }
         on_change(bound.as_ref().and_then(read));
+        // A volume tick must not re-list devices (property store reads): only device changes do.
+        if relist {
+            on_outputs(list_outputs(&enumerator, can_switch));
+        }
     }
 }
 
 /// Starts the audio thread. `on_change` runs on it with the full state (`None` = no output device).
-pub fn start(on_change: fn(Option<RawVolume>)) {
+pub fn start(on_change: fn(Option<RawVolume>), on_outputs: fn(RawOutputs)) {
     let (tx, rx) = channel();
     if TX.set(tx.clone()).is_err() {
         return;
     }
     let spawned = std::thread::Builder::new()
         .name("barista-audio".into())
-        .spawn(move || run(rx, tx, on_change));
+        .spawn(move || run(rx, tx, on_change, on_outputs));
     if let Err(e) = spawned {
         eprintln!("barista: could not start the audio thread: {e}");
     }

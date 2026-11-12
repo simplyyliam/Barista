@@ -414,10 +414,22 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
             }
         }
         ClientMessage::DebugSystem { .. } => {
+            // The picture is long: show its size, not the data URL.
+            let mut user = serde_json::to_value(crate::system::user::service().get()).unwrap_or_default();
+            if let Some(len) = user.get("avatar").and_then(|a| a.as_str()).map(str::len) {
+                user["avatar"] = format!("<{len} chars>").into();
+            }
             let snapshot = serde_json::json!({
                 "clock": crate::system::clock::service().get(),
                 "battery": crate::system::battery::service().get(),
                 "volume": crate::system::volume::service().get(),
+                "brightness": crate::system::brightness::service().get(),
+                "wifi": crate::system::wifi::service().get(),
+                "bluetooth": crate::system::bluetooth::service().get(),
+                "airplane": crate::system::airplane::service().get(),
+                "hotspot": crate::system::hotspot::service().get(),
+                "outputs": crate::system::output_devices::service().get(),
+                "user": user,
             })
             .to_string();
             if send(

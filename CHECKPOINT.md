@@ -16,7 +16,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   Reader = `UserNotificationListener` + read-only `wpndatabase.db` (pictures) + folder watcher gated by a toast fingerprint
   (reading through the listener writes to that database: without the gate it looped at 3% CPU). Windows signals removals
   late, so opening the panel reads fresh. Switch `notificationsMode` (barista | windows) saved, no UI until v0.8 (rule 11).
-  Left: slice B (display, network, radios, actions). Barista focus timer is in the backlog.
+  Barista focus timer is in the backlog.
+- **v0.4b slice B built, PR open** (branch `feature/v0.4b-system-panels-b`, Rust only, ADR 0019): brightness (WMI + DDC/CI), Wi-Fi (WLAN API),
+  Bluetooth + paired devices, airplane (read-only), hotspot, output devices + switching (undocumented `IPolicyConfig`, falls back to the sound
+  page), user, actions, `openSettings`, and the `controlCenterMode` switch (rule 11). All verified live on this machine; `lock` ran (lock screen showed), `sleep` was not run, `restart` / `shutDown` / `signOut` only without `confirm` (refused). Memory is 130 MB vs 102 MB for v0.4.0 rebuilt today (budget 120): see `docs/perf/0.4b.md`. Left: UI wiring of these in the control center
+  (UI is Liam's); airplane mode verified live by hand (Liam, 2026-11-12). New for the UI: see the list under "Facts".
 - Panel is prebaked: `PanelWindow` keeps the frame and the notifications route mounted while hidden, `PanelBody` takes `name: null` when closed, `usePanelSize` takes a `null` key. No opening motion (Windows does not animate a bare transparent window, measured; in-page motion felt staggered): the window appears whole in one frame. Never resize the window around an open (WebView2 paints the top first): sizes are remembered per route, the warm-up (`panelWarm`) measures and paints it once at startup. To watch it: real clicks with `SetCursorPos` (logical px) + `mouse_event`, and `CopyFromScreen` frames (physical px). Notification list = one block per notification; the list is as tall as one 16:9 picture notification (measured) and has no minimum, so a lone notification shrinks the card. ADR 0018 has the details.
 - Debug a panel without a click: run the bar with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then from
   the `panel` page call `close_panel`, then `open_panel` and capture within ~1 s (the panel closes on blur because Windows won't
@@ -27,6 +31,15 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - New for the UI (slice C, wired already): see ADR 0018. `openPanel` has a 5th argument `chrome: "glass" | "none"`.
 
 ## Facts a new session needs
+
+- New for the UI (slice B, not wired): snapshots `getBrightness`, `getWifi`, `getBluetooth`, `getAirplaneMode`, `getHotspot`, `getOutputDevices`,
+  `getUser` (each with an event `...Changed`, full snapshot, once per frame), commands `setBrightness(id, level)`, `setWifiEnabled`, `scanWifi`,
+  `connectWifi(ssid)`, `disconnectWifi`, `setBluetoothEnabled`, `setHotspotEnabled`, `setOutputDevice(id)`, `runAction(action, confirm)`
+  (restart / shutDown / signOut need `confirm: true`), `openSettings(page)`, `getControlCenterMode` / `setControlCenterMode` /
+  `controlCenterModeChanged`, `openWindowsControlCenter`. Opening the `control-center` panel re-reads hotspot, displays, user, airplane and scans Wi-Fi.
+- Live test of slice B without the UI: start the bar with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then evaluate
+  `window.__TAURI_INTERNALS__.invoke(...)` in the main page over CDP (do the id lookup inside the page: ids contain backslashes and shell quoting
+  breaks them). `pnpm inspect --system --watch` shows every service. Never run `restart`, `shutDown`, `signOut`, `lock`, `sleep` in tests.
 
 - One Cargo workspace at the root (`apps/bar/src-tauri`, `crates/protocol`). `pnpm gen` = `cargo test --workspace export_`
   (writes `bindings.ts` and `protocol.ts`). specta crates are pinned exactly (ADR 0003). `CREDITS.md` needs a row for

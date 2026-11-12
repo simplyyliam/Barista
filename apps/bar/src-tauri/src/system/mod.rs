@@ -8,10 +8,18 @@
 //!                                                       └► forward task: wait 16 ms, emit latest
 //! ```
 
+pub mod actions;
+pub mod brightness;
+pub mod hotspot;
+pub mod user;
+pub mod output_devices;
+pub mod airplane;
 pub mod battery;
+pub mod bluetooth;
 pub mod clock;
 pub mod notifications;
 pub mod volume;
+pub mod wifi;
 
 use std::time::Duration;
 use tokio::sync::watch;
@@ -66,9 +74,86 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> Service<T> {
     }
 }
 
+/// False in `windows` mode (CLAUDE.md rule 11): the slice B services publish nothing and the bar opens
+/// Windows' Quick Settings instead. Their threads stay parked in `recv()`, so they cost nothing.
+static CONTROL_CENTER_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+/// Held while a service publishes and while the mode switches, so a snapshot that was ready just before
+/// the switch to `windows` mode can't land after the services were emptied.
+static GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// `Service::set`, but only while the control center is ours.
+pub fn publish_gated<T: Clone + PartialEq + Send + Sync + 'static>(service: &Service<T>, value: T) {
+    let _gate = GATE.lock().unwrap_or_else(|e| e.into_inner());
+    if control_center_active() {
+        service.set(value);
+    }
+}
+
+pub fn control_center_active() -> bool {
+    CONTROL_CENTER_ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn control_center_mode() -> crate::settings::Mode {
+    crate::controller::get()
+        .map(|c| c.settings().control_center_mode)
+        .unwrap_or_default()
+}
+
+/// Switches the control center between ours and Windows'. Saved.
+pub fn set_control_center_mode(mode: crate::settings::Mode) {
+    use crate::settings::Mode;
+    if let Some(c) = crate::controller::get() {
+        c.update_settings(|s| s.control_center_mode = mode);
+    }
+    let gate = GATE.lock().unwrap_or_else(|e| e.into_inner());
+    CONTROL_CENTER_ACTIVE.store(mode == Mode::Barista, std::sync::atomic::Ordering::Relaxed);
+    if mode == Mode::Barista {
+        drop(gate);
+        refresh_control_center();
+    } else {
+        brightness::service().set(Default::default());
+        wifi::service().set(Default::default());
+        bluetooth::service().set(Default::default());
+        airplane::service().set(Default::default());
+        hotspot::service().set(Default::default());
+        output_devices::service().set(Default::default());
+        user::service().set(Default::default());
+    }
+}
+
+/// Everything in the control center that has no change event of its own gets read again.
+fn refresh_control_center() {
+    if !control_center_active() {
+        return;
+    }
+    brightness::refresh();
+    hotspot::refresh();
+    user::refresh();
+    airplane::refresh();
+    wifi::scan();
+    output_devices::refresh();
+    #[cfg(windows)]
+    crate::platform::windows::radios::refresh();
+}
+
+/// A panel opened. Opening is an event, not a poll: the control center re-reads what Windows
+/// gives no change event for (hotspot, external monitors, the user) and asks for a Wi-Fi scan.
+pub fn panel_opened(name: &str) {
+    if name == "control-center" {
+        refresh_control_center();
+    }
+}
+
 /// Starts the services and their event forwarding. Call once from `setup`.
 pub fn init(app: &tauri::AppHandle) {
-    use crate::events::{BatteryChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged};
+    CONTROL_CENTER_ACTIVE.store(
+        control_center_mode() == crate::settings::Mode::Barista,
+        std::sync::atomic::Ordering::Relaxed,
+    );
+    use crate::events::{BrightnessChanged, HotspotChanged, UserChanged, OutputDevicesChanged, AirplaneModeChanged, 
+        BatteryChanged, BluetoothChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged, WifiChanged,
+    };
     use tauri_specta::Event;
     let a = app.clone();
     clock::service().forward(move |v| {
@@ -86,10 +171,53 @@ pub fn init(app: &tauri::AppHandle) {
     notifications::service().forward(move |v| {
         let _ = NotificationsChanged(v).emit(&a);
     });
+    let a = app.clone();
+    bluetooth::service().forward(move |v| {
+        let _ = BluetoothChanged(v).emit(&a);
+    });
+    let a = app.clone();
+    wifi::service().forward(move |v| {
+        let _ = WifiChanged(v).emit(&a);
+    });
+    let a = app.clone();
+    airplane::service().forward(move |v| {
+        let _ = AirplaneModeChanged(v).emit(&a);
+    });
+    let a = app.clone();
+    output_devices::service().forward(move |v| {
+        let _ = OutputDevicesChanged(v).emit(&a);
+    });
+    let a = app.clone();
+    user::service().forward(move |v| {
+        let _ = UserChanged(v).emit(&a);
+    });
+    let a = app.clone();
+    hotspot::service().forward(move |v| {
+        let _ = HotspotChanged(v).emit(&a);
+    });
+    let a = app.clone();
+    brightness::service().forward(move |v| {
+        let _ = BrightnessChanged(v).emit(&a);
+    });
     clock::refresh();
     battery::refresh();
     volume::start();
     notifications::start();
+    #[cfg(windows)]
+    crate::platform::windows::radios::start(radios_changed);
+    bluetooth::start();
+    wifi::start();
+    brightness::start();
+    hotspot::start();
+    user::refresh();
+    airplane::start();
+}
+
+/// One radios thread serves Wi-Fi and Bluetooth: fan its state out to both services.
+#[cfg(windows)]
+fn radios_changed(r: crate::platform::windows::radios::RadioStates) {
+    bluetooth::radio_changed(r);
+    wifi::radio_changed(r);
 }
 
 #[cfg(test)]

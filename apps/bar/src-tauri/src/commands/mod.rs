@@ -360,21 +360,21 @@ pub fn mark_notifications_seen() {
 #[tauri::command]
 #[specta::specta]
 pub fn open_notification_settings() {
-    crate::platform::windows::app_icon::open_uri("ms-settings:privacy-notifications");
+    crate::platform::windows::shell::open_uri("ms-settings:privacy-notifications");
 }
 
 /// Opens Windows' Focus settings (the Focus button; Windows has no way to start Focus for us).
 #[tauri::command]
 #[specta::specta]
 pub fn open_focus_settings() {
-    crate::platform::windows::app_icon::open_uri("ms-settings:quiethours");
+    crate::platform::windows::shell::open_uri("ms-settings:quiethours");
 }
 
 /// Opens Windows' own notification center (what the date does in `windows` mode).
 #[tauri::command]
 #[specta::specta]
 pub fn open_windows_notifications() {
-    crate::platform::windows::app_icon::open_uri("ms-actioncenter:");
+    crate::platform::windows::shell::open_uri("ms-actioncenter:");
 }
 
 /// Who draws the notification panel: our own or Windows' (the v0.8 settings window flips this).
@@ -395,4 +395,172 @@ pub fn set_notification_mode(app: tauri::AppHandle, mode: crate::settings::Mode)
     crate::panel::close();
     crate::system::notifications::set_mode(mode);
     let _ = crate::events::NotificationModeChanged(mode).emit(&app);
+}
+
+/// Runs a control center action. Restart, shut down and sign out only run with `confirm: true`
+/// (the UI asks the user first); without it they return `needsConfirm` and do nothing.
+#[tauri::command]
+#[specta::specta]
+pub fn run_action(
+    action: crate::system::actions::Action,
+    confirm: bool,
+) -> Result<(), crate::system::actions::ActionError> {
+    crate::system::actions::run(action, confirm)
+}
+
+/// Opens one of Windows' own settings pages (the fallback for everything the bar can't toggle itself).
+#[tauri::command]
+#[specta::specta]
+pub fn open_settings(page: crate::system::actions::SettingsPage) {
+    crate::system::actions::open_settings(page);
+}
+
+/// Bluetooth right now: radio state and paired devices. `available` is false without a radio. Call
+/// once when the UI starts; `bluetoothChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_bluetooth() -> crate::system::bluetooth::Bluetooth {
+    crate::system::bluetooth::service().get()
+}
+
+/// Turns the Bluetooth radio on or off. `bluetoothChanged` follows. Connecting a single device has
+/// no public API: open the Bluetooth settings page for that.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_bluetooth_enabled(enabled: bool) {
+    crate::system::bluetooth::set_enabled(enabled);
+}
+
+/// Wi-Fi right now. `available` is false without an adapter. Call once when the UI starts;
+/// `wifiChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_wifi() -> crate::system::wifi::Wifi {
+    crate::system::wifi::service().get()
+}
+
+/// Turns the Wi-Fi radio on or off. `wifiChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_wifi_enabled(enabled: bool) {
+    crate::system::wifi::set_enabled(enabled);
+}
+
+/// Asks Windows to look for networks again. `wifiChanged` follows when the scan is done.
+#[tauri::command]
+#[specta::specta]
+pub fn scan_wifi() {
+    crate::system::wifi::scan();
+}
+
+/// Joins a network Windows already knows. For any other name this opens Windows' own Wi-Fi
+/// flyout (joining a new secured network is not done by the bar).
+#[tauri::command]
+#[specta::specta]
+pub fn connect_wifi(ssid: String) {
+    crate::system::wifi::connect(&ssid);
+}
+
+/// Disconnects from the current network.
+#[tauri::command]
+#[specta::specta]
+pub fn disconnect_wifi() {
+    crate::system::wifi::disconnect();
+}
+
+/// Airplane mode right now. The bar can read it but not switch it: open the airplane mode
+/// settings page (`openSettings`) for that. Call once when the UI starts; `airplaneModeChanged`
+/// keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_airplane_mode() -> crate::system::airplane::AirplaneMode {
+    crate::system::airplane::service().get()
+}
+
+/// The active output devices and which one is the default. Call once when the UI starts;
+/// `outputDevicesChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_output_devices() -> crate::system::output_devices::OutputDevices {
+    crate::system::output_devices::service().get()
+}
+
+/// Makes an output device the default (`id` from `getOutputDevices`). When `canSwitch` is false,
+/// or the id is stale, this opens Windows' sound settings instead.
+#[tauri::command]
+#[specta::specta]
+pub fn set_output_device(id: String) {
+    crate::system::output_devices::set_default(id);
+}
+
+/// The signed-in user's display name and picture (data URL). Call once when the UI starts;
+/// `userChanged` follows when the first read finishes.
+#[tauri::command]
+#[specta::specta]
+pub fn get_user() -> crate::system::user::User {
+    crate::system::user::service().get()
+}
+
+/// The mobile hotspot right now. `supported` is false when this PC can't share its connection.
+/// Call once when the UI starts; `hotspotChanged` keeps it fresh (also read again when the
+/// control center opens).
+#[tauri::command]
+#[specta::specta]
+pub fn get_hotspot() -> crate::system::hotspot::Hotspot {
+    crate::system::hotspot::service().get()
+}
+
+/// Starts or stops the hotspot. The state is `changing` for a few seconds, then `hotspotChanged`
+/// shows the result.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_hotspot_enabled(enabled: bool) {
+    crate::system::hotspot::set_enabled(enabled);
+}
+
+/// The brightness of every display: the laptop panel first, then external monitors. A display
+/// with `supported: false` can't be controlled. Call once when the UI starts; `brightnessChanged`
+/// keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_brightness() -> crate::system::brightness::Brightness {
+    crate::system::brightness::service().get()
+}
+
+/// Sets one display's brightness (`id` from `getBrightness`, `level` 0 to 1, never below 1%).
+/// Unknown ids and unsupported displays are ignored. `brightnessChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_brightness(id: String, level: f64) {
+    crate::system::brightness::set(&id, level);
+}
+
+/// Who draws the control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick
+/// Settings (the v0.8 settings window flips this).
+#[tauri::command]
+#[specta::specta]
+pub fn get_control_center_mode() -> crate::settings::Mode {
+    crate::system::control_center_mode()
+}
+
+/// Switches the control center between ours and Windows'. Saved; `controlCenterModeChanged` follows.
+/// In `windows` mode the bar's Wi-Fi, Bluetooth and brightness state go empty and the UI should call
+/// `openWindowsControlCenter` instead of opening its own panel.
+#[tauri::command]
+#[specta::specta]
+pub fn set_control_center_mode(app: tauri::AppHandle, mode: crate::settings::Mode) {
+    use tauri_specta::Event;
+    if mode == crate::system::control_center_mode() {
+        return;
+    }
+    crate::panel::close();
+    crate::system::set_control_center_mode(mode);
+    let _ = crate::events::ControlCenterModeChanged(mode).emit(&app);
+}
+
+/// Opens Windows' own Quick Settings (what the control center item does in `windows` mode).
+#[tauri::command]
+#[specta::specta]
+pub fn open_windows_control_center() {
+    crate::platform::windows::shell::open_uri("ms-actioncenter:controlcenter/&showFooter=true");
 }
