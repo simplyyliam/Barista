@@ -25,7 +25,7 @@ use tauri_specta::Event;
 pub const LABEL: &str = "panel";
 
 /// If the UI never reports its size (it should within a frame), show the window anyway.
-const REVEAL_FALLBACK: Duration = Duration::from_millis(40);
+const REVEAL_FALLBACK: Duration = Duration::from_millis(30);
 
 /// A panel and the item it hangs from. The UI shows the route for `name` and the item as open.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]

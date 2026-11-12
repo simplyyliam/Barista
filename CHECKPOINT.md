@@ -7,7 +7,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 - **v0.4.0 shipped** (tag `v0.4.0` on the merge of PR #19, not pushed yet: Liam runs `pnpm release`). Plan releases
   v0.0 to v0.4 are done; notes in `docs/release/history/` (local only, v0.4 in `v0.4-checkpoint.md`).
-- **Next: v0.4b System panels** (`releases/v0.4b.md`, local only); it reuses `popover.rs`, `placement.rs` and `dismiss.rs`.
+- **In progress: v0.4b slice A** (branch `feature/v0.4b-system-panels-a`): panel window, clock settings, battery, volume.
+  Rust done and live-tested; ADR 0016. Left: perf report `docs/perf/0.4b.md`, code review, PR. Slices B and C are next
+  (`releases/v0.4b.md`, local only).
 - ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
 
 ## Facts a new session needs
@@ -51,6 +53,16 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `packages/ui/src/icons.tsx` now draws status images at that size (max height 22) instead of a fixed 16 x 16, in its own
   commit. Still open for Liam: the bar's own `battery.tsx` / `volume.tsx` (`size={16}` on 24-box Hugeicons) have the same
   empty-border problem.
+
+- New for the UI (v0.4b slice A, not wired yet): commands `openPanel(name, anchor, width, height)`, `closePanel`,
+  `panelResized(width, height)`, `getOpenPanel`; event `panelChanged { open: PanelOpen | null }` (window `panel` loads
+  `index.html`; render the route by `open.name`, call `panelResized` once measured, call `closePanel` on Esc). System:
+  `getClockSettings`/`clockSettingsChanged`, `getBattery`/`batteryChanged`, `getVolume`/`volumeChanged`,
+  `setVolume(level 0..1)`, `setMuted`. All three events send the full snapshot, at most once per frame.
+- Debug: `pnpm inspect --system [--watch]`, `--panel <name> <item id> [w h]`, `--close-panel`; `scripts/panel-latency.ps1`.
+  Press the volume keys from a PowerShell script (`keybd_event` 0xAE/0xAF/0xAD) to test live volume changes.
+- `pnpm dev` dies if `pnpm inspect` builds the SDK while `sdk build --watch` runs: start only the bar with
+  `pnpm --filter @barista/bar dev` when testing with inspect.
 
 ## Fix next
 

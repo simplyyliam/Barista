@@ -38,7 +38,7 @@ pub const MAX_POPOVER_SIZE: u32 = 1024;
 
 /// Every `type` a client may send. The bar uses it to tell `unknown_type` (a newer client)
 /// from `invalid_message` (a known type with wrong fields). A test keeps it in sync.
-pub const CLIENT_MESSAGE_TYPES: [&str; 11] = [
+pub const CLIENT_MESSAGE_TYPES: [&str; 14] = [
     "hello",
     "item.create",
     "item.update",
@@ -50,6 +50,9 @@ pub const CLIENT_MESSAGE_TYPES: [&str; 11] = [
     "debug.listItems",
     "debug.click",
     "debug.menuClick",
+    "debug.system",
+    "debug.openPanel",
+    "debug.closePanel",
 ];
 
 /// What kind of menu entry. Electron's names.
@@ -697,6 +700,9 @@ mod tests {
             r#"{"type":"item.setPopover","id":"a","width":320,"height":380}"#,
             r#"{"type":"popover.shown","id":"a"}"#,
             r#"{"type":"popover.closed","id":"a"}"#,
+            r#"{"type":"debug.system"}"#,
+            r#"{"type":"debug.openPanel","name":"a","anchor":"s1/a","width":1,"height":1}"#,
+            r#"{"type":"debug.closePanel"}"#,
         ];
         for sample in samples {
             let msg: ClientMessage = serde_json::from_str(sample).unwrap();
