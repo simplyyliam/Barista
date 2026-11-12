@@ -500,3 +500,20 @@ pub fn set_output_device(id: String) {
 pub fn get_user() -> crate::system::user::User {
     crate::system::user::service().get()
 }
+
+/// The mobile hotspot right now. `supported` is false when this PC can't share its connection.
+/// Call once when the UI starts; `hotspotChanged` keeps it fresh (also read again when the
+/// control center opens).
+#[tauri::command]
+#[specta::specta]
+pub fn get_hotspot() -> crate::system::hotspot::Hotspot {
+    crate::system::hotspot::service().get()
+}
+
+/// Starts or stops the hotspot. The state is `changing` for a few seconds, then `hotspotChanged`
+/// shows the result.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_hotspot_enabled(enabled: bool) {
+    crate::system::hotspot::set_enabled(enabled);
+}

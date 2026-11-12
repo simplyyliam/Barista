@@ -211,3 +211,7 @@ pub struct OutputDevicesChanged(pub crate::system::output_devices::OutputDevices
 /// Full snapshot, at most once per frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct UserChanged(pub crate::system::user::User);
+
+/// The mobile hotspot changed (state or connected devices). Full snapshot, at most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct HotspotChanged(pub crate::system::hotspot::Hotspot);

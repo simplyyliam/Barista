@@ -49,6 +49,8 @@ features = [
   "Devices_Enumeration",
   "Devices_Radios",
   "Foundation",
+  "Networking_Connectivity",
+  "Networking_NetworkOperators",
   "Foundation_Collections",
   "Storage_Streams",
   "System",

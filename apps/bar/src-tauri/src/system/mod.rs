@@ -9,6 +9,7 @@
 //! ```
 
 pub mod actions;
+pub mod hotspot;
 pub mod user;
 pub mod output_devices;
 pub mod airplane;
@@ -74,7 +75,7 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> Service<T> {
 
 /// Starts the services and their event forwarding. Call once from `setup`.
 pub fn init(app: &tauri::AppHandle) {
-    use crate::events::{UserChanged, OutputDevicesChanged, AirplaneModeChanged, 
+    use crate::events::{HotspotChanged, UserChanged, OutputDevicesChanged, AirplaneModeChanged, 
         BatteryChanged, BluetoothChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged, WifiChanged,
     };
     use tauri_specta::Event;
@@ -114,6 +115,10 @@ pub fn init(app: &tauri::AppHandle) {
     user::service().forward(move |v| {
         let _ = UserChanged(v).emit(&a);
     });
+    let a = app.clone();
+    hotspot::service().forward(move |v| {
+        let _ = HotspotChanged(v).emit(&a);
+    });
     clock::refresh();
     battery::refresh();
     volume::start();
@@ -122,6 +127,7 @@ pub fn init(app: &tauri::AppHandle) {
     crate::platform::windows::radios::start(radios_changed);
     bluetooth::start();
     wifi::start();
+    hotspot::start();
     user::refresh();
     airplane::start();
 }
