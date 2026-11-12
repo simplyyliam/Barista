@@ -86,8 +86,7 @@ message to it, it re-reads the whole state).
 Wi-Fi, Bluetooth and brightness switched live (and restored) on the laptop panel and one external monitor
 over DDC/CI; the output device switched and came back; the hotspot went off, changing, on, off; the settings
 page and the screenshot opened; lock showed the lock screen; restart, shut down and sign out refused without `confirm`.
-Sleep was not run (wake timers are off on this PC, so it would have stopped the session). The airplane registry watch was tested on a
-temporary HKCU key (same code path); a real airplane flip needs administrator rights or the Settings toggle and was not done. Paired devices on
+Sleep was not run (wake timers are off on this PC, so it would have stopped the session). Airplane mode was flipped by hand in Windows settings while `pnpm inspect --system --watch` ran: `airplane` followed within a second and Wi-Fi and Bluetooth went off and back on with it. Paired devices on
 this machine are Low Energy only, which is why the watcher asks for both protocols. Idle CPU and memory are in
 `docs/perf/0.4b.md`.
 
