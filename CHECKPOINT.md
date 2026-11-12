@@ -11,8 +11,16 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   settings, battery, volume (ADR 0016, `docs/perf/0.4b.md`). Next: slices B and C (`releases/v0.4b.md`, local only);
   re-measure panel latency once the UI uses `panelResized`.
 - ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
-- **Notifications spike done** (branch `docs/notifications-spike`, ADR 0017 proposed, `examples/notifications-spike`): the listener
-  works unpackaged but only by polling (no events), text only. Slice C Rust waits for Liam's OK on ADR 0017.
+- **v0.4b slice C built, PR open** (branch `feature/v0.4b-notifications`, includes the spike of PR #23; ADR 0017 accepted, ADR 0018):
+  notifications panel with the UI (`UI: full`): date in the bar + unread dot, notification card, shadcn calendar, Focus pills.
+  Reader = `UserNotificationListener` + read-only `wpndatabase.db` (pictures) + folder watcher gated by a toast fingerprint
+  (reading through the listener writes to that database: without the gate it looped at 3% CPU). Windows signals removals
+  late, so opening the panel reads fresh. Switch `notificationsMode` (barista | windows) saved, no UI until v0.8 (rule 11).
+  Left: slice B (display, network, radios, actions). Barista focus timer is in the backlog.
+- Debug a panel without a click: run the bar with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`, then from
+  the `panel` page call `close_panel`, then `open_panel` and capture within ~1 s (the panel closes on blur because Windows won't
+  focus it without a real click). Same-anchor `open_panel` toggles.
+- New for the UI (slice C, wired already): see ADR 0018. `openPanel` has a 5th argument `chrome: "glass" | "none"`.
 
 ## Facts a new session needs
 
