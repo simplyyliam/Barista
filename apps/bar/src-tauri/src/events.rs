@@ -201,3 +201,8 @@ pub struct WifiChanged(pub crate::system::wifi::Wifi);
 /// per frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct AirplaneModeChanged(pub crate::system::airplane::AirplaneMode);
+
+/// An output device was added, removed or became the default. Full snapshot, at most once per
+/// frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct OutputDevicesChanged(pub crate::system::output_devices::OutputDevices);

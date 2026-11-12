@@ -476,3 +476,19 @@ pub fn disconnect_wifi() {
 pub fn get_airplane_mode() -> crate::system::airplane::AirplaneMode {
     crate::system::airplane::service().get()
 }
+
+/// The active output devices and which one is the default. Call once when the UI starts;
+/// `outputDevicesChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_output_devices() -> crate::system::output_devices::OutputDevices {
+    crate::system::output_devices::service().get()
+}
+
+/// Makes an output device the default (`id` from `getOutputDevices`). When `canSwitch` is false,
+/// or the id is stale, this opens Windows' sound settings instead.
+#[tauri::command]
+#[specta::specta]
+pub fn set_output_device(id: String) {
+    crate::system::output_devices::set_default(id);
+}

@@ -6,6 +6,7 @@
 pub mod app_icon;
 pub mod appbar;
 pub mod audio;
+pub mod audio_policy;
 pub mod bt_devices;
 pub mod folder_watch;
 pub mod foreground;
