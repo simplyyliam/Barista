@@ -65,13 +65,13 @@
   /* --- Type --- */
   /* App.png: SF Pro (not licensed for Windows). Inter is the closest free look; it is already
      bundled by @barista/ui. One token, so a font setting can swap it later. */
-  --font-bar: "Inter Variable", system-ui, sans-serif;
+ --font-bar: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   /* App.png: 14px text (cap height ~10px). macOS menu bar text is 13-14pt. */
   --text-bar: 13px;
   --text-bar--line-height: 16px;
   /* macOS menu bar items are regular weight; the app name is semibold. App.png shows regular. */
-  --font-weight-bar: 400;
-  --font-weight-bar-strong: 600;
+  --font-weight-bar: 500;
+  --font-weight-bar-strong: 500;
   /* App.png panels: titles 14px, secondary lines ~11px (estimated by eye, ask Liam). */
   --text-panel-title: 14px;
   --text-panel-small: 11px;

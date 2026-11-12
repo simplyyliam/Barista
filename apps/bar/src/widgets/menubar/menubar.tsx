@@ -1,4 +1,4 @@
-import { Clock, DisplayDate, MenubarItemGroup, StatusItems } from "@/features/menubar"
+import { Clock, MenubarItemGroup, StatusItems } from "@/features/menubar"
 import { commands } from "@/shared/bindings"
 import { useState, useEffect } from "react"
 
@@ -17,7 +17,6 @@ export default function Menubar() {
         <p>Barista {version}</p>
       </MenubarItemGroup>
       <MenubarItemGroup className="justify-self-center">
-        <DisplayDate/>
       </MenubarItemGroup>
       <MenubarItemGroup className="justify-self-end">
         <StatusItems />

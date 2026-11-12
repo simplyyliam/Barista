@@ -5,8 +5,8 @@ export function DisplayDate() {
   return (
     <MenubarItem>
       {date.toLocaleDateString("en-us", {
-        weekday: "long",
-        month: "long",
+        weekday: "short",
+        month: "short",
         day: "numeric"
       })}
     </MenubarItem>
