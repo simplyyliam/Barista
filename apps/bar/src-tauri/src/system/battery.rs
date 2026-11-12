@@ -20,8 +20,8 @@ pub struct Battery {
     pub seconds_left: Option<u32>,
     /// Battery saver is on.
     pub saver: bool,
-    /// The Barista helper service is installed, so the bar can switch battery saver itself. Without
-    /// it only Windows can (the switch needs administrator rights, ADR 0020).
+    /// The bar can switch battery saver itself. False until a call that Windows really acts on is
+    /// found (ADR 0020); the tile then only shows the state.
     pub saver_controllable: bool,
 }
 
@@ -100,7 +100,9 @@ pub fn refresh() {
             p.seconds_left,
             saver,
         );
-        battery.saver_controllable = crate::platform::windows::saver_helper::available();
+        // Always false for now: the helper can write EnergySaverState, but Windows does not act on it
+        // (tested 2026-11-12), so there is nothing the bar can call to switch energy saver (ADR 0020).
+        battery.saver_controllable = false;
         service().set(battery);
     }
 }

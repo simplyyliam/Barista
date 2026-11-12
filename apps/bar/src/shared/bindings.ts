@@ -405,8 +405,8 @@ export type Battery_Deserialize = {
 	/**  Battery saver is on. */
 	saver: boolean,
 	/**
-	 *  The Barista helper service is installed, so the bar can switch battery saver itself. Without
-	 *  it only Windows can (the switch needs administrator rights, ADR 0020).
+	 *  The bar can switch battery saver itself. False until a call that Windows really acts on is
+	 *  found (ADR 0020); the tile then only shows the state.
 	 */
 	saverControllable: boolean,
 };
@@ -424,8 +424,8 @@ export type Battery_Serialize = {
 	/**  Battery saver is on. */
 	saver: boolean,
 	/**
-	 *  The Barista helper service is installed, so the bar can switch battery saver itself. Without
-	 *  it only Windows can (the switch needs administrator rights, ADR 0020).
+	 *  The bar can switch battery saver itself. False until a call that Windows really acts on is
+	 *  found (ADR 0020); the tile then only shows the state.
 	 */
 	saverControllable: boolean,
 };
