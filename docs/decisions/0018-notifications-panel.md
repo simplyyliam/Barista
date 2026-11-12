@@ -79,9 +79,11 @@ event `notificationModeChanged`. No UI for it until the v0.8 settings window.
 ## Layout, prebaking and motion (2026-11-12)
 
 - **One notification per block, each with its own app header** (like WhatsApp and Discord in App.png),
-  newest first. The list is about as tall as one picture notification takes (300 px, less on a short
-  screen). A picture notification is as tall as the list, so it is the only thing in view and the next one
-  is a scroll away (`scroll-snap`, proximity). Text notifications are packed in as many as fit.
+  newest first. The picture is always 16:9, so picture notifications are all about the same height. The list is
+  at most as tall as the tallest one (measured, `data-picture`), so one is in view and the next is a
+  scroll away (`scroll-snap`, proximity); text-only lists are capped at 240 px and packed with as many as
+  fit. The list never has a minimum height: one notification makes the card shrink to fit it, with no
+  empty space under it. Never taller than the screen allows.
 - **Prebaked.** The panel window is hidden, but its page keeps the notifications route mounted (out of
   the layout, invisible). The snapshot, app icons and decoded pictures (`Image.decode()` before they are
   shown) are already there when you click, so the panel opens with nothing to load. A hidden panel never

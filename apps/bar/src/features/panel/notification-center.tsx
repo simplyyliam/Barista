@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react"
 import { cn } from "cn"
 import { commands } from "@/shared/bindings"
 import { useNotifications } from "@/shared/stores/notifications"
@@ -7,13 +7,34 @@ import { AppIcon } from "./app-icon"
 import { NotificationRow } from "./notification-row"
 
 /**
- * How tall the list is: about what one notification with a picture takes. A picture notification
- * fills it (you scroll for the next one); text notifications are packed in as many as fit. The
- * whole card stack must also fit the screen (the calendar, Focus pills, gaps and the bar take about
- * 600 px), so a short screen gets a shorter list.
+ * The most the list may grow to. With pictures it is the height of one picture notification
+ * (`pictureHeight`, measured), so one is in view and you scroll for the next; with text only it is a
+ * fixed number that packs in as many as fit. It never reaches past the screen (the calendar, Focus
+ * pills, gaps and the bar take about 600 px). A shorter list than this just shrinks the card.
  */
-function listHeight() {
-  return Math.min(300, Math.max(140, window.screen.availHeight - 600))
+function listMaxHeight(pictureHeight: number | null) {
+  const room = Math.max(140, window.screen.availHeight - 600)
+  return Math.min(pictureHeight ?? 240, room)
+}
+
+/** Height of the tallest picture notification in the list (they are all about the same: the picture is always 16:9). */
+function usePictureHeight(listRef: RefObject<HTMLElement | null>, key: string) {
+  const [height, setHeight] = useState<number | null>(null)
+
+  useLayoutEffect(() => {
+    const blocks = Array.from(listRef.current?.querySelectorAll<HTMLElement>("[data-picture]") ?? [])
+    const measure = () => {
+      const tallest = blocks.length ? Math.max(...blocks.map((block) => block.offsetHeight)) : null
+      setHeight((previous) => (previous === tallest ? previous : tallest))
+    }
+    measure()
+    // The picture arrives after the text (it is decoded first), which changes the block's height.
+    const observer = new ResizeObserver(measure)
+    blocks.forEach((block) => observer.observe(block))
+    return () => observer.disconnect()
+  }, [listRef, key])
+
+  return height
 }
 
 /** The black "Notifications" card of App.png. `active`: the panel is open (not just prebaked). */
@@ -26,8 +47,13 @@ export function NotificationCenter({ active }: { active: boolean }) {
     .flatMap((group) => group.items.map((item) => ({ group, item })))
     .sort((a, b) => b.item.arrivedAt - a.item.arrivedAt || b.item.id - a.item.id)
   const unread = notifications?.unread ?? false
-  const height = listHeight()
   const listRef = useRef<HTMLDivElement>(null)
+  // Re-measure when the set of notifications or their pictures change.
+  const pictureHeight = usePictureHeight(
+    listRef,
+    entries.map((e) => `${e.item.id}${e.item.hasImage ? "p" : ""}`).join(","),
+  )
+  const height = listMaxHeight(pictureHeight)
 
   // The list starts at the top every time. Reset it while the window is hidden, so the open itself
   // never scrolls (a jump after the window shows reads as a stagger).
@@ -85,8 +111,8 @@ export function NotificationCenter({ active }: { active: boolean }) {
           {entries.map(({ group, item }, index) => (
             <div
               key={item.id}
-              // A picture notification fills the window, so it is the only thing in view.
-              style={item.hasImage ? { minHeight: height } : undefined}
+              // Marks a picture notification: the list is as tall as one of these.
+              data-picture={item.hasImage ? "" : undefined}
               className={cn(
                 "flex snap-start flex-col gap-2",
                 index === entries.length - 1 && !item.hasImage && "pb-2",

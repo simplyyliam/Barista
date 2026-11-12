@@ -34,7 +34,7 @@ export function NotificationImage({ id, onOpen }: { id: number; onOpen: () => vo
       onClick={onOpen}
       className="mt-2 -mx-2 block w-[calc(100%+1rem)] cursor-default overflow-hidden rounded-panel-child outline-none focus-visible:ring-2 focus-visible:ring-panel-fg/50"
     >
-      <img src={src} alt="" draggable={false} className="block max-h-44 w-full object-cover" />
+      <img src={src} alt="" draggable={false} className="block aspect-video w-full object-cover" />
     </button>
   )
 }
