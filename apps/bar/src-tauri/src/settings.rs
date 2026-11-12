@@ -29,6 +29,8 @@ pub struct Settings {
     pub notifications_mode: Mode,
     /// Unix seconds when the notification panel was last opened (the unread dot).
     pub notifications_seen_at: u32,
+    /// Control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick Settings.
+    pub control_center_mode: Mode,
 }
 
 impl Default for Settings {
@@ -38,6 +40,7 @@ impl Default for Settings {
             monitor: None,
             notifications_mode: Mode::Barista,
             notifications_seen_at: 0,
+            control_center_mode: Mode::Barista,
         }
     }
 }
@@ -116,6 +119,7 @@ mod tests {
         assert_eq!(s.bar_height, 30);
         assert_eq!(s.notifications_mode, Mode::Barista);
         assert_eq!(s.notifications_seen_at, 0);
+        assert_eq!(s.control_center_mode, Mode::Barista);
         let _ = std::fs::remove_file(path);
     }
 
@@ -127,6 +131,7 @@ mod tests {
             monitor: Some("monitor-a".into()),
             notifications_mode: Mode::Windows,
             notifications_seen_at: 1234,
+            control_center_mode: Mode::Windows,
         };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);

@@ -534,3 +534,33 @@ pub fn get_brightness() -> crate::system::brightness::Brightness {
 pub fn set_brightness(id: String, level: f64) {
     crate::system::brightness::set(&id, level);
 }
+
+/// Who draws the control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick
+/// Settings (the v0.8 settings window flips this).
+#[tauri::command]
+#[specta::specta]
+pub fn get_control_center_mode() -> crate::settings::Mode {
+    crate::system::control_center_mode()
+}
+
+/// Switches the control center between ours and Windows'. Saved; `controlCenterModeChanged` follows.
+/// In `windows` mode the bar's Wi-Fi, Bluetooth and brightness state go empty and the UI should call
+/// `openWindowsControlCenter` instead of opening its own panel.
+#[tauri::command]
+#[specta::specta]
+pub fn set_control_center_mode(app: tauri::AppHandle, mode: crate::settings::Mode) {
+    use tauri_specta::Event;
+    if mode == crate::system::control_center_mode() {
+        return;
+    }
+    crate::panel::close();
+    crate::system::set_control_center_mode(mode);
+    let _ = crate::events::ControlCenterModeChanged(mode).emit(&app);
+}
+
+/// Opens Windows' own Quick Settings (what the control center item does in `windows` mode).
+#[tauri::command]
+#[specta::specta]
+pub fn open_windows_control_center() {
+    crate::platform::windows::shell::open_uri("ms-actioncenter:controlcenter/&showFooter=true");
+}

@@ -94,10 +94,7 @@ pub fn start(on_change: fn(Vec<RawDisplay>)) {
             let mut internal: Option<(u8, String)> = None;
             let mut external: Vec<ddc::RawDdc> = Vec::new();
             let mut msg = Some(Msg::RefreshAll);
-            loop {
-                let Some(first) = msg.take().or_else(|| rx.recv().ok()) else {
-                    break;
-                };
+            while let Some(first) = msg.take().or_else(|| rx.recv().ok()) {
                 // Take everything queued: a slider's burst becomes one pass, last value wins.
                 let mut sets: Vec<(String, u8)> = Vec::new();
                 let (mut all, mut inner) = (false, false);

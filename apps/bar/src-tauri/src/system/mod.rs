@@ -74,8 +74,69 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> Service<T> {
     }
 }
 
+/// False in `windows` mode (CLAUDE.md rule 11): the slice B services publish nothing and the bar opens
+/// Windows' Quick Settings instead. Their threads stay parked in `recv()`, so they cost nothing.
+static CONTROL_CENTER_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+pub fn control_center_active() -> bool {
+    CONTROL_CENTER_ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn control_center_mode() -> crate::settings::Mode {
+    crate::controller::get()
+        .map(|c| c.settings().control_center_mode)
+        .unwrap_or_default()
+}
+
+/// Switches the control center between ours and Windows'. Saved.
+pub fn set_control_center_mode(mode: crate::settings::Mode) {
+    use crate::settings::Mode;
+    if let Some(c) = crate::controller::get() {
+        c.update_settings(|s| s.control_center_mode = mode);
+    }
+    CONTROL_CENTER_ACTIVE.store(mode == Mode::Barista, std::sync::atomic::Ordering::Relaxed);
+    if mode == Mode::Barista {
+        refresh_control_center();
+    } else {
+        brightness::service().set(Default::default());
+        wifi::service().set(Default::default());
+        bluetooth::service().set(Default::default());
+        airplane::service().set(Default::default());
+        hotspot::service().set(Default::default());
+        output_devices::service().set(Default::default());
+        user::service().set(Default::default());
+    }
+}
+
+/// Everything in the control center that has no change event of its own gets read again.
+fn refresh_control_center() {
+    if !control_center_active() {
+        return;
+    }
+    brightness::refresh();
+    hotspot::refresh();
+    user::refresh();
+    airplane::refresh();
+    wifi::scan();
+    output_devices::refresh();
+    #[cfg(windows)]
+    crate::platform::windows::radios::refresh();
+}
+
+/// A panel opened. Opening is an event, not a poll: the control center re-reads what Windows
+/// gives no change event for (hotspot, external monitors, the user) and asks for a Wi-Fi scan.
+pub fn panel_opened(name: &str) {
+    if name == "control-center" {
+        refresh_control_center();
+    }
+}
+
 /// Starts the services and their event forwarding. Call once from `setup`.
 pub fn init(app: &tauri::AppHandle) {
+    CONTROL_CENTER_ACTIVE.store(
+        control_center_mode() == crate::settings::Mode::Barista,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     use crate::events::{BrightnessChanged, HotspotChanged, UserChanged, OutputDevicesChanged, AirplaneModeChanged, 
         BatteryChanged, BluetoothChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged, WifiChanged,
     };

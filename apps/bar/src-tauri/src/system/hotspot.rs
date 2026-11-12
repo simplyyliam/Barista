@@ -36,6 +36,9 @@ pub fn service() -> &'static Service<Hotspot> {
 #[cfg(windows)]
 fn changed(raw: crate::platform::windows::tethering::RawHotspot) {
     use crate::platform::windows::tethering::RawState;
+    if !super::control_center_active() {
+        return;
+    }
     service().set(Hotspot {
         supported: raw.supported,
         state: match raw.state {

@@ -57,6 +57,13 @@ enum Msg {
 
 static TX: OnceLock<Sender<Msg>> = OnceLock::new();
 
+/// Asks the audio thread to list the output devices again.
+pub fn relist_outputs() {
+    if let Some(tx) = TX.get() {
+        let _ = tx.send(Msg::Rebind);
+    }
+}
+
 pub fn set_default_output(id: String) {
     if let Some(tx) = TX.get() {
         let _ = tx.send(Msg::SetDefault(id));

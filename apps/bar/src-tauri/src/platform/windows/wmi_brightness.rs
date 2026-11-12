@@ -95,6 +95,7 @@ impl Wmi {
         Some((level.clamp(0, 100) as u8, pnp))
     }
 
+    #[cfg(test)]
     pub fn read(&self) -> Option<u8> {
         self.read_with_id().map(|(level, _)| level)
     }

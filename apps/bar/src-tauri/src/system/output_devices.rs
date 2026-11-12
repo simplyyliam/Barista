@@ -31,6 +31,9 @@ pub fn service() -> &'static Service<OutputDevices> {
 
 #[cfg(windows)]
 pub fn changed(raw: crate::platform::windows::audio::RawOutputs) {
+    if !super::control_center_active() {
+        return;
+    }
     service().set(OutputDevices {
         devices: raw
             .devices
@@ -43,6 +46,12 @@ pub fn changed(raw: crate::platform::windows::audio::RawOutputs) {
             .collect(),
         can_switch: raw.can_switch,
     });
+}
+
+/// Lists the devices again (the control center came back from `windows` mode).
+pub fn refresh() {
+    #[cfg(windows)]
+    crate::platform::windows::audio::relist_outputs();
 }
 
 /// Ids come from Windows (`GetId`): a sane length is all we check here; the audio thread then only

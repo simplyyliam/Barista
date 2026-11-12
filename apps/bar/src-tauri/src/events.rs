@@ -220,3 +220,7 @@ pub struct HotspotChanged(pub crate::system::hotspot::Hotspot);
 /// monitors were plugged in or out. Full snapshot, at most once per frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct BrightnessChanged(pub crate::system::brightness::Brightness);
+
+/// The control center is now ours or Windows' (a setting, see `setControlCenterMode`).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct ControlCenterModeChanged(pub crate::settings::Mode);

@@ -63,7 +63,9 @@ fn publish(edit: impl FnOnce(&mut Inputs)) {
     edit(&mut i);
     let snapshot = build(i.radio, i.denied, &i.devices);
     drop(i);
-    service().set(snapshot);
+    if super::control_center_active() {
+        service().set(snapshot);
+    }
 }
 
 #[cfg(windows)]

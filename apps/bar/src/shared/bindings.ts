@@ -163,20 +163,115 @@ export const commands = {
 	getNotificationMode: () => __TAURI_INVOKE<Mode>("get_notification_mode"),
 	/**  Switches the notification panel between ours and Windows'. Saved; `notificationModeChanged` follows. */
 	setNotificationMode: (mode: Mode) => __TAURI_INVOKE<void>("set_notification_mode", { mode }),
+	/**
+	 *  Runs a control center action. Restart, shut down and sign out only run with `confirm: true`
+	 *  (the UI asks the user first); without it they return `needsConfirm` and do nothing.
+	 */
+	runAction: (action: Action, confirm: boolean) => typedError<null, ActionError>(__TAURI_INVOKE("run_action", { action, confirm })),
+	/**
+	 *  Who draws the control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick
+	 *  Settings (the v0.8 settings window flips this).
+	 */
+	getControlCenterMode: () => __TAURI_INVOKE<Mode>("get_control_center_mode"),
+	/**
+	 *  Switches the control center between ours and Windows'. Saved; `controlCenterModeChanged` follows.
+	 *  In `windows` mode the bar's Wi-Fi, Bluetooth and brightness state go empty and the UI should call
+	 *  `openWindowsControlCenter` instead of opening its own panel.
+	 */
+	setControlCenterMode: (mode: Mode) => __TAURI_INVOKE<void>("set_control_center_mode", { mode }),
+	/**  Opens Windows' own Quick Settings (what the control center item does in `windows` mode). */
+	openWindowsControlCenter: () => __TAURI_INVOKE<void>("open_windows_control_center"),
+	/**
+	 *  Sets one display's brightness (`id` from `getBrightness`, `level` 0 to 1, never below 1%).
+	 *  Unknown ids and unsupported displays are ignored. `brightnessChanged` follows.
+	 */
+	setBrightness: (id: string, level: number | null) => __TAURI_INVOKE<void>("set_brightness", { id, level }),
+	/**
+	 *  The brightness of every display: the laptop panel first, then external monitors. A display
+	 *  with `supported: false` can't be controlled. Call once when the UI starts; `brightnessChanged`
+	 *  keeps it fresh.
+	 */
+	getBrightness: () => __TAURI_INVOKE<Brightness>("get_brightness"),
+	/**
+	 *  Starts or stops the hotspot. The state is `changing` for a few seconds, then `hotspotChanged`
+	 *  shows the result.
+	 */
+	setHotspotEnabled: (enabled: boolean) => __TAURI_INVOKE<void>("set_hotspot_enabled", { enabled }),
+	/**
+	 *  The mobile hotspot right now. `supported` is false when this PC can't share its connection.
+	 *  Call once when the UI starts; `hotspotChanged` keeps it fresh (also read again when the
+	 *  control center opens).
+	 */
+	getHotspot: () => __TAURI_INVOKE<Hotspot>("get_hotspot"),
+	/**
+	 *  The signed-in user's display name and picture (data URL). Call once when the UI starts;
+	 *  `userChanged` follows when the first read finishes.
+	 */
+	getUser: () => __TAURI_INVOKE<User_Serialize>("get_user"),
+	/**
+	 *  Makes an output device the default (`id` from `getOutputDevices`). When `canSwitch` is false,
+	 *  or the id is stale, this opens Windows' sound settings instead.
+	 */
+	setOutputDevice: (id: string) => __TAURI_INVOKE<void>("set_output_device", { id }),
+	/**
+	 *  The active output devices and which one is the default. Call once when the UI starts;
+	 *  `outputDevicesChanged` keeps it fresh.
+	 */
+	getOutputDevices: () => __TAURI_INVOKE<OutputDevices>("get_output_devices"),
+	/**
+	 *  Airplane mode right now. The bar can read it but not switch it: open the airplane mode
+	 *  settings page (`openSettings`) for that. Call once when the UI starts; `airplaneModeChanged`
+	 *  keeps it fresh.
+	 */
+	getAirplaneMode: () => __TAURI_INVOKE<AirplaneMode>("get_airplane_mode"),
+	/**
+	 *  Wi-Fi right now. `available` is false without an adapter. Call once when the UI starts;
+	 *  `wifiChanged` keeps it fresh.
+	 */
+	getWifi: () => __TAURI_INVOKE<Wifi_Serialize>("get_wifi"),
+	/**  Turns the Wi-Fi radio on or off. `wifiChanged` follows. */
+	setWifiEnabled: (enabled: boolean) => __TAURI_INVOKE<void>("set_wifi_enabled", { enabled }),
+	/**  Asks Windows to look for networks again. `wifiChanged` follows when the scan is done. */
+	scanWifi: () => __TAURI_INVOKE<void>("scan_wifi"),
+	/**
+	 *  Joins a network Windows already knows. For any other name this opens Windows' own Wi-Fi
+	 *  flyout (joining a new secured network is not done by the bar).
+	 */
+	connectWifi: (ssid: string) => __TAURI_INVOKE<void>("connect_wifi", { ssid }),
+	/**  Disconnects from the current network. */
+	disconnectWifi: () => __TAURI_INVOKE<void>("disconnect_wifi"),
+	/**
+	 *  Bluetooth right now: radio state and paired devices. `available` is false without a radio. Call
+	 *  once when the UI starts; `bluetoothChanged` keeps it fresh.
+	 */
+	getBluetooth: () => __TAURI_INVOKE<Bluetooth>("get_bluetooth"),
+	/**
+	 *  Turns the Bluetooth radio on or off. `bluetoothChanged` follows. Connecting a single device has
+	 *  no public API: open the Bluetooth settings page for that.
+	 */
+	setBluetoothEnabled: (enabled: boolean) => __TAURI_INVOKE<void>("set_bluetooth_enabled", { enabled }),
+	/**  Opens one of Windows' own settings pages (the fallback for everything the bar can't toggle itself). */
+	openSettings: (page: SettingsPage) => __TAURI_INVOKE<void>("open_settings", { page }),
 };
 
 /** Events */
 export const events = {
+	airplaneModeChanged: makeEvent<AirplaneModeChanged, AirplaneModeChanged>("airplane-mode-changed"),
 	barAppearanceChanged: makeEvent<BarAppearanceChanged, BarAppearanceChanged>("bar-appearance-changed"),
 	barChanged: makeEvent<BarChanged, BarChanged>("bar-changed"),
 	batteryChanged: makeEvent<BatteryChanged_Serialize, BatteryChanged_Deserialize>("battery-changed"),
+	bluetoothChanged: makeEvent<BluetoothChanged, BluetoothChanged>("bluetooth-changed"),
+	brightnessChanged: makeEvent<BrightnessChanged, BrightnessChanged>("brightness-changed"),
 	clockSettingsChanged: makeEvent<ClockSettingsChanged, ClockSettingsChanged>("clock-settings-changed"),
+	controlCenterModeChanged: makeEvent<ControlCenterModeChanged, ControlCenterModeChanged>("control-center-mode-changed"),
+	hotspotChanged: makeEvent<HotspotChanged, HotspotChanged>("hotspot-changed"),
 	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
 	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
 	notificationModeChanged: makeEvent<NotificationModeChanged, NotificationModeChanged>("notification-mode-changed"),
 	notificationsChanged: makeEvent<NotificationsChanged_Serialize, NotificationsChanged_Deserialize>("notifications-changed"),
+	outputDevicesChanged: makeEvent<OutputDevicesChanged, OutputDevicesChanged>("output-devices-changed"),
 	panelChanged: makeEvent<PanelChanged_Serialize, PanelChanged_Deserialize>("panel-changed"),
 	panelWarm: makeEvent<PanelWarm, PanelWarm>("panel-warm"),
 	popoverChanged: makeEvent<PopoverChanged_Serialize, PopoverChanged_Deserialize>("popover-changed"),
@@ -185,13 +280,33 @@ export const events = {
 	submenuHovered: makeEvent<SubmenuHovered_Serialize, SubmenuHovered_Deserialize>("submenu-hovered"),
 	submenuPlaced: makeEvent<SubmenuPlaced, SubmenuPlaced>("submenu-placed"),
 	submenuShow: makeEvent<SubmenuShow_Serialize, SubmenuShow_Deserialize>("submenu-show"),
+	userChanged: makeEvent<UserChanged_Serialize, UserChanged_Deserialize>("user-changed"),
 	volumeChanged: makeEvent<VolumeChanged, VolumeChanged>("volume-changed"),
+	wifiChanged: makeEvent<WifiChanged_Serialize, WifiChanged_Deserialize>("wifi-changed"),
 	windowRadiusChanged: makeEvent<WindowRadiusChanged_Serialize, WindowRadiusChanged_Deserialize>("window-radius-changed"),
 };
 
 /* Types */
 /**  May the bar read notifications? `Unknown` also covers "Windows has not decided yet". */
 export type Access = "allowed" | "denied" | "unknown";
+
+export type Action = "lock" | "sleep" | "restart" | "shutDown" | "signOut" | "screenshot";
+
+export type ActionError = 
+/**  A destructive action came without `confirm: true`. */
+"needsConfirm";
+
+export type AirplaneMode = {
+	/**  False when Windows has no radio management here (a desktop PC): `on` means nothing then. */
+	supported: boolean,
+	on: boolean,
+};
+
+/**
+ *  Airplane mode was switched (in Windows settings or Quick Settings). Full snapshot, at most once
+ *  per frame.
+ */
+export type AirplaneModeChanged = AirplaneMode;
 
 /**  What the UI needs to know. `tone` is the tone of the WALLPAPER: `light` means dark content. */
 export type BarAppearance = {
@@ -264,6 +379,38 @@ export type Battery_Serialize = {
 	saver: boolean,
 };
 
+export type Bluetooth = {
+	/**  False when there is no Bluetooth radio: the other fields mean nothing then. */
+	available: boolean,
+	enabled: boolean,
+	/**  Windows refused radio access, so the switch can't be used (the UI opens the settings page). */
+	accessDenied: boolean,
+	devices: BluetoothDevice[],
+};
+
+/**
+ *  Bluetooth changed (radio on or off, a paired device connected or removed). Full snapshot, at
+ *  most once per frame.
+ */
+export type BluetoothChanged = Bluetooth;
+
+export type BluetoothDevice = {
+	id: string,
+	name: string,
+	connected: boolean,
+};
+
+export type Brightness = {
+	/**  The laptop panel first, then external monitors. Empty before the first read. */
+	displays: Display[],
+};
+
+/**
+ *  A display's brightness changed (the brightness keys, Windows settings, or `setBrightness`), or
+ *  monitors were plugged in or out. Full snapshot, at most once per frame.
+ */
+export type BrightnessChanged = Brightness;
+
 export type ClockSettings = {
 	/**  True for a 24 hour clock. */
 	hour24: boolean,
@@ -280,6 +427,21 @@ export type ClockSettings = {
  *  most once per frame.
  */
 export type ClockSettingsChanged = ClockSettings;
+
+/**  The control center is now ours or Windows' (a setting, see `setControlCenterMode`). */
+export type ControlCenterModeChanged = Mode;
+
+export type Display = {
+	/**  Pass it back to `setBrightness` unchanged. */
+	id: string,
+	name: string,
+	/**  The laptop's own panel. */
+	internal: boolean,
+	/**  False: the display did not answer (no DDC/CI, a dock, too slow). `level` means nothing. */
+	supported: boolean,
+	/**  0.0 to 1.0. */
+	level: number | null,
+};
 
 export type Group = Group_Serialize | Group_Deserialize;
 
@@ -298,6 +460,24 @@ export type Group_Serialize = {
 	/**  Newest first. */
 	items: Item_Serialize[],
 };
+
+export type Hotspot = {
+	/**
+	 *  False when this PC can't share its connection (no internet connection, no capable adapter,
+	 *  blocked by the organisation): hide the tile or open `openSettings("hotspot")`.
+	 */
+	supported: boolean,
+	state: HotspotState,
+	clients: number,
+	maxClients: number,
+};
+
+/**  The mobile hotspot changed (state or connected devices). Full snapshot, at most once per frame. */
+export type HotspotChanged = Hotspot;
+
+export type HotspotState = "off" | "on" | 
+/**  Starting or stopping (takes a few seconds): show a spinner, ignore clicks. */
+"changing";
 
 export type Item = Item_Serialize | Item_Deserialize;
 
@@ -534,6 +714,25 @@ export type Notifications_Serialize = {
 	groups: Group_Serialize[],
 };
 
+export type OutputDevice = {
+	/**  Windows' endpoint id. Pass it back to `setOutputDevice` unchanged. */
+	id: string,
+	name: string,
+	default: boolean,
+};
+
+export type OutputDevices = {
+	devices: OutputDevice[],
+	/**  True when a click can switch the device. False: `setOutputDevice` opens Windows' picker. */
+	canSwitch: boolean,
+};
+
+/**
+ *  An output device was added, removed or became the default. Full snapshot, at most once per
+ *  frame.
+ */
+export type OutputDevicesChanged = OutputDevices;
+
 /**
  *  The panel opened, moved to another item or closed (`None`). Carries what the UI needs: which
  *  route to show (`name`), which item is open (`anchor`) and where the window landed. Sent to
@@ -617,6 +816,12 @@ export type Rect = {
 	right: number,
 	bottom: number,
 };
+
+/**
+ *  The settings pages the UI can open. An enum, never a free string, so the UI can't make us
+ *  launch an arbitrary URI.
+ */
+export type SettingsPage = "wifi" | "bluetooth" | "sound" | "display" | "airplaneMode" | "hotspot" | "nightLight" | "batterySaver" | "focus" | "accounts" | "power" | "location";
 
 /**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
 export type StatusItemView = StatusItemView_Serialize | StatusItemView_Deserialize;
@@ -725,6 +930,42 @@ export type SubmenuSide = "right" | "left";
 /**  How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round. */
 export type Tone = "light" | "dark";
 
+export type User = User_Serialize | User_Deserialize;
+
+/**
+ *  The signed-in user's name or picture changed (read again whenever the control center opens).
+ *  Full snapshot, at most once per frame.
+ */
+export type UserChanged = UserChanged_Serialize | UserChanged_Deserialize;
+
+/**
+ *  The signed-in user's name or picture changed (read again whenever the control center opens).
+ *  Full snapshot, at most once per frame.
+ */
+export type UserChanged_Deserialize = User_Deserialize;
+
+/**
+ *  The signed-in user's name or picture changed (read again whenever the control center opens).
+ *  Full snapshot, at most once per frame.
+ */
+export type UserChanged_Serialize = User_Serialize;
+
+export type User_Deserialize = {
+	/**  False until the first read finished (or Windows gave no name). */
+	available: boolean,
+	name: string,
+	/**  The picture as a data URL; `None`: draw the initials. */
+	avatar?: string | null,
+};
+
+export type User_Serialize = {
+	/**  False until the first read finished (or Windows gave no name). */
+	available: boolean,
+	name: string,
+	/**  The picture as a data URL; `None`: draw the initials. */
+	avatar: string | null,
+};
+
 export type Volume = {
 	/**  False when there is no output device: the other fields mean nothing then. */
 	available: boolean,
@@ -739,6 +980,70 @@ export type Volume = {
  *  most once per frame.
  */
 export type VolumeChanged = Volume;
+
+export type Wifi = Wifi_Serialize | Wifi_Deserialize;
+
+/**
+ *  Wi-Fi changed (radio, current network, networks in range). Full snapshot, at most once per
+ *  frame.
+ */
+export type WifiChanged = WifiChanged_Serialize | WifiChanged_Deserialize;
+
+/**
+ *  Wi-Fi changed (radio, current network, networks in range). Full snapshot, at most once per
+ *  frame.
+ */
+export type WifiChanged_Deserialize = Wifi_Deserialize;
+
+/**
+ *  Wi-Fi changed (radio, current network, networks in range). Full snapshot, at most once per
+ *  frame.
+ */
+export type WifiChanged_Serialize = Wifi_Serialize;
+
+export type WifiNetwork = {
+	ssid: string,
+	/**  0 to 100. */
+	signal: number,
+	secured: boolean,
+	/**  Windows has a saved profile, so `connectWifi` can join it. */
+	known: boolean,
+	connected: boolean,
+};
+
+export type Wifi_Deserialize = {
+	/**  False when there is no Wi-Fi adapter: the other fields mean nothing then. */
+	available: boolean,
+	enabled: boolean,
+	/**  Windows refused radio access, so the switch can't be used (the UI opens the settings page). */
+	accessDenied: boolean,
+	/**
+	 *  False when Windows hides network names until the user allows location access
+	 *  (`openSettings("location")`).
+	 */
+	locationAllowed: boolean,
+	/**  The SSID we are connected to. */
+	current?: string | null,
+	/**  Connected first, then by signal. */
+	networks: WifiNetwork[],
+};
+
+export type Wifi_Serialize = {
+	/**  False when there is no Wi-Fi adapter: the other fields mean nothing then. */
+	available: boolean,
+	enabled: boolean,
+	/**  Windows refused radio access, so the switch can't be used (the UI opens the settings page). */
+	accessDenied: boolean,
+	/**
+	 *  False when Windows hides network names until the user allows location access
+	 *  (`openSettings("location")`).
+	 */
+	locationAllowed: boolean,
+	/**  The SSID we are connected to. */
+	current: string | null,
+	/**  Connected first, then by signal. */
+	networks: WifiNetwork[],
+};
 
 /**  What the frontend gets from `getWindowRadius` and the `window-radius-changed` event. */
 export type WindowRadius = WindowRadius_Serialize | WindowRadius_Deserialize;

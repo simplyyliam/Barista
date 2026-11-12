@@ -264,6 +264,7 @@ impl PanelWindow {
             menu.close();
         }
         crate::popover::close();
+        crate::system::panel_opened(name);
         // Place the window at the size this route had last time (the UI's number is only a first
         // guess), so the open does not resize it.
         let size = self.lock().sizes.get(name).copied().unwrap_or(size);

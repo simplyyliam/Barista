@@ -34,6 +34,9 @@ pub fn from_registry(value: Option<u32>) -> AirplaneMode {
 const KEY: &str = r"SYSTEM\CurrentControlSet\Control\RadioManagement\SystemRadioState";
 
 pub fn refresh() {
+    if !super::control_center_active() {
+        return;
+    }
     #[cfg(windows)]
     service().set(from_registry(crate::platform::windows::registry_watch::read_default_dword(KEY)));
 }

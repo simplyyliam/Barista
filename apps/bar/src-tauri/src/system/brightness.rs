@@ -47,6 +47,9 @@ pub fn to_percent(level: f64) -> Option<u8> {
 
 #[cfg(windows)]
 fn changed(raw: Vec<crate::platform::windows::display_brightness::RawDisplay>) {
+    if !super::control_center_active() {
+        return;
+    }
     service().set(Brightness {
         displays: raw
             .into_iter()

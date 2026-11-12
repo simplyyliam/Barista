@@ -44,6 +44,9 @@ pub fn refresh() {
     {
         use crate::platform::windows::user::{read, MAX_AVATAR_BYTES};
         let spawned = std::thread::Builder::new().name("barista-user".into()).spawn(|| {
+            if !super::control_center_active() {
+                return;
+            }
             if let Some(u) = read() {
                 service().set(User {
                     available: true,
