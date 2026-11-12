@@ -218,11 +218,7 @@ export const commands = {
 	 *  `outputDevicesChanged` keeps it fresh.
 	 */
 	getOutputDevices: () => __TAURI_INVOKE<OutputDevices>("get_output_devices"),
-	/**
-	 *  Airplane mode right now. The bar can read it but not switch it: open the airplane mode
-	 *  settings page (`openSettings`) for that. Call once when the UI starts; `airplaneModeChanged`
-	 *  keeps it fresh.
-	 */
+	/**  Airplane mode right now. Call once when the UI starts; `airplaneModeChanged` keeps it fresh. */
 	getAirplaneMode: () => __TAURI_INVOKE<AirplaneMode>("get_airplane_mode"),
 	/**
 	 *  Wi-Fi right now. `available` is false without an adapter. Call once when the UI starts;
@@ -254,6 +250,10 @@ export const commands = {
 	openSettings: (page: SettingsPage) => __TAURI_INVOKE<void>("open_settings", { page }),
 	/**  Starts one of the apps a quick action knows (calculator, the Clock app's timer, the camera). */
 	openApp: (app: App) => __TAURI_INVOKE<void>("open_app", { app }),
+	/**  Switches airplane mode on or off. `airplaneModeChanged` follows. */
+	setAirplaneMode: (on: boolean) => __TAURI_INVOKE<void>("set_airplane_mode", { on }),
+	/**  Switches energy saver ("battery saver") on or off. `batteryChanged` follows. */
+	setBatterySaver: (on: boolean) => __TAURI_INVOKE<void>("set_battery_saver", { on }),
 	/**
 	 *  What is playing right now (`available` is false when nothing is). Call once when the UI
 	 *  starts; `mediaChanged` keeps it fresh.

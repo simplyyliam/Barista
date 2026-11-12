@@ -31,6 +31,9 @@ pub struct Settings {
     pub notifications_seen_at: u32,
     /// Control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick Settings.
     pub control_center_mode: Mode,
+    /// Energy saver start levels (plugged in, on battery) from before the bar switched it on, so
+    /// switching it off puts them back. `None` = the bar has not touched them.
+    pub saver_restore: Option<[u32; 2]>,
 }
 
 impl Default for Settings {
@@ -41,6 +44,7 @@ impl Default for Settings {
             notifications_mode: Mode::Barista,
             notifications_seen_at: 0,
             control_center_mode: Mode::Barista,
+            saver_restore: None,
         }
     }
 }
@@ -132,6 +136,7 @@ mod tests {
             notifications_mode: Mode::Windows,
             notifications_seen_at: 1234,
             control_center_mode: Mode::Windows,
+            saver_restore: Some([0, 20]),
         };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);

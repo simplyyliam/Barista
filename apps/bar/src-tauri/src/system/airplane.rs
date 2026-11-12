@@ -1,5 +1,4 @@
-//! Airplane mode: the real state, read live. Windows has no public way to switch it, so the UI
-//! opens its settings page instead (`openSettings("airplaneMode")`, ADR 0019).
+//! Airplane mode: the real state, read live, and the switch (`IRadioManager`, ADR 0020).
 
 use super::Service;
 use serde::{Deserialize, Serialize};
@@ -39,6 +38,16 @@ pub fn refresh() {
     }
     #[cfg(windows)]
     super::publish_gated(service(), from_registry(crate::platform::windows::registry_watch::read_default_dword(KEY)));
+}
+
+/// Switches airplane mode for real. The registry watch publishes the result.
+pub fn set(on: bool) {
+    #[cfg(windows)]
+    if !crate::platform::windows::radio_manager::set_airplane(on) {
+        eprintln!("barista: airplane mode could not be switched");
+    }
+    #[cfg(not(windows))]
+    let _ = on;
 }
 
 pub fn start() {

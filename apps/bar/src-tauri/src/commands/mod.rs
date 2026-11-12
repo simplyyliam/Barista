@@ -415,6 +415,20 @@ pub fn open_settings(page: crate::system::actions::SettingsPage) {
     crate::system::actions::open_settings(page);
 }
 
+/// Switches airplane mode on or off. `airplaneModeChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_airplane_mode(on: bool) {
+    crate::system::airplane::set(on);
+}
+
+/// Switches energy saver ("battery saver") on or off. `batteryChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_battery_saver(on: bool) {
+    crate::system::battery::set_saver(on);
+}
+
 /// Starts one of the apps a quick action knows (calculator, the Clock app's timer, the camera).
 #[tauri::command]
 #[specta::specta]
@@ -518,9 +532,7 @@ pub fn disconnect_wifi() {
     crate::system::wifi::disconnect();
 }
 
-/// Airplane mode right now. The bar can read it but not switch it: open the airplane mode
-/// settings page (`openSettings`) for that. Call once when the UI starts; `airplaneModeChanged`
-/// keeps it fresh.
+/// Airplane mode right now. Call once when the UI starts; `airplaneModeChanged` keeps it fresh.
 #[tauri::command]
 #[specta::specta]
 pub fn get_airplane_mode() -> crate::system::airplane::AirplaneMode {

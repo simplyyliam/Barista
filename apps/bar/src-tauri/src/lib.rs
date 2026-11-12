@@ -93,6 +93,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::set_bluetooth_enabled,
             commands::open_settings,
             commands::open_app,
+            commands::set_airplane_mode,
+            commands::set_battery_saver,
             commands::get_media,
             commands::media_play_pause,
             commands::media_next,
