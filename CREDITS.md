@@ -20,6 +20,8 @@ The first column must be the exact package or crate name.
 | base64            | 0.23        | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
 | windows           | 0.62        | MIT OR Apache-2.0 | https://github.com/microsoft/windows-rs       |
 | windows-core      | 0.62        | MIT OR Apache-2.0 | https://github.com/microsoft/windows-rs       |
+| roxmltree         | 0.21        | MIT OR Apache-2.0 | https://github.com/RazrFalcon/roxmltree       |
+| rusqlite          | 0.40        | MIT               | https://github.com/rusqlite/rusqlite          |
 
 ## JavaScript and TypeScript
 

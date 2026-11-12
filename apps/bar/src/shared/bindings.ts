@@ -120,7 +120,7 @@ export const commands = {
 	 *  panel window then follows `panelChanged`. `width` and `height` (logical px) are a first guess;
 	 *  call `panelResized` once the content is measured. Opening closes any open menu or popover.
 	 */
-	openPanel: (name: string, anchor: string, width: number | null, height: number | null) => __TAURI_INVOKE<void>("open_panel", { name, anchor, width, height }),
+	openPanel: (name: string, anchor: string, width: number | null, height: number | null, chrome: PanelChrome) => __TAURI_INVOKE<void>("open_panel", { name, anchor, width, height, chrome }),
 	/**  Closes the panel (Esc, or the UI decided). Does nothing if none is open. */
 	closePanel: () => __TAURI_INVOKE<void>("close_panel"),
 	/**
@@ -133,6 +133,36 @@ export const commands = {
 	 *  follows `panelChanged`.
 	 */
 	getOpenPanel: () => __TAURI_INVOKE<PanelOpen | null>("get_open_panel"),
+	/**
+	 *  The notifications right now, grouped by app, newest first. Call once when the UI starts;
+	 *  `notificationsChanged` keeps it fresh. Empty in `windows` mode.
+	 */
+	getNotifications: () => __TAURI_INVOKE<Notifications_Serialize>("get_notifications"),
+	/**  Removes one notification, here and in Windows' own list. */
+	dismissNotification: (id: number) => __TAURI_INVOKE<void>("dismiss_notification", { id }),
+	/**  Removes every notification, here and in Windows' own list. */
+	clearNotifications: () => __TAURI_INVOKE<void>("clear_notifications"),
+	/**  A click on a notification: starts (or focuses) the app that sent it and removes the notification. */
+	openNotification: (id: number) => __TAURI_INVOKE<void>("open_notification", { id }),
+	/**
+	 *  The notification's picture as a data URL. `None` when it has none or it can't be read; only
+	 *  ask when `hasImage` is true.
+	 */
+	getNotificationImage: (id: number) => __TAURI_INVOKE<string | null>("get_notification_image", { id }),
+	/**  An app's icon as a PNG data URL (`appId` from a notification group). `None`: draw a letter. */
+	getNotificationAppIcon: (appId: string) => __TAURI_INVOKE<string | null>("get_notification_app_icon", { appId }),
+	/**  The notification panel was opened: clears the unread dot. */
+	markNotificationsSeen: () => __TAURI_INVOKE<void>("mark_notifications_seen"),
+	/**  Opens Windows' own notification access settings (for the "turn on access" state). */
+	openNotificationSettings: () => __TAURI_INVOKE<void>("open_notification_settings"),
+	/**  Opens Windows' Focus settings (the Focus button; Windows has no way to start Focus for us). */
+	openFocusSettings: () => __TAURI_INVOKE<void>("open_focus_settings"),
+	/**  Opens Windows' own notification center (what the date does in `windows` mode). */
+	openWindowsNotifications: () => __TAURI_INVOKE<void>("open_windows_notifications"),
+	/**  Who draws the notification panel: our own or Windows' (the v0.8 settings window flips this). */
+	getNotificationMode: () => __TAURI_INVOKE<Mode>("get_notification_mode"),
+	/**  Switches the notification panel between ours and Windows'. Saved; `notificationModeChanged` follows. */
+	setNotificationMode: (mode: Mode) => __TAURI_INVOKE<void>("set_notification_mode", { mode }),
 };
 
 /** Events */
@@ -145,6 +175,8 @@ export const events = {
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
 	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
+	notificationModeChanged: makeEvent<NotificationModeChanged, NotificationModeChanged>("notification-mode-changed"),
+	notificationsChanged: makeEvent<NotificationsChanged_Serialize, NotificationsChanged_Deserialize>("notifications-changed"),
 	panelChanged: makeEvent<PanelChanged_Serialize, PanelChanged_Deserialize>("panel-changed"),
 	popoverChanged: makeEvent<PopoverChanged_Serialize, PopoverChanged_Deserialize>("popover-changed"),
 	submenuHide: makeEvent<SubmenuHide, SubmenuHide>("submenu-hide"),
@@ -157,6 +189,9 @@ export const events = {
 };
 
 /* Types */
+/**  May the bar read notifications? `Unknown` also covers "Windows has not decided yet". */
+export type Access = "allowed" | "denied" | "unknown";
+
 /**  What the UI needs to know. `tone` is the tone of the WALLPAPER: `light` means dark content. */
 export type BarAppearance = {
 	tone: Tone,
@@ -245,6 +280,26 @@ export type ClockSettings = {
  */
 export type ClockSettingsChanged = ClockSettings;
 
+export type Group = Group_Serialize | Group_Deserialize;
+
+export type Group_Deserialize = {
+	/**  The app's user model id (what `getNotificationAppIcon` takes). */
+	appId: string,
+	appName: string,
+	/**  Newest first. */
+	items: Item_Deserialize[],
+};
+
+export type Group_Serialize = {
+	/**  The app's user model id (what `getNotificationAppIcon` takes). */
+	appId: string,
+	appName: string,
+	/**  Newest first. */
+	items: Item_Serialize[],
+};
+
+export type Item = Item_Serialize | Item_Deserialize;
+
 /**
  *  Where an item sits inside the bar window, in logical pixels (CSS pixels, what the UI
  *  measures with `getBoundingClientRect`).
@@ -256,6 +311,34 @@ export type ItemBounds = {
 	y: number | null,
 	width: number | null,
 	height: number | null,
+};
+
+export type Item_Deserialize = {
+	/**  The toast id (what `dismissNotification` and `openNotification` take). */
+	id: number,
+	title: string,
+	/**  The other text lines, in order. */
+	lines: string[],
+	/**  The small grey line some apps add below the text. */
+	attribution?: string | null,
+	/**  Unix seconds. */
+	arrivedAt: number,
+	/**  There is a picture to fetch with `getNotificationImage(id)`. */
+	hasImage: boolean,
+};
+
+export type Item_Serialize = {
+	/**  The toast id (what `dismissNotification` and `openNotification` take). */
+	id: number,
+	title: string,
+	/**  The other text lines, in order. */
+	lines: string[],
+	/**  The small grey line some apps add below the text. */
+	attribution: string | null,
+	/**  Unix seconds. */
+	arrivedAt: number,
+	/**  There is a picture to fetch with `getNotificationImage(id)`. */
+	hasImage: boolean,
 };
 
 /**
@@ -388,6 +471,12 @@ export type MenuRole =
 /**  The bar asks the app to quit (the SDK closes it unless the app handles the click). */
 "quit" | "about" | "settings";
 
+/**
+ *  Who draws a feature that replaces a Windows one (CLAUDE.md rule 11). `Windows` means the bar
+ *  does nothing for it and opens the Windows version instead.
+ */
+export type Mode = "barista" | "windows";
+
 export type Monitor = {
 	/**  Stable across restarts and replugging (the display's device path). */
 	id: string,
@@ -403,6 +492,46 @@ export type Monitor = {
 
 /**  Which mouse button clicked an item. */
 export type MouseButton = "left" | "right" | "middle";
+
+/**  The notification panel is now ours or Windows' (a setting, see `setNotificationMode`). */
+export type NotificationModeChanged = Mode;
+
+/**  The full snapshot. Groups are ordered by their newest notification. */
+export type Notifications = Notifications_Serialize | Notifications_Deserialize;
+
+/**
+ *  The notifications changed (arrived, dismissed, unread, access). Full snapshot, at most once per
+ *  frame.
+ */
+export type NotificationsChanged = NotificationsChanged_Serialize | NotificationsChanged_Deserialize;
+
+/**
+ *  The notifications changed (arrived, dismissed, unread, access). Full snapshot, at most once per
+ *  frame.
+ */
+export type NotificationsChanged_Deserialize = Notifications_Deserialize;
+
+/**
+ *  The notifications changed (arrived, dismissed, unread, access). Full snapshot, at most once per
+ *  frame.
+ */
+export type NotificationsChanged_Serialize = Notifications_Serialize;
+
+/**  The full snapshot. Groups are ordered by their newest notification. */
+export type Notifications_Deserialize = {
+	access: Access,
+	/**  Something arrived since the panel was last opened. */
+	unread: boolean,
+	groups: Group_Deserialize[],
+};
+
+/**  The full snapshot. Groups are ordered by their newest notification. */
+export type Notifications_Serialize = {
+	access: Access,
+	/**  Something arrived since the panel was last opened. */
+	unread: boolean,
+	groups: Group_Serialize[],
+};
 
 /**
  *  The panel opened, moved to another item or closed (`None`). Carries what the UI needs: which
@@ -429,6 +558,13 @@ export type PanelChanged_Serialize = {
 	open: PanelOpen | null,
 };
 
+/**
+ *  How the panel window looks. `Glass` is the system backdrop, rounded corners and shadow of a menu.
+ *  `None` is a bare transparent window: the page draws its own cards (the notification and control
+ *  center designs are separate floating cards).
+ */
+export type PanelChrome = "glass" | "none";
+
 /**  A panel and the item it hangs from. The UI shows the route for `name` and the item as open. */
 export type PanelOpen = {
 	name: string,
@@ -439,6 +575,7 @@ export type PanelOpen = {
 	monitorId: string,
 	/**  True when the window has the system acrylic backdrop. False (Windows 10): draw an opaque panel. */
 	acrylic: boolean,
+	chrome: PanelChrome,
 };
 
 /**

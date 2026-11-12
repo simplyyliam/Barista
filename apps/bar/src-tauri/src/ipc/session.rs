@@ -440,7 +440,18 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
             ..
         } => {
             if let (Some(panel), true) = (crate::panel::get(), width.is_finite() && height.is_finite()) {
-                panel.open(&name, &anchor, (width.clamp(1.0, 4000.0), height.clamp(1.0, 4000.0)));
+                // The cards of the notification design float on a bare window; other routes keep the glass.
+                let chrome = if name == "notifications" {
+                    crate::panel::PanelChrome::None
+                } else {
+                    crate::panel::PanelChrome::Glass
+                };
+                panel.open(
+                    &name,
+                    &anchor,
+                    (width.clamp(1.0, 4000.0), height.clamp(1.0, 4000.0)),
+                    chrome,
+                );
             }
             Ok(())
         }

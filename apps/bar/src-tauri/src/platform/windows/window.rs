@@ -141,6 +141,45 @@ pub fn set_menu_styles(hwnd: HWND, no_activate: bool) -> bool {
     }
 }
 
+/// Switches the panel window between the menu look (`glass`: system backdrop, round corners) and a
+/// bare transparent window (the page draws its own cards). Can be called again at any time.
+/// The shadow is Tauri's `set_shadow`, done by the caller.
+pub fn set_panel_chrome(hwnd: HWND, glass: bool) {
+    use windows::Win32::Graphics::Dwm::{
+        DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMSBT_NONE, DWMSBT_TRANSIENTWINDOW,
+        DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+        DWMWCP_ROUND,
+    };
+    use windows::Win32::UI::Controls::MARGINS;
+    let corner = if glass { DWMWCP_ROUND } else { DWMWCP_DONOTROUND };
+    let backdrop = if glass { DWMSBT_TRANSIENTWINDOW } else { DWMSBT_NONE };
+    // -1 extends the frame over the whole window so the backdrop shows; 0 takes it back.
+    let m = if glass { -1 } else { 0 };
+    let margins = MARGINS {
+        cxLeftWidth: m,
+        cxRightWidth: m,
+        cyTopHeight: m,
+        cyBottomHeight: m,
+    };
+    // SAFETY: plain values that live for the call. Older Windows does not know an attribute and
+    // returns an error, which is fine: that window just keeps what it has.
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            std::ptr::addr_of!(corner).cast(),
+            std::mem::size_of_val(&corner) as u32,
+        );
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_SYSTEMBACKDROP_TYPE,
+            std::ptr::addr_of!(backdrop).cast(),
+            std::mem::size_of_val(&backdrop) as u32,
+        );
+        let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
+    }
+}
+
 /// Makes DWM draw the window as "active" without activating it. The system acrylic turns flat
 /// on an inactive window, and the submenu window can never be active (it would take the keyboard
 /// from the main menu), so it gets the active look this way.

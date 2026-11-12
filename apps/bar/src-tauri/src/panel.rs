@@ -27,6 +27,17 @@ pub const LABEL: &str = "panel";
 /// If the UI never reports its size (it should within a frame), show the window anyway.
 const REVEAL_FALLBACK: Duration = Duration::from_millis(20);
 
+/// How the panel window looks. `Glass` is the system backdrop, rounded corners and shadow of a menu.
+/// `None` is a bare transparent window: the page draws its own cards (the notification and control
+/// center designs are separate floating cards).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum PanelChrome {
+    #[default]
+    Glass,
+    None,
+}
+
 /// A panel and the item it hangs from. The UI shows the route for `name` and the item as open.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -39,6 +50,7 @@ pub struct PanelOpen {
     pub monitor_id: String,
     /// True when the window has the system acrylic backdrop. False (Windows 10): draw an opaque panel.
     pub acrylic: bool,
+    pub chrome: PanelChrome,
 }
 
 struct Inner {
@@ -51,6 +63,7 @@ struct Inner {
     /// Bumped on every open and close; a delayed reveal only counts if nothing happened since.
     generation: u64,
     acrylic: bool,
+    chrome: PanelChrome,
 }
 
 pub struct PanelWindow {
@@ -114,12 +127,23 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             pending_show: false,
             generation: 0,
             acrylic,
+            chrome: PanelChrome::Glass,
         }),
     });
     crate::menu_window::tone_changed(
         crate::appearance::current().tone == crate::appearance::luminance::Tone::Dark,
     );
     Ok(())
+}
+
+/// Switches the window between the menu look and a bare transparent window.
+fn apply_chrome(window: &tauri::WebviewWindow, chrome: PanelChrome) {
+    let glass = chrome == PanelChrome::Glass;
+    let _ = window.set_shadow(glass);
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() {
+        crate::platform::windows::window::set_panel_chrome(hwnd, glass);
+    }
 }
 
 impl PanelWindow {
@@ -138,19 +162,19 @@ impl PanelWindow {
 
     /// `openPanel`: a click on the item `anchor`. Same anchor again closes, another anchor swaps.
     /// `size` is the UI's first guess (logical px); `panelResized` fixes it.
-    pub fn open(&self, name: &str, anchor: &str, size: (f64, f64)) {
+    pub fn open(&self, name: &str, anchor: &str, size: (f64, f64), chrome: PanelChrome) {
         if !valid_name(name) || !valid_anchor(anchor) {
             return;
         }
         let action = self.lock().machine.click(anchor, Instant::now());
         match action {
             Action::Nothing => {}
-            Action::Open(_) | Action::Swap(_) => self.show(name, anchor, size),
+            Action::Open(_) | Action::Swap(_) => self.show(name, anchor, size, chrome),
             Action::Close => self.hide(),
         }
     }
 
-    fn show(&self, name: &str, anchor: &str, size: (f64, f64)) {
+    fn show(&self, name: &str, anchor: &str, size: (f64, f64), chrome: PanelChrome) {
         let Some((bar, work, scale)) = geometry() else {
             // The bar has no monitor yet: stay closed, and keep the machine honest.
             self.close();
@@ -166,6 +190,13 @@ impl PanelWindow {
         // read both fresh whenever a panel opens (one cheap call each, no polling).
         crate::system::battery::refresh();
         crate::system::clock::refresh();
+        // The frame decides the invisible border, so set the chrome before measuring it.
+        if self.lock().chrome != chrome {
+            if let Some(window) = self.window() {
+                apply_chrome(&window, chrome);
+            }
+            self.lock().chrome = chrome;
+        }
         let extra = crate::menu_window::frame_extra(self.window().as_ref());
         let item = placement::item_rect(anchor, &bar, scale);
         let (open, generation) = {
@@ -183,7 +214,8 @@ impl PanelWindow {
                 monitor_id: crate::controller::get()
                     .map(|c| c.info().monitor.id)
                     .unwrap_or_default(),
-                acrylic: inner.acrylic,
+                acrylic: inner.acrylic && chrome == PanelChrome::Glass,
+                chrome,
             };
             inner.open = Some(open.clone());
             (open, inner.generation)

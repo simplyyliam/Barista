@@ -59,7 +59,19 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::open_panel,
             commands::close_panel,
             commands::panel_resized,
-            commands::get_open_panel
+            commands::get_open_panel,
+            commands::get_notifications,
+            commands::dismiss_notification,
+            commands::clear_notifications,
+            commands::open_notification,
+            commands::get_notification_image,
+            commands::get_notification_app_icon,
+            commands::mark_notifications_seen,
+            commands::open_notification_settings,
+            commands::open_focus_settings,
+            commands::open_windows_notifications,
+            commands::get_notification_mode,
+            commands::set_notification_mode
         ])
         .events(collect_events![
             events::BarChanged,
@@ -77,6 +89,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::ClockSettingsChanged,
             events::BatteryChanged,
             events::VolumeChanged,
+            events::NotificationsChanged,
+            events::NotificationModeChanged,
             events::PanelChanged,
             appearance::BarAppearanceChanged
         ])

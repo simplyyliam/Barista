@@ -268,9 +268,15 @@ pub fn set_muted(muted: bool) {
 /// call `panelResized` once the content is measured. Opening closes any open menu or popover.
 #[tauri::command]
 #[specta::specta]
-pub fn open_panel(name: String, anchor: String, width: f64, height: f64) {
+pub fn open_panel(
+    name: String,
+    anchor: String,
+    width: f64,
+    height: f64,
+    chrome: crate::panel::PanelChrome,
+) {
     if let Some(panel) = crate::panel::get() {
-        panel.open(&name, &anchor, (clean_size(width), clean_size(height)));
+        panel.open(&name, &anchor, (clean_size(width), clean_size(height)), chrome);
     }
 }
 
@@ -297,4 +303,96 @@ pub fn panel_resized(width: f64, height: f64) {
 #[specta::specta]
 pub fn get_open_panel() -> Option<crate::panel::PanelOpen> {
     crate::panel::get().and_then(|p| p.current())
+}
+
+/// The notifications right now, grouped by app, newest first. Call once when the UI starts;
+/// `notificationsChanged` keeps it fresh. Empty in `windows` mode.
+#[tauri::command]
+#[specta::specta]
+pub fn get_notifications() -> crate::system::notifications::Notifications {
+    crate::system::notifications::service().get()
+}
+
+/// Removes one notification, here and in Windows' own list.
+#[tauri::command]
+#[specta::specta]
+pub fn dismiss_notification(id: u32) {
+    crate::system::notifications::dismiss(id);
+}
+
+/// Removes every notification, here and in Windows' own list.
+#[tauri::command]
+#[specta::specta]
+pub fn clear_notifications() {
+    crate::system::notifications::clear();
+}
+
+/// A click on a notification: starts (or focuses) the app that sent it and removes the notification.
+#[tauri::command]
+#[specta::specta]
+pub async fn open_notification(id: u32) {
+    crate::system::notifications::open(id);
+}
+
+/// The notification's picture as a data URL. `None` when it has none or it can't be read; only
+/// ask when `hasImage` is true.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_notification_image(id: u32) -> Option<String> {
+    crate::system::notifications::image(id)
+}
+
+/// An app's icon as a PNG data URL (`appId` from a notification group). `None`: draw a letter.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_notification_app_icon(app_id: String) -> Option<String> {
+    crate::system::notifications::app_icon(&app_id)
+}
+
+/// The notification panel was opened: clears the unread dot.
+#[tauri::command]
+#[specta::specta]
+pub fn mark_notifications_seen() {
+    crate::system::notifications::mark_seen();
+}
+
+/// Opens Windows' own notification access settings (for the "turn on access" state).
+#[tauri::command]
+#[specta::specta]
+pub fn open_notification_settings() {
+    crate::platform::windows::app_icon::open_uri("ms-settings:privacy-notifications");
+}
+
+/// Opens Windows' Focus settings (the Focus button; Windows has no way to start Focus for us).
+#[tauri::command]
+#[specta::specta]
+pub fn open_focus_settings() {
+    crate::platform::windows::app_icon::open_uri("ms-settings:quiethours");
+}
+
+/// Opens Windows' own notification center (what the date does in `windows` mode).
+#[tauri::command]
+#[specta::specta]
+pub fn open_windows_notifications() {
+    crate::platform::windows::app_icon::open_uri("ms-actioncenter:");
+}
+
+/// Who draws the notification panel: our own or Windows' (the v0.8 settings window flips this).
+#[tauri::command]
+#[specta::specta]
+pub fn get_notification_mode() -> crate::settings::Mode {
+    crate::system::notifications::mode()
+}
+
+/// Switches the notification panel between ours and Windows'. Saved; `notificationModeChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_notification_mode(app: tauri::AppHandle, mode: crate::settings::Mode) {
+    use tauri_specta::Event;
+    if mode == crate::system::notifications::mode() {
+        return;
+    }
+    crate::panel::close();
+    crate::system::notifications::set_mode(mode);
+    let _ = crate::events::NotificationModeChanged(mode).emit(&app);
 }
