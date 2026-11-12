@@ -34,7 +34,9 @@ pub fn start() {
         service().set(match raw {
             Some(r) => Volume {
                 available: true,
-                level: f64::from(r.level),
+                // Windows steps 0.02; rounding hides the f32 noise (0.3 -> 0.30000001) so a slider
+                // fed by `volumeChanged` does not fight the value it just sent.
+                level: (f64::from(r.level) * 10_000.0).round() / 10_000.0,
                 muted: r.muted,
                 device_name: r.device_name,
             },

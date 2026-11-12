@@ -155,6 +155,10 @@ impl PanelWindow {
         }
         crate::popover::close();
 
+        // Windows sends no event when the battery estimate drifts or a DST change slips by:
+        // read both fresh whenever a panel opens (one cheap call each, no polling).
+        crate::system::battery::refresh();
+        crate::system::clock::refresh();
         let extra = crate::menu_window::frame_extra(self.window().as_ref());
         let item = placement::item_rect(anchor, &bar, scale);
         let (open, generation) = {
@@ -205,7 +209,7 @@ impl PanelWindow {
             return;
         };
         let extra = crate::menu_window::frame_extra(self.window().as_ref());
-        let (rect, reveal) = {
+        let (rect, reveal, changed) = {
             let mut inner = self.lock();
             let Some(open) = inner.open.as_mut() else {
                 return;
@@ -214,12 +218,15 @@ impl PanelWindow {
             let rect = crate::menu_window::place_logical(&item, (width, height), extra, &work, scale);
             open.rect = rect;
             open.scale = scale;
+            let changed = open.clone();
             inner.size = (width, height);
-            (rect, inner.pending_show)
+            (rect, inner.pending_show, changed)
         };
         if let Some(window) = self.window() {
             crate::menu_window::move_to(&window, &rect);
         }
+        // The UI reads `rect` and `scale` from this event: keep them true after the re-place.
+        let _ = PanelChanged { open: Some(changed) }.emit(&self.app);
         if reveal {
             self.reveal();
         }

@@ -439,7 +439,7 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
             height,
             ..
         } => {
-            if let Some(panel) = crate::panel::get() {
+            if let (Some(panel), true) = (crate::panel::get(), width.is_finite() && height.is_finite()) {
                 panel.open(&name, &anchor, (width.clamp(1.0, 4000.0), height.clamp(1.0, 4000.0)));
             }
             Ok(())

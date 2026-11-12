@@ -15,7 +15,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetClientRect, GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW, SendMessageW,
+    GetClientRect, GetWindowLongPtrW, PBT_APMPOWERSTATUSCHANGE, PBT_POWERSETTINGCHANGE, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW, SendMessageW,
     SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
     SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
     WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_NCACTIVATE, WM_POWERBROADCAST, WM_SETTINGCHANGE, WM_TIMECHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
@@ -320,8 +320,12 @@ unsafe extern "system" fn subclass_proc(
         }
         WM_SETTINGCHANGE if lparam_is_intl(lparam) => emit(WindowEvent::RegionChanged),
         WM_TIMECHANGE => emit(WindowEvent::TimeChanged),
-        // 0x8013 = PBT_POWERSETTINGCHANGE (a registered setting), 0xA = PBT_APMPOWERSTATUSCHANGE.
-        WM_POWERBROADCAST if matches!(wparam.0, 0x8013 | 0xA) => emit(WindowEvent::PowerChanged),
+        WM_POWERBROADCAST
+            if wparam.0 == PBT_POWERSETTINGCHANGE as usize
+                || wparam.0 == PBT_APMPOWERSTATUSCHANGE as usize =>
+        {
+            emit(WindowEvent::PowerChanged)
+        }
         WM_HOTKEY => emit(WindowEvent::ToneHotkey),
         WM_ACTIVATE => appbar::activate(hwnd),
         WM_WINDOWPOSCHANGED => appbar::window_pos_changed(hwnd),
