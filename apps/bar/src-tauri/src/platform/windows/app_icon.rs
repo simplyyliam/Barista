@@ -123,21 +123,6 @@ pub fn launch(app_id: &str) {
     }
 }
 
-/// Opens a `ms-settings:` page or another URI the shell knows.
-pub fn open_uri(uri: &str) {
-    // SAFETY: as above.
-    unsafe {
-        ShellExecuteW(
-            None,
-            &HSTRING::from("open"),
-            &HSTRING::from(uri),
-            None,
-            None,
-            SW_SHOWNORMAL,
-        );
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -360,21 +360,21 @@ pub fn mark_notifications_seen() {
 #[tauri::command]
 #[specta::specta]
 pub fn open_notification_settings() {
-    crate::platform::windows::app_icon::open_uri("ms-settings:privacy-notifications");
+    crate::platform::windows::shell::open_uri("ms-settings:privacy-notifications");
 }
 
 /// Opens Windows' Focus settings (the Focus button; Windows has no way to start Focus for us).
 #[tauri::command]
 #[specta::specta]
 pub fn open_focus_settings() {
-    crate::platform::windows::app_icon::open_uri("ms-settings:quiethours");
+    crate::platform::windows::shell::open_uri("ms-settings:quiethours");
 }
 
 /// Opens Windows' own notification center (what the date does in `windows` mode).
 #[tauri::command]
 #[specta::specta]
 pub fn open_windows_notifications() {
-    crate::platform::windows::app_icon::open_uri("ms-actioncenter:");
+    crate::platform::windows::shell::open_uri("ms-actioncenter:");
 }
 
 /// Who draws the notification panel: our own or Windows' (the v0.8 settings window flips this).
@@ -395,4 +395,22 @@ pub fn set_notification_mode(app: tauri::AppHandle, mode: crate::settings::Mode)
     crate::panel::close();
     crate::system::notifications::set_mode(mode);
     let _ = crate::events::NotificationModeChanged(mode).emit(&app);
+}
+
+/// Runs a control center action. Restart, shut down and sign out only run with `confirm: true`
+/// (the UI asks the user first); without it they return `needsConfirm` and do nothing.
+#[tauri::command]
+#[specta::specta]
+pub fn run_action(
+    action: crate::system::actions::Action,
+    confirm: bool,
+) -> Result<(), crate::system::actions::ActionError> {
+    crate::system::actions::run(action, confirm)
+}
+
+/// Opens one of Windows' own settings pages (the fallback for everything the bar can't toggle itself).
+#[tauri::command]
+#[specta::specta]
+pub fn open_settings(page: crate::system::actions::SettingsPage) {
+    crate::system::actions::open_settings(page);
 }

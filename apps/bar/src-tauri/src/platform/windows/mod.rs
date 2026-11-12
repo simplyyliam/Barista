@@ -15,6 +15,7 @@ pub mod notification_db;
 pub mod notifications;
 pub mod pipe;
 pub mod power;
+pub mod shell;
 pub mod wallpaper;
 pub mod wallpaper_watch;
 pub mod windhawk;

@@ -71,7 +71,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::open_focus_settings,
             commands::open_windows_notifications,
             commands::get_notification_mode,
-            commands::set_notification_mode
+            commands::set_notification_mode,
+            commands::run_action,
+            commands::open_settings
         ])
         .events(collect_events![
             events::BarChanged,

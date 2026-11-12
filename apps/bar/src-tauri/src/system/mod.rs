@@ -8,6 +8,7 @@
 //!                                                       └► forward task: wait 16 ms, emit latest
 //! ```
 
+pub mod actions;
 pub mod battery;
 pub mod clock;
 pub mod notifications;
