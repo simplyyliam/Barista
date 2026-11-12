@@ -1,6 +1,6 @@
 # 0017: Reading Windows notifications (spike result)
 
-Status: proposed (2026-11-12, v0.4b slice C spike). Liam approves before the notifications work starts.
+Status: accepted (2026-11-12). Liam chose to build the panel; the plan became ADR 0018, which also reads the database for pictures.
 
 ## Context
 
