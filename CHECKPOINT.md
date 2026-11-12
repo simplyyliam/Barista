@@ -7,9 +7,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 - **v0.4.0 shipped** (tag `v0.4.0` on the merge of PR #19, not pushed yet: Liam runs `pnpm release`). Plan releases
   v0.0 to v0.4 are done; notes in `docs/release/history/` (local only, v0.4 in `v0.4-checkpoint.md`).
-- **In progress: v0.4b slice A** (branch `feature/v0.4b-system-panels-a`): panel window, clock settings, battery, volume.
-  Rust done and live-tested; ADR 0016. Left: perf report `docs/perf/0.4b.md`, code review, PR. Slices B and C are next
-  (`releases/v0.4b.md`, local only).
+- **v0.4b slice A done, PR #22 open** (branch `feature/v0.4b-system-panels-a`, Liam reviews and merges): panel window, clock
+  settings, battery, volume (ADR 0016, `docs/perf/0.4b.md`). Next: slices B and C (`releases/v0.4b.md`, local only);
+  re-measure panel latency once the UI uses `panelResized`.
 - ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
 
 ## Facts a new session needs
