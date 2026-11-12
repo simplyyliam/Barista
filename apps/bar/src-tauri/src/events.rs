@@ -215,3 +215,8 @@ pub struct UserChanged(pub crate::system::user::User);
 /// The mobile hotspot changed (state or connected devices). Full snapshot, at most once per frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct HotspotChanged(pub crate::system::hotspot::Hotspot);
+
+/// A display's brightness changed (the brightness keys, Windows settings, or `setBrightness`), or
+/// monitors were plugged in or out. Full snapshot, at most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct BrightnessChanged(pub crate::system::brightness::Brightness);

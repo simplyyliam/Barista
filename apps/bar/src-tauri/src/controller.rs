@@ -150,6 +150,8 @@ fn handle_window_event(c: &'static Controller, event: window::WindowEvent) {
         DisplayChanged | DpiChanged => {
             c.refresh_monitors();
             c.apply();
+            // Plugged or unplugged monitors: ask them for their brightness again.
+            crate::system::brightness::refresh();
         }
         WallpaperChanged => crate::appearance::wallpaper_changed(),
         ToneHotkey => {

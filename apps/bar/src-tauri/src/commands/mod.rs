@@ -517,3 +517,20 @@ pub fn get_hotspot() -> crate::system::hotspot::Hotspot {
 pub async fn set_hotspot_enabled(enabled: bool) {
     crate::system::hotspot::set_enabled(enabled);
 }
+
+/// The brightness of every display: the laptop panel first, then external monitors. A display
+/// with `supported: false` can't be controlled. Call once when the UI starts; `brightnessChanged`
+/// keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_brightness() -> crate::system::brightness::Brightness {
+    crate::system::brightness::service().get()
+}
+
+/// Sets one display's brightness (`id` from `getBrightness`, `level` 0 to 1, never below 1%).
+/// Unknown ids and unsupported displays are ignored. `brightnessChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_brightness(id: String, level: f64) {
+    crate::system::brightness::set(&id, level);
+}
