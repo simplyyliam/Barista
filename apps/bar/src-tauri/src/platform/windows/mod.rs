@@ -12,6 +12,7 @@ pub mod ddc;
 pub mod folder_watch;
 pub mod foreground;
 pub mod locale;
+pub mod media;
 pub mod fullscreen;
 pub mod monitors;
 pub mod notification_db;

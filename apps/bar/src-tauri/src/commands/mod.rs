@@ -415,6 +415,56 @@ pub fn open_settings(page: crate::system::actions::SettingsPage) {
     crate::system::actions::open_settings(page);
 }
 
+/// Starts one of the apps a quick action knows (calculator, the Clock app's timer, the camera).
+#[tauri::command]
+#[specta::specta]
+pub fn open_app(app: crate::system::actions::App) {
+    crate::system::actions::open_app(app);
+}
+
+/// What is playing right now (`available` is false when nothing is). Call once when the UI
+/// starts; `mediaChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_media() -> crate::system::media::Media {
+    crate::system::media::service().get()
+}
+
+/// Plays or pauses the current player.
+#[tauri::command]
+#[specta::specta]
+pub fn media_play_pause() {
+    crate::system::media::play_pause();
+}
+
+/// Skips to the next track of the current player.
+#[tauri::command]
+#[specta::specta]
+pub fn media_next() {
+    crate::system::media::next();
+}
+
+/// Goes back to the previous track of the current player.
+#[tauri::command]
+#[specta::specta]
+pub fn media_previous() {
+    crate::system::media::previous();
+}
+
+/// Dark or light mode right now. Call once when the UI starts; `themeModeChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_theme_mode() -> crate::system::theme::ThemeMode {
+    crate::system::theme::service().get()
+}
+
+/// Switches Windows (apps and system) to dark or light mode. `themeModeChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_dark_mode(dark: bool) {
+    crate::system::theme::set_dark(dark);
+}
+
 /// Bluetooth right now: radio state and paired devices. `available` is false without a radio. Call
 /// once when the UI starts; `bluetoothChanged` keeps it fresh.
 #[tauri::command]

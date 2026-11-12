@@ -42,6 +42,8 @@ pub enum SettingsPage {
     Accounts,
     Power,
     Location,
+    /// Windows Settings' start page (the gear in the control center).
+    Home,
 }
 
 impl SettingsPage {
@@ -59,8 +61,35 @@ impl SettingsPage {
             Self::Accounts => "ms-settings:yourinfo",
             Self::Power => "ms-settings:powersleep",
             Self::Location => "ms-settings:privacy-location",
+            Self::Home => "ms-settings:",
         }
     }
+}
+
+/// Apps a quick action can start. An enum with fixed URIs, so the UI can't launch anything else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum App {
+    Calculator,
+    ClockTimer,
+    Camera,
+}
+
+impl App {
+    pub fn uri(self) -> &'static str {
+        match self {
+            Self::Calculator => "calculator:",
+            Self::ClockTimer => "ms-clock:",
+            Self::Camera => "microsoft.windows.camera:",
+        }
+    }
+}
+
+pub fn open_app(app: App) {
+    #[cfg(windows)]
+    crate::platform::windows::shell::open_uri(app.uri());
+    #[cfg(not(windows))]
+    let _ = app;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -136,9 +165,16 @@ mod tests {
         use SettingsPage::*;
         for p in [
             Wifi, Bluetooth, Sound, Display, AirplaneMode, Hotspot, NightLight, BatterySaver, Focus,
-            Accounts, Power, Location,
+            Accounts, Power, Location, Home,
         ] {
             assert!(p.uri().starts_with("ms-settings:"));
+        }
+    }
+
+    #[test]
+    fn apps_have_fixed_uris() {
+        for a in [App::Calculator, App::ClockTimer, App::Camera] {
+            assert!(a.uri().ends_with(':'));
         }
     }
 }

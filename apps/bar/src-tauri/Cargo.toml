@@ -52,6 +52,7 @@ features = [
   "Networking_Connectivity",
   "Networking_NetworkOperators",
   "Foundation_Collections",
+  "Media_Control",
   "Storage_Streams",
   "System",
   "UI_Notifications",

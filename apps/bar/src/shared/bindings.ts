@@ -252,6 +252,23 @@ export const commands = {
 	setBluetoothEnabled: (enabled: boolean) => __TAURI_INVOKE<void>("set_bluetooth_enabled", { enabled }),
 	/**  Opens one of Windows' own settings pages (the fallback for everything the bar can't toggle itself). */
 	openSettings: (page: SettingsPage) => __TAURI_INVOKE<void>("open_settings", { page }),
+	/**  Starts one of the apps a quick action knows (calculator, the Clock app's timer, the camera). */
+	openApp: (app: App) => __TAURI_INVOKE<void>("open_app", { app }),
+	/**
+	 *  What is playing right now (`available` is false when nothing is). Call once when the UI
+	 *  starts; `mediaChanged` keeps it fresh.
+	 */
+	getMedia: () => __TAURI_INVOKE<Media_Serialize>("get_media"),
+	/**  Plays or pauses the current player. */
+	mediaPlayPause: () => __TAURI_INVOKE<void>("media_play_pause"),
+	/**  Skips to the next track of the current player. */
+	mediaNext: () => __TAURI_INVOKE<void>("media_next"),
+	/**  Goes back to the previous track of the current player. */
+	mediaPrevious: () => __TAURI_INVOKE<void>("media_previous"),
+	/**  Dark or light mode right now. Call once when the UI starts; `themeModeChanged` keeps it fresh. */
+	getThemeMode: () => __TAURI_INVOKE<ThemeMode>("get_theme_mode"),
+	/**  Switches Windows (apps and system) to dark or light mode. `themeModeChanged` follows. */
+	setDarkMode: (dark: boolean) => __TAURI_INVOKE<void>("set_dark_mode", { dark }),
 };
 
 /** Events */
@@ -266,6 +283,7 @@ export const events = {
 	controlCenterModeChanged: makeEvent<ControlCenterModeChanged, ControlCenterModeChanged>("control-center-mode-changed"),
 	hotspotChanged: makeEvent<HotspotChanged, HotspotChanged>("hotspot-changed"),
 	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
+	mediaChanged: makeEvent<MediaChanged_Serialize, MediaChanged_Deserialize>("media-changed"),
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
 	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
@@ -280,6 +298,7 @@ export const events = {
 	submenuHovered: makeEvent<SubmenuHovered_Serialize, SubmenuHovered_Deserialize>("submenu-hovered"),
 	submenuPlaced: makeEvent<SubmenuPlaced, SubmenuPlaced>("submenu-placed"),
 	submenuShow: makeEvent<SubmenuShow_Serialize, SubmenuShow_Deserialize>("submenu-show"),
+	themeModeChanged: makeEvent<ThemeModeChanged, ThemeModeChanged>("theme-mode-changed"),
 	userChanged: makeEvent<UserChanged_Serialize, UserChanged_Deserialize>("user-changed"),
 	volumeChanged: makeEvent<VolumeChanged, VolumeChanged>("volume-changed"),
 	wifiChanged: makeEvent<WifiChanged_Serialize, WifiChanged_Deserialize>("wifi-changed"),
@@ -307,6 +326,9 @@ export type AirplaneMode = {
  *  per frame.
  */
 export type AirplaneModeChanged = AirplaneMode;
+
+/**  Apps a quick action can start. An enum with fixed URIs, so the UI can't launch anything else. */
+export type App = "calculator" | "clockTimer" | "camera";
 
 /**  What the UI needs to know. `tone` is the tone of the WALLPAPER: `light` means dark content. */
 export type BarAppearance = {
@@ -539,6 +561,49 @@ export type ItemsChanged_Deserialize = StatusItemView_Deserialize[];
  *  the UI just replaces what it has. Sent at most about once per frame (see `forward_changes`).
  */
 export type ItemsChanged_Serialize = StatusItemView_Serialize[];
+
+export type Media = Media_Serialize | Media_Deserialize;
+
+/**  The track, the playing state or the player changed. Full snapshot, at most once per frame. */
+export type MediaChanged = MediaChanged_Serialize | MediaChanged_Deserialize;
+
+/**  The track, the playing state or the player changed. Full snapshot, at most once per frame. */
+export type MediaChanged_Deserialize = Media_Deserialize;
+
+/**  The track, the playing state or the player changed. Full snapshot, at most once per frame. */
+export type MediaChanged_Serialize = Media_Serialize;
+
+export type Media_Deserialize = {
+	/**  False when no app is playing anything: the other fields mean nothing then. */
+	available: boolean,
+	/**  `"system"` (Windows media controls). Reserved for more sources later. */
+	source: string,
+	/**  The player's name, like "Spotify". */
+	appName: string,
+	title: string,
+	artist: string,
+	playing: boolean,
+	canNext: boolean,
+	canPrevious: boolean,
+	/**  The cover as a data URL (JPEG or PNG only), if the app gave one. */
+	cover?: string | null,
+};
+
+export type Media_Serialize = {
+	/**  False when no app is playing anything: the other fields mean nothing then. */
+	available: boolean,
+	/**  `"system"` (Windows media controls). Reserved for more sources later. */
+	source: string,
+	/**  The player's name, like "Spotify". */
+	appName: string,
+	title: string,
+	artist: string,
+	playing: boolean,
+	canNext: boolean,
+	canPrevious: boolean,
+	/**  The cover as a data URL (JPEG or PNG only), if the app gave one. */
+	cover: string | null,
+};
 
 /**  Where a menu hangs from. */
 export type MenuAnchor = {
@@ -821,7 +886,9 @@ export type Rect = {
  *  The settings pages the UI can open. An enum, never a free string, so the UI can't make us
  *  launch an arbitrary URI.
  */
-export type SettingsPage = "wifi" | "bluetooth" | "sound" | "display" | "airplaneMode" | "hotspot" | "nightLight" | "batterySaver" | "focus" | "accounts" | "power" | "location";
+export type SettingsPage = "wifi" | "bluetooth" | "sound" | "display" | "airplaneMode" | "hotspot" | "nightLight" | "batterySaver" | "focus" | "accounts" | "power" | "location" | 
+/**  Windows Settings' start page (the gear in the control center). */
+"home";
 
 /**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
 export type StatusItemView = StatusItemView_Serialize | StatusItemView_Deserialize;
@@ -926,6 +993,16 @@ export type SubmenuShow_Serialize = {
 
 /**  Which side an open submenu goes on, so it stays on screen. */
 export type SubmenuSide = "right" | "left";
+
+export type ThemeMode = {
+	dark: boolean,
+};
+
+/**
+ *  Windows switched between dark and light mode (any app or the settings page). Full snapshot, at
+ *  most once per frame.
+ */
+export type ThemeModeChanged = ThemeMode;
 
 /**  How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round. */
 export type Tone = "light" | "dark";

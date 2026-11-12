@@ -221,6 +221,15 @@ pub struct HotspotChanged(pub crate::system::hotspot::Hotspot);
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct BrightnessChanged(pub crate::system::brightness::Brightness);
 
+/// The track, the playing state or the player changed. Full snapshot, at most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct MediaChanged(pub crate::system::media::Media);
+
+/// Windows switched between dark and light mode (any app or the settings page). Full snapshot, at
+/// most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct ThemeModeChanged(pub crate::system::theme::ThemeMode);
+
 /// The control center is now ours or Windows' (a setting, see `setControlCenterMode`).
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct ControlCenterModeChanged(pub crate::settings::Mode);

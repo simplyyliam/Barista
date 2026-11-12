@@ -91,7 +91,14 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::disconnect_wifi,
             commands::get_bluetooth,
             commands::set_bluetooth_enabled,
-            commands::open_settings
+            commands::open_settings,
+            commands::open_app,
+            commands::get_media,
+            commands::media_play_pause,
+            commands::media_next,
+            commands::media_previous,
+            commands::get_theme_mode,
+            commands::set_dark_mode
         ])
         .events(collect_events![
             events::BarChanged,
@@ -111,6 +118,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::VolumeChanged,
             events::ControlCenterModeChanged,
             events::BrightnessChanged,
+            events::ThemeModeChanged,
+            events::MediaChanged,
             events::HotspotChanged,
             events::UserChanged,
             events::OutputDevicesChanged,
