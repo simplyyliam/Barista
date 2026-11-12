@@ -21,8 +21,8 @@ bar.on("close", () => {
 
 const githubItem = await BA.StatusItem.create({
   id: "github",
-  icon: { icon: GitBranch, color: "#f0f0f0" }, // a Lucide icon object
-  label: (githubRepository ?? "GitHub setup").slice(0, 128),
+  icon: { icon: GitBranch, color: "#f0f0f0", height: 14}, // a Lucide icon object
+  // label: (githubRepository ?? "GitHub setup").slice(0, 128),
   tooltip: githubRepository
     ? `Latest activity in ${githubRepository}`
     : "Set GITHUB_REPOSITORY=owner/repo to watch a repository",

@@ -9,7 +9,7 @@ bar.on("close", () => process.exit(0))
 
 const item = await BA.StatusItem.create({
   id: "time",
-  icon: { icon: Clock01Icon, color: "#8b95a5" }, // an icon object: no SVG needed
+  icon: { icon: Clock01Icon, color: "#ffffff", height: 14 }, // an icon object: no SVG needed
   label: "--:--",
   tooltip: "Click to switch 12h / 24h",
 })
