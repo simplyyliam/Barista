@@ -11,6 +11,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   settings, battery, volume (ADR 0016, `docs/perf/0.4b.md`). Next: slices B and C (`releases/v0.4b.md`, local only);
   re-measure panel latency once the UI uses `panelResized`.
 - ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
+- **Notifications spike done** (branch `docs/notifications-spike`, ADR 0017 proposed, `examples/notifications-spike`): the listener
+  works unpackaged but only by polling (no events), text only. Slice C Rust waits for Liam's OK on ADR 0017.
 
 ## Facts a new session needs
 
