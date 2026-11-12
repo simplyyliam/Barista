@@ -59,6 +59,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `index.html`; render the route by `open.name`, call `panelResized` once measured, call `closePanel` on Esc). System:
   `getClockSettings`/`clockSettingsChanged`, `getBattery`/`batteryChanged`, `getVolume`/`volumeChanged`,
   `setVolume(level 0..1)`, `setMuted`. All three events send the full snapshot, at most once per frame.
+- Panel UI (Liam allowed `apps/bar/src` for this, 2026-11-12): minimal `widgets/panel` + `features/panel` (renders the
+  route name and the live battery, volume and clock values, reports its size with `panelResized`, Esc calls `closePanel`).
+  The window label `panel` must be in `capabilities/default.json`, or its events fail with an ACL error. Real designs come later.
 - Debug: `pnpm inspect --system [--watch]`, `--panel <name> <item id> [w h]`, `--close-panel`; `scripts/panel-latency.ps1`.
   Press the volume keys from a PowerShell script (`keybd_event` 0xAE/0xAF/0xAD) to test live volume changes.
 - `pnpm dev` dies if `pnpm inspect` builds the SDK while `sdk build --watch` runs: start only the bar with
