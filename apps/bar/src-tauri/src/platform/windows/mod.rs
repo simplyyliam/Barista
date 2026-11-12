@@ -21,4 +21,5 @@ pub mod shell;
 pub mod wallpaper;
 pub mod wallpaper_watch;
 pub mod windhawk;
+pub mod wlan;
 pub mod window;

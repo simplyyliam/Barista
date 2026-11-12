@@ -430,3 +430,40 @@ pub fn get_bluetooth() -> crate::system::bluetooth::Bluetooth {
 pub async fn set_bluetooth_enabled(enabled: bool) {
     crate::system::bluetooth::set_enabled(enabled);
 }
+
+/// Wi-Fi right now. `available` is false without an adapter. Call once when the UI starts;
+/// `wifiChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_wifi() -> crate::system::wifi::Wifi {
+    crate::system::wifi::service().get()
+}
+
+/// Turns the Wi-Fi radio on or off. `wifiChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_wifi_enabled(enabled: bool) {
+    crate::system::wifi::set_enabled(enabled);
+}
+
+/// Asks Windows to look for networks again. `wifiChanged` follows when the scan is done.
+#[tauri::command]
+#[specta::specta]
+pub fn scan_wifi() {
+    crate::system::wifi::scan();
+}
+
+/// Joins a network Windows already knows. For any other name this opens Windows' own Wi-Fi
+/// flyout (joining a new secured network is not done by the bar).
+#[tauri::command]
+#[specta::specta]
+pub fn connect_wifi(ssid: String) {
+    crate::system::wifi::connect(&ssid);
+}
+
+/// Disconnects from the current network.
+#[tauri::command]
+#[specta::specta]
+pub fn disconnect_wifi() {
+    crate::system::wifi::disconnect();
+}

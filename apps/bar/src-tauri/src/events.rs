@@ -191,3 +191,8 @@ pub struct PanelChanged {
 /// most once per frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct BluetoothChanged(pub crate::system::bluetooth::Bluetooth);
+
+/// Wi-Fi changed (radio, current network, networks in range). Full snapshot, at most once per
+/// frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct WifiChanged(pub crate::system::wifi::Wifi);

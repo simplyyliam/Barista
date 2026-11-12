@@ -14,6 +14,7 @@ pub mod bluetooth;
 pub mod clock;
 pub mod notifications;
 pub mod volume;
+pub mod wifi;
 
 use std::time::Duration;
 use tokio::sync::watch;
@@ -71,7 +72,7 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> Service<T> {
 /// Starts the services and their event forwarding. Call once from `setup`.
 pub fn init(app: &tauri::AppHandle) {
     use crate::events::{
-        BatteryChanged, BluetoothChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged,
+        BatteryChanged, BluetoothChanged, ClockSettingsChanged, NotificationsChanged, VolumeChanged, WifiChanged,
     };
     use tauri_specta::Event;
     let a = app.clone();
@@ -94,6 +95,10 @@ pub fn init(app: &tauri::AppHandle) {
     bluetooth::service().forward(move |v| {
         let _ = BluetoothChanged(v).emit(&a);
     });
+    let a = app.clone();
+    wifi::service().forward(move |v| {
+        let _ = WifiChanged(v).emit(&a);
+    });
     clock::refresh();
     battery::refresh();
     volume::start();
@@ -101,12 +106,14 @@ pub fn init(app: &tauri::AppHandle) {
     #[cfg(windows)]
     crate::platform::windows::radios::start(radios_changed);
     bluetooth::start();
+    wifi::start();
 }
 
 /// One radios thread serves Wi-Fi and Bluetooth: fan its state out to both services.
 #[cfg(windows)]
 fn radios_changed(r: crate::platform::windows::radios::RadioStates) {
     bluetooth::radio_changed(r);
+    wifi::radio_changed(r);
 }
 
 #[cfg(test)]
