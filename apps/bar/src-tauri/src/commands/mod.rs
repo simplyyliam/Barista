@@ -261,3 +261,40 @@ pub fn set_volume(level: f64) {
 pub fn set_muted(muted: bool) {
     crate::system::volume::set_muted(muted);
 }
+
+/// Opens the panel `name` (a route like `control-center`) under bar item `anchor` (an id sent
+/// with `setItemBounds`). Clicking the same anchor again closes it, another anchor moves it. The
+/// panel window then follows `panelChanged`. `width` and `height` (logical px) are a first guess;
+/// call `panelResized` once the content is measured. Opening closes any open menu or popover.
+#[tauri::command]
+#[specta::specta]
+pub fn open_panel(name: String, anchor: String, width: f64, height: f64) {
+    if let Some(panel) = crate::panel::get() {
+        panel.open(&name, &anchor, (clean_size(width), clean_size(height)));
+    }
+}
+
+/// Closes the panel (Esc, or the UI decided). Does nothing if none is open.
+#[tauri::command]
+#[specta::specta]
+pub fn close_panel() {
+    crate::panel::close();
+}
+
+/// The panel window measured its content (logical px). The bar sizes and moves the window to fit
+/// under its anchor and, the first time after an open, shows it.
+#[tauri::command]
+#[specta::specta]
+pub fn panel_resized(width: f64, height: f64) {
+    if let Some(panel) = crate::panel::get() {
+        panel.resized(clean_size(width), clean_size(height));
+    }
+}
+
+/// The panel open right now, if any. The panel window calls this once when it loads, then
+/// follows `panelChanged`.
+#[tauri::command]
+#[specta::specta]
+pub fn get_open_panel() -> Option<crate::panel::PanelOpen> {
+    crate::panel::get().and_then(|p| p.current())
+}

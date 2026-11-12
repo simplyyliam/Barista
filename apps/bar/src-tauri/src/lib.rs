@@ -8,6 +8,7 @@ mod dismiss;
 mod events;
 mod ipc;
 mod menu_window;
+mod panel;
 mod placement;
 mod popover;
 mod platform;
@@ -54,7 +55,11 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_battery,
             commands::get_volume,
             commands::set_volume,
-            commands::set_muted
+            commands::set_muted,
+            commands::open_panel,
+            commands::close_panel,
+            commands::panel_resized,
+            commands::get_open_panel
         ])
         .events(collect_events![
             events::BarChanged,
@@ -72,6 +77,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::ClockSettingsChanged,
             events::BatteryChanged,
             events::VolumeChanged,
+            events::PanelChanged,
             appearance::BarAppearanceChanged
         ])
 }
@@ -159,6 +165,7 @@ pub fn run() {
             app.manage(registry.clone());
             menu_window::init(app.handle(), registry.clone())?;
             popover::init(app.handle(), registry.clone());
+            panel::init(app.handle())?;
             system::init(app.handle());
             ipc::start(registry.clone());
             events::forward_changes(app.handle().clone(), registry);

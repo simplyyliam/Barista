@@ -92,7 +92,7 @@ pub fn get() -> Option<&'static MenuWindow> {
 
 /// Makes one hidden menu window. `no_activate` keeps the submenu from ever taking focus, so the
 /// keyboard stays in the main menu.
-fn build_window(
+pub(crate) fn build_window(
     app: &AppHandle,
     label: &str,
     no_activate: bool,
@@ -169,7 +169,7 @@ pub fn init(app: &AppHandle, registry: Arc<Registry>) -> Result<(), Box<dyn std:
 pub fn tone_changed(dark: bool) {
     #[cfg(windows)]
     if let Some(menu) = get() {
-        for label in [LABEL, SUB_LABEL] {
+        for label in [LABEL, SUB_LABEL, crate::panel::LABEL] {
             if let Some(hwnd) = menu.app.get_webview_window(label).and_then(|w| w.hwnd().ok()) {
                 crate::platform::windows::window::set_menu_dark(hwnd, dark);
             }
@@ -186,14 +186,16 @@ pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Resul
     // No windows in unit tests: the click is accepted and nothing opens.
     match registry.target(key, button) {
         ClickTarget::Popover => {
+            crate::panel::close();
             if let Some(popovers) = crate::popover::get() {
                 popovers.item_click(key);
             }
             Ok(())
         }
         ClickTarget::Menu => {
-            // One thing open at a time: a menu replaces an open popover.
+            // One thing open at a time: a menu replaces an open popover or panel.
             crate::popover::close();
+            crate::panel::close();
             if let Some(menu) = get() {
                 menu.item_click(key);
             }
@@ -202,6 +204,7 @@ pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Resul
         ClickTarget::App => {
             // A click on an item without a popover must not leave another item's popover up.
             crate::popover::close();
+            crate::panel::close();
             registry.click_with_anchor(key, button, anchor_of(key))
         }
     }
@@ -250,14 +253,14 @@ fn guess_size(snapshot: &MenuSnapshot) -> (f64, f64) {
 /// is the whole width and the side is always the right one.
 /// `extra` is the window's rim (visible frame minus page, see `frame_extra`), so the page ends up
 /// exactly `size` big.
-fn place_logical(item: &Rect, size: (f64, f64), extra: (i32, i32), work: &Rect, scale: f64) -> Rect {
+pub(crate) fn place_logical(item: &Rect, size: (f64, f64), extra: (i32, i32), work: &Rect, scale: f64) -> Rect {
     let px = |v: f64| (v * scale).round() as i32;
     let (w, h) = (px(size.0) + extra.0, px(size.1) + extra.1);
     anchor::place(item, (w, h), w, &inset_work(work, scale)).0
 }
 
 /// The thin rim Windows keeps between the page and the visible window edge (0 if unknown).
-fn frame_extra(window: Option<&tauri::WebviewWindow>) -> (i32, i32) {
+pub(crate) fn frame_extra(window: Option<&tauri::WebviewWindow>) -> (i32, i32) {
     #[cfg(windows)]
     if let Some(m) = window
         .and_then(|w| w.hwnd().ok())
@@ -272,7 +275,7 @@ fn frame_extra(window: Option<&tauri::WebviewWindow>) -> (i32, i32) {
 
 /// Puts the window so its VISIBLE frame is exactly `rect`. A window with a shadow carries an
 /// invisible border; ignoring it pushed menus up to 10 px past the screen edge.
-fn move_to(window: &tauri::WebviewWindow, rect: &Rect) {
+pub(crate) fn move_to(window: &tauri::WebviewWindow, rect: &Rect) {
     #[cfg(windows)]
     if let Some((hwnd, m)) = window
         .hwnd()
@@ -317,7 +320,7 @@ fn hide_without_focus(window: &tauri::WebviewWindow) {
 }
 
 /// Turns Windows' show/hide animation on or off for one window (no-op off Windows).
-fn transitions(window: &tauri::WebviewWindow, enabled: bool) {
+pub(crate) fn transitions(window: &tauri::WebviewWindow, enabled: bool) {
     #[cfg(windows)]
     if let Ok(hwnd) = window.hwnd() {
         crate::platform::windows::window::set_menu_transitions(hwnd, enabled);

@@ -114,6 +114,25 @@ export const commands = {
 	setVolume: (level: number | null) => __TAURI_INVOKE<void>("set_volume", { level }),
 	/**  Mutes or unmutes the output. `volumeChanged` follows. */
 	setMuted: (muted: boolean) => __TAURI_INVOKE<void>("set_muted", { muted }),
+	/**
+	 *  Opens the panel `name` (a route like `control-center`) under bar item `anchor` (an id sent
+	 *  with `setItemBounds`). Clicking the same anchor again closes it, another anchor moves it. The
+	 *  panel window then follows `panelChanged`. `width` and `height` (logical px) are a first guess;
+	 *  call `panelResized` once the content is measured. Opening closes any open menu or popover.
+	 */
+	openPanel: (name: string, anchor: string, width: number | null, height: number | null) => __TAURI_INVOKE<void>("open_panel", { name, anchor, width, height }),
+	/**  Closes the panel (Esc, or the UI decided). Does nothing if none is open. */
+	closePanel: () => __TAURI_INVOKE<void>("close_panel"),
+	/**
+	 *  The panel window measured its content (logical px). The bar sizes and moves the window to fit
+	 *  under its anchor and, the first time after an open, shows it.
+	 */
+	panelResized: (width: number | null, height: number | null) => __TAURI_INVOKE<void>("panel_resized", { width, height }),
+	/**
+	 *  The panel open right now, if any. The panel window calls this once when it loads, then
+	 *  follows `panelChanged`.
+	 */
+	getOpenPanel: () => __TAURI_INVOKE<PanelOpen | null>("get_open_panel"),
 };
 
 /** Events */
@@ -126,6 +145,7 @@ export const events = {
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
 	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
+	panelChanged: makeEvent<PanelChanged_Serialize, PanelChanged_Deserialize>("panel-changed"),
 	popoverChanged: makeEvent<PopoverChanged_Serialize, PopoverChanged_Deserialize>("popover-changed"),
 	submenuHide: makeEvent<SubmenuHide, SubmenuHide>("submenu-hide"),
 	submenuHighlight: makeEvent<SubmenuHighlight_Serialize, SubmenuHighlight_Deserialize>("submenu-highlight"),
@@ -383,6 +403,43 @@ export type Monitor = {
 
 /**  Which mouse button clicked an item. */
 export type MouseButton = "left" | "right" | "middle";
+
+/**
+ *  The panel opened, moved to another item or closed (`None`). Carries what the UI needs: which
+ *  route to show (`name`), which item is open (`anchor`) and where the window landed. Sent to
+ *  every window; the panel window draws the route, the bar can show `anchor` as open.
+ */
+export type PanelChanged = PanelChanged_Serialize | PanelChanged_Deserialize;
+
+/**
+ *  The panel opened, moved to another item or closed (`None`). Carries what the UI needs: which
+ *  route to show (`name`), which item is open (`anchor`) and where the window landed. Sent to
+ *  every window; the panel window draws the route, the bar can show `anchor` as open.
+ */
+export type PanelChanged_Deserialize = {
+	open?: PanelOpen | null,
+};
+
+/**
+ *  The panel opened, moved to another item or closed (`None`). Carries what the UI needs: which
+ *  route to show (`name`), which item is open (`anchor`) and where the window landed. Sent to
+ *  every window; the panel window draws the route, the bar can show `anchor` as open.
+ */
+export type PanelChanged_Serialize = {
+	open: PanelOpen | null,
+};
+
+/**  A panel and the item it hangs from. The UI shows the route for `name` and the item as open. */
+export type PanelOpen = {
+	name: string,
+	anchor: string,
+	/**  Where the window sits on screen (physical pixels). */
+	rect: Rect,
+	scale: number | null,
+	monitorId: string,
+	/**  True when the window has the system acrylic backdrop. False (Windows 10): draw an opaque panel. */
+	acrylic: boolean,
+};
 
 /**
  *  The popover that is open changed: `item_id` is the item it hangs from, `None` = none is open.

@@ -117,6 +117,8 @@ pub fn init(app: &tauri::AppHandle, registry: Arc<Registry>) {
             if let Some(menu) = crate::menu_window::get() {
                 menu.close();
             }
+            // A popover replaces an open panel too (one thing open at a time).
+            crate::panel::close();
         }),
         allow_foreground: crate::platform::windows::foreground::allow,
         foreground_pid: Box::new(crate::platform::windows::foreground::current_pid),
