@@ -38,7 +38,7 @@ pub const MAX_POPOVER_SIZE: u32 = 1024;
 
 /// Every `type` a client may send. The bar uses it to tell `unknown_type` (a newer client)
 /// from `invalid_message` (a known type with wrong fields). A test keeps it in sync.
-pub const CLIENT_MESSAGE_TYPES: [&str; 11] = [
+pub const CLIENT_MESSAGE_TYPES: [&str; 14] = [
     "hello",
     "item.create",
     "item.update",
@@ -50,6 +50,9 @@ pub const CLIENT_MESSAGE_TYPES: [&str; 11] = [
     "debug.listItems",
     "debug.click",
     "debug.menuClick",
+    "debug.system",
+    "debug.openPanel",
+    "debug.closePanel",
 ];
 
 /// What kind of menu entry. Electron's names.
@@ -281,6 +284,29 @@ pub enum ClientMessage {
         id: String,
         menu_item_id: String,
     },
+    /// Asks for the clock settings, battery and volume. Same availability as `debug.listItems`.
+    #[serde(rename = "debug.system")]
+    DebugSystem {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
+    /// Opens a system panel as if the UI had called `openPanel`. Same availability as
+    /// `debug.listItems`. `width` and `height` are logical px.
+    #[serde(rename = "debug.openPanel")]
+    DebugOpenPanel {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        name: String,
+        anchor: String,
+        width: f64,
+        height: f64,
+    },
+    /// Closes the open panel. Same availability as `debug.listItems`.
+    #[serde(rename = "debug.closePanel")]
+    DebugClosePanel {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
 }
 
 impl ClientMessage {
@@ -297,7 +323,10 @@ impl ClientMessage {
             | Self::PopoverClosed { request_id, .. }
             | Self::DebugListItems { request_id }
             | Self::DebugClick { request_id, .. }
-            | Self::DebugMenuClick { request_id, .. } => request_id.as_deref(),
+            | Self::DebugMenuClick { request_id, .. }
+            | Self::DebugSystem { request_id }
+            | Self::DebugOpenPanel { request_id, .. }
+            | Self::DebugClosePanel { request_id } => request_id.as_deref(),
         }
     }
 }
@@ -365,6 +394,13 @@ pub enum BarMessage {
     DebugItems {
         request_id: Option<String>,
         items: Vec<ItemInfo>,
+    },
+    /// Reply to `debug.system`: a JSON object text with `clock`, `battery` and `volume` (the same
+    /// snapshots the UI gets). Text, so the protocol does not depend on the bar's types.
+    #[serde(rename = "debug.system")]
+    DebugSystem {
+        request_id: Option<String>,
+        snapshot: String,
     },
 }
 
@@ -572,6 +608,16 @@ mod tests {
             button: MouseButton::Middle,
         });
         assert_eq!(v["button"], "middle");
+        round_trip_client(ClientMessage::DebugSystem { request_id: None });
+        let v = round_trip_client(ClientMessage::DebugOpenPanel {
+            request_id: None,
+            name: "battery".into(),
+            anchor: "s1/a".into(),
+            width: 320.0,
+            height: 200.0,
+        });
+        assert_eq!(v["type"], "debug.openPanel");
+        round_trip_client(ClientMessage::DebugClosePanel { request_id: None });
     }
 
     #[test]
@@ -654,6 +700,9 @@ mod tests {
             r#"{"type":"item.setPopover","id":"a","width":320,"height":380}"#,
             r#"{"type":"popover.shown","id":"a"}"#,
             r#"{"type":"popover.closed","id":"a"}"#,
+            r#"{"type":"debug.system"}"#,
+            r#"{"type":"debug.openPanel","name":"a","anchor":"s1/a","width":1,"height":1}"#,
+            r#"{"type":"debug.closePanel"}"#,
         ];
         for sample in samples {
             let msg: ClientMessage = serde_json::from_str(sample).unwrap();

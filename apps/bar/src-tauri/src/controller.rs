@@ -83,6 +83,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         eprintln!("barista: Windows refused the appbar registration; no space will be reserved");
     }
     window::install(c.hwnd, on_window_event);
+    crate::platform::windows::power::register(c.hwnd());
     #[cfg(debug_assertions)]
     window::register_tone_hotkey(c.hwnd);
     crate::appearance::start(app);
@@ -155,6 +156,8 @@ fn handle_window_event(c: &'static Controller, event: window::WindowEvent) {
             #[cfg(debug_assertions)]
             crate::appearance::cycle_override();
         }
+        TimeChanged | RegionChanged => crate::system::clock::refresh(),
+        PowerChanged => crate::system::battery::refresh(),
         TaskbarCreated => {
             appbar::forget();
             appbar::register(c.hwnd());

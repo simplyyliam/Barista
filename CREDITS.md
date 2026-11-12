@@ -19,6 +19,7 @@ The first column must be the exact package or crate name.
 | tokio             | 1.54        | MIT               | https://github.com/tokio-rs/tokio             |
 | base64            | 0.23        | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
 | windows           | 0.62        | MIT OR Apache-2.0 | https://github.com/microsoft/windows-rs       |
+| windows-core      | 0.62        | MIT OR Apache-2.0 | https://github.com/microsoft/windows-rs       |
 
 ## JavaScript and TypeScript
 

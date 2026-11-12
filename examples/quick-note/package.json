@@ -11,6 +11,7 @@
     "@barista/sdk": "workspace:*"
   },
   "devDependencies": {
+    "@hugeicons/core-free-icons": "^4.4.0",
     "electron": "^45.2.3",
     "typescript": "npm:@typescript/typescript6@~6.0.2"
   }

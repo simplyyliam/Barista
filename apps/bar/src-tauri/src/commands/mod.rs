@@ -222,3 +222,79 @@ pub fn get_open_popover() -> Option<String> {
 pub fn set_item_bounds(bounds: Vec<ItemBounds>) {
     crate::placement::set_item_bounds(bounds);
 }
+
+/// How the user wants the clock shown: 12 or 24 hour, first day of the week, time zone. The time
+/// itself comes from JS. Call once when the UI starts; `clockSettingsChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_clock_settings() -> crate::system::clock::ClockSettings {
+    crate::system::clock::service().get()
+}
+
+/// The battery right now. `present` is false on a desktop PC. Call once when the UI starts;
+/// `batteryChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_battery() -> crate::system::battery::Battery {
+    crate::system::battery::service().get()
+}
+
+/// The output volume right now. `available` is false when there is no output device. Call once
+/// when the UI starts; `volumeChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_volume() -> crate::system::volume::Volume {
+    crate::system::volume::service().get()
+}
+
+/// Sets the output volume (0 to 1; values outside are clamped, NaN is ignored). `volumeChanged`
+/// follows with the real value.
+#[tauri::command]
+#[specta::specta]
+pub fn set_volume(level: f64) {
+    crate::system::volume::set_volume(level);
+}
+
+/// Mutes or unmutes the output. `volumeChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_muted(muted: bool) {
+    crate::system::volume::set_muted(muted);
+}
+
+/// Opens the panel `name` (a route like `control-center`) under bar item `anchor` (an id sent
+/// with `setItemBounds`). Clicking the same anchor again closes it, another anchor moves it. The
+/// panel window then follows `panelChanged`. `width` and `height` (logical px) are a first guess;
+/// call `panelResized` once the content is measured. Opening closes any open menu or popover.
+#[tauri::command]
+#[specta::specta]
+pub fn open_panel(name: String, anchor: String, width: f64, height: f64) {
+    if let Some(panel) = crate::panel::get() {
+        panel.open(&name, &anchor, (clean_size(width), clean_size(height)));
+    }
+}
+
+/// Closes the panel (Esc, or the UI decided). Does nothing if none is open.
+#[tauri::command]
+#[specta::specta]
+pub fn close_panel() {
+    crate::panel::close();
+}
+
+/// The panel window measured its content (logical px). The bar sizes and moves the window to fit
+/// under its anchor and, the first time after an open, shows it.
+#[tauri::command]
+#[specta::specta]
+pub fn panel_resized(width: f64, height: f64) {
+    if let Some(panel) = crate::panel::get() {
+        panel.resized(clean_size(width), clean_size(height));
+    }
+}
+
+/// The panel open right now, if any. The panel window calls this once when it loads, then
+/// follows `panelChanged`.
+#[tauri::command]
+#[specta::specta]
+pub fn get_open_panel() -> Option<crate::panel::PanelOpen> {
+    crate::panel::get().and_then(|p| p.current())
+}

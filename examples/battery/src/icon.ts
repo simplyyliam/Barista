@@ -1,52 +1,67 @@
-// The battery icon: custom-drawn (the fill level and the charging / plugged marks change), then cropped
-// to its real shape and sized by height with `fitToGlyph`, so it is 12 px tall and about 25 wide.
+// The battery icon uses the supplied rounded macOS-style outline, with a dynamic charge fill
+// and larger charging / plugged-in marks. It is cropped and sized to a 12 px glyph height.
 import { fitToGlyph, WIDE_ICON_HEIGHT } from "@barista/sdk/icons"
 
-// The drawing grid is 29 x 14 units, so the body is 2:1 like macOS (25 x 12 px after fitting). The body
-// width is a number, not a stretch of a square shape, so the corners stay round. Stroke 1.7 units is
-// about 1.45 px once the icon is 12 px tall.
 const OUTLINE = "#f5f5f5"
 const MARK_OUTLINE = "#1c1c1e"
-const BODY = { x: 0.85, y: 0.85, width: 24.8, height: 12.3, radius: 3.3, stroke: 1.7 }
-const FILL = { x: 2.8, y: 2.8, maxWidth: 20.9, height: 8.4, radius: 1.6 }
-/** Where the marks sit: the middle of the inside of the body. */
-const CENTER_X = 13.25
 
-export function batteryIcon(percentage: number, charging: boolean, pluggedIn: boolean): Buffer {
-  // White when plugged in or charging (it was blue), red when low, light grey on battery.
-  const fillColor = percentage <= 15 ? "#ef4444" : charging || pluggedIn ? "#ffffff" : "#f5f5f5"
-  // Never narrower than a rounded dot, or a nearly empty battery would draw nothing.
+// The supplied 24 x 24 battery silhouette.
+const BATTERY_PATH =
+  "M8 18H16.5C16.9644 18 17.1966 18 17.3916 17.9743C18.7378 17.7971 19.7971 16.7378 19.9743 15.3916C20 15.1966 20 14.9644 20 14.5C21.1046 14.5 22 13.6046 22 12.5V11.5C22 10.3954 21.1046 9.5 20 9.5C20 9.03558 20 8.80337 19.9743 8.60842C19.7971 7.26222 18.7378 6.2029 17.3916 6.02567C17.1966 6 16.9644 6 16.5 6H8C5.17157 6 3.75736 6 2.87868 6.87868C2 7.75736 2 9.17157 2 12C2 14.8284 2 16.2426 2.87868 17.1213C3.75736 18 5.17157 18 8 18Z"
+
+// Keep the fill inset from the outline and stop it before the terminal.
+const FILL = { x: 3.6, y: 7.6, maxWidth: 14.8, height: 8.8, radius: 1.5 }
+const CENTER_X = 11
+
+export function batteryIcon(
+  percentage: number,
+  charging: boolean,
+  pluggedIn: boolean,
+): Buffer {
+  // Red when low, white when charging / plugged in, and light grey on battery.
+  const fillColor =
+    percentage <= 15
+      ? "#ef4444"
+      : charging || pluggedIn
+        ? "#ffffff"
+        : "#f5f5f5"
+
+  // Keep a visible rounded dot at very low non-zero percentages.
   const fillWidth =
-    percentage > 0 ? Math.max(FILL.radius * 2, (FILL.maxWidth * percentage) / 100) : 0
+    percentage > 0
+      ? Math.max(FILL.radius * 2, (FILL.maxWidth * percentage) / 100)
+      : 0
 
   const level =
     fillWidth > 0
       ? `<rect x="${FILL.x}" y="${FILL.y}" width="${fillWidth.toFixed(2)}" height="${FILL.height}" rx="${FILL.radius}" fill="${fillColor}"/>`
       : ""
 
-  // The marks use the whole height of the inside (like macOS): white with a dark edge, so they read on
-  // the fill and on the empty part alike. They are positioned around CENTER_X.
-  const markStyle = `fill="#ffffff" stroke="${MARK_OUTLINE}" stroke-width=".8" stroke-linejoin="round"`
+  // White marks with a dark edge for visibility over filled and empty areas.
+  const markStyle = `fill="#ffffff" stroke="${MARK_OUTLINE}" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"`
   const c = CENTER_X
-  const bolt = charging
-    ? `<path d="M${c + 1.9} 2.2 ${c - 4.4} 7.7h3.9l-1.6 4.1 6.6-5.8h-4.1z" ${markStyle}/>`
-    : ""
-  const plug =
-    pluggedIn && !charging
-      ? `<g ${markStyle}>
-           <rect x="${c - 2.4}" y="2.3" width="1.4" height="3.4" rx=".5"/>
-           <rect x="${c + 1}" y="2.3" width="1.4" height="3.4" rx=".5"/>
-           <rect x="${c - 3.5}" y="5.1" width="7" height="4.8" rx="1.9"/>
-           <rect x="${c - 0.7}" y="9.5" width="1.4" height="2.4" rx=".5"/>
-         </g>`
-      : ""
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 14" width="29" height="14">
-      <rect x="${BODY.x}" y="${BODY.y}" width="${BODY.width}" height="${BODY.height}" rx="${BODY.radius}"
-        fill="none" stroke="${OUTLINE}" stroke-opacity=".9" stroke-width="${BODY.stroke}"/>
-      <rect x="27.2" y="4.5" width="1.8" height="5" rx=".9" fill="${OUTLINE}" fill-opacity=".6"/>
-      ${level}${bolt}${plug}
-    </svg>`
+  const bolt = charging
+    ? `<path d="M${c + 1.8} 7.2 L${c - 4.2} 12 H${c - 0.5} L${c - 1.8} 16.6 L${c + 4.6} 11 H${c + 0.7} Z" ${markStyle}/>`
+    : ""
+
+  // Larger plug with wider prongs and a clearly visible handle.
+  // const plug =
+  //   pluggedIn && !charging
+  //     ? `<path d="M${c - 3.4} 7.3 V9.9 H${c - 4.2} V14.1 Q${c - 4.2} 15.7 ${c - 2.6} 15.7 H${c - 1} V16.8 H${c + 1} V15.7 H${c + 2.6} Q${c + 4.2} 15.7 ${c + 4.2} 14.1 V9.9 H${c + 3.4} V7.3 H${c + 1.7} V9.9 H${c - 1.7} V7.3 Z" ${markStyle}/>`
+  //     : ""
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+    <path
+      d="${BATTERY_PATH}"
+      fill="none"
+      stroke="${OUTLINE}"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    ${level}${bolt}
+  </svg>`
 
   try {
     return Buffer.from(fitToGlyph(svg, WIDE_ICON_HEIGHT))

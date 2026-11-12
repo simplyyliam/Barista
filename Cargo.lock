@@ -103,6 +103,7 @@ dependencies = [
  "tauri-specta",
  "tokio",
  "windows",
+ "windows-core",
 ]
 
 [[package]]

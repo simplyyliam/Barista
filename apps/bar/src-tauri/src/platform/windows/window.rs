@@ -15,10 +15,10 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetClientRect, GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW, SendMessageW,
+    GetClientRect, GetWindowLongPtrW, PBT_APMPOWERSTATUSCHANGE, PBT_POWERSETTINGCHANGE, GetWindowRect, IsIconic, IsZoomed, RegisterWindowMessageW, SendMessageW,
     SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, GWL_STYLE, HWND_TOPMOST,
     SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_ACTIVATE,
-    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_NCACTIVATE, WM_SETTINGCHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
+    WM_DISPLAYCHANGE, WM_DPICHANGED, WM_HOTKEY, WM_NCACTIVATE, WM_POWERBROADCAST, WM_SETTINGCHANGE, WM_TIMECHANGE, WM_WINDOWPOSCHANGED, WS_CAPTION,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
@@ -37,6 +37,12 @@ pub enum WindowEvent {
     WallpaperChanged,
     /// The debug hotkey for forcing the bar tone was pressed (only registered in debug builds).
     ToneHotkey,
+    /// The clock or time zone was changed (`WM_TIMECHANGE`).
+    TimeChanged,
+    /// Regional settings changed (`WM_SETTINGCHANGE` with "intl"): 12/24 h, first weekday.
+    RegionChanged,
+    /// Battery level, power source or battery saver changed.
+    PowerChanged,
 }
 
 // ABN_* notification codes, sent in WPARAM with `appbar::CALLBACK_MSG`.
@@ -269,6 +275,17 @@ pub fn register_tone_hotkey(raw_hwnd: isize) {
     }
 }
 
+/// `WM_SETTINGCHANGE` carries the name of the changed setting as text in lparam.
+fn lparam_is_intl(lparam: LPARAM) -> bool {
+    if lparam.0 == 0 {
+        return false;
+    }
+    // SAFETY: for this message Windows passes a null or a NUL-terminated wide string that is
+    // valid while we handle it.
+    let name = unsafe { windows::core::PCWSTR(lparam.0 as *const u16).to_string() };
+    matches!(name.as_deref(), Ok("intl") | Ok("TimeZoneInformation"))
+}
+
 fn emit(event: WindowEvent) {
     if let Some(handler) = HANDLER.get() {
         // A panic must not unwind through Windows' code (that aborts the process), so catch
@@ -300,6 +317,14 @@ unsafe extern "system" fn subclass_proc(
         WM_DPICHANGED => emit(WindowEvent::DpiChanged),
         WM_SETTINGCHANGE if wparam.0 == SPI_SETDESKWALLPAPER.0 as usize => {
             emit(WindowEvent::WallpaperChanged)
+        }
+        WM_SETTINGCHANGE if lparam_is_intl(lparam) => emit(WindowEvent::RegionChanged),
+        WM_TIMECHANGE => emit(WindowEvent::TimeChanged),
+        WM_POWERBROADCAST
+            if wparam.0 == PBT_POWERSETTINGCHANGE as usize
+                || wparam.0 == PBT_APMPOWERSTATUSCHANGE as usize =>
+        {
+            emit(WindowEvent::PowerChanged)
         }
         WM_HOTKEY => emit(WindowEvent::ToneHotkey),
         WM_ACTIVATE => appbar::activate(hwnd),

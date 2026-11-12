@@ -16,6 +16,7 @@ import { electronPopover } from "@barista/sdk/electron"
 import { DemoPlayer } from "./demo.ts"
 import { openExternalUrl } from "./open-url.ts"
 import { SpotifyClient, type SpotifyTrack } from "./spotify.ts"
+import { SpotifyIcon } from "@hugeicons/core-free-icons"
 
 type Action = "play" | "pause" | "next" | "previous"
 const ACTIONS = new Set<unknown>(["play", "pause", "next", "previous"])
@@ -33,8 +34,8 @@ interface PlayerState {
   playing: boolean
 }
 
-const MUSIC_ICON =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1db954" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 15V8l7-1v7"/><circle cx="8" cy="16" r="2"/><circle cx="15" cy="14" r="2"/></svg>'
+// const MUSIC_ICON =
+//   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1db954" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 15V8l7-1v7"/><circle cx="8" cy="16" r="2"/><circle cx="15" cy="14" r="2"/></svg>'
 
 const demo = process.argv.includes("--demo")
 const clientId = process.env.SPOTIFY_CLIENT_ID?.trim()
@@ -82,7 +83,7 @@ async function main(): Promise<void> {
 
   const item = await BA.StatusItem.create({
     id: "spotify",
-    icon: Buffer.from(MUSIC_ICON),
+    icon: {icon: SpotifyIcon, color: "#ffffff", height: 14, strokeWidth: 1.75},
     tooltip: "Spotify",
   })
   item.setPopover({ window: electronPopover(win, { screen }), width: 320, height: 380 })

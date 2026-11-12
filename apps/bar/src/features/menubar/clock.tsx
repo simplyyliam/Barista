@@ -1,25 +1,44 @@
+
 import { useEffect, useState } from "react";
 import { MenubarItem } from "./menubar-item";
 
 export function Clock() {
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState(() => new Date());
 
   useEffect(() => {
-    // Only minutes are shown, so wake up once at the start of each minute instead of every second.
-    let timerId: ReturnType<typeof setTimeout>
-    const tick = () => {
-      const now = new Date()
-      setTime(now)
-      timerId = setTimeout(tick, 60_000 - (now.getSeconds() * 1000 + now.getMilliseconds()))
-    }
-    tick()
+    let timerId: ReturnType<typeof setTimeout>;
 
-    return () => clearTimeout(timerId)
+    const tick = () => {
+      const now = new Date();
+      setTime(now);
+
+      // Synchronize with the beginning of the next minute.
+      const delay =
+        60_000 - (now.getSeconds() * 1000 + now.getMilliseconds());
+
+      timerId = setTimeout(tick, delay);
+    };
+
+    tick();
+
+    return () => clearTimeout(timerId);
   }, []);
 
   return (
-    <MenubarItem>
-      {time.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+    <MenubarItem className="gap-2">
+      <p>
+        {time.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        })}
+      </p>
+      <p>
+        {time.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </p>
     </MenubarItem>
-  )
+  );
 }

@@ -117,6 +117,8 @@ pub fn init(app: &tauri::AppHandle, registry: Arc<Registry>) {
             if let Some(menu) = crate::menu_window::get() {
                 menu.close();
             }
+            // A popover replaces an open panel too (one thing open at a time).
+            crate::panel::close();
         }),
         allow_foreground: crate::platform::windows::foreground::allow,
         foreground_pid: Box::new(crate::platform::windows::foreground::current_pid),
@@ -129,6 +131,8 @@ pub fn init(app: &tauri::AppHandle, registry: Arc<Registry>) {
 
 /// Another program's window became the foreground (called by the Win32 hook).
 fn foreground_changed(pid: u32) {
+    // One hook for the whole bar: the panel listens to it too (ADR 0016).
+    crate::panel::foreground_changed(pid);
     if let Some(p) = get() {
         p.foreground_changed(pid);
     }

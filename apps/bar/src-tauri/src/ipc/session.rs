@@ -391,6 +391,9 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
         ClientMessage::DebugListItems { .. }
         | ClientMessage::DebugClick { .. }
         | ClientMessage::DebugMenuClick { .. }
+        | ClientMessage::DebugSystem { .. }
+        | ClientMessage::DebugOpenPanel { .. }
+        | ClientMessage::DebugClosePanel { .. }
             if !debug_enabled() =>
         {
             // Pretend these messages do not exist.
@@ -409,6 +412,41 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
             } else {
                 Err(Step::Disconnect)
             }
+        }
+        ClientMessage::DebugSystem { .. } => {
+            let snapshot = serde_json::json!({
+                "clock": crate::system::clock::service().get(),
+                "battery": crate::system::battery::service().get(),
+                "volume": crate::system::volume::service().get(),
+            })
+            .to_string();
+            if send(
+                tx,
+                BarMessage::DebugSystem {
+                    request_id: rid.clone(),
+                    snapshot,
+                },
+            ) {
+                Ok(())
+            } else {
+                Err(Step::Disconnect)
+            }
+        }
+        ClientMessage::DebugOpenPanel {
+            name,
+            anchor,
+            width,
+            height,
+            ..
+        } => {
+            if let (Some(panel), true) = (crate::panel::get(), width.is_finite() && height.is_finite()) {
+                panel.open(&name, &anchor, (width.clamp(1.0, 4000.0), height.clamp(1.0, 4000.0)));
+            }
+            Ok(())
+        }
+        ClientMessage::DebugClosePanel { .. } => {
+            crate::panel::close();
+            Ok(())
         }
         ClientMessage::DebugClick { id, button, .. } => {
             // `id` is the registry key (`s3/counter`), so a test tool can click any item.
