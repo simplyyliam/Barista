@@ -34,6 +34,7 @@ export function ControlCenter() {
 
   return (
     <MenubarItem
+      variant="icon"
       role="button"
       tabIndex={0}
       aria-label="Control center"

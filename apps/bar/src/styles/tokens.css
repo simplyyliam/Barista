@@ -55,7 +55,10 @@
   --menubar-edge-pad: 11px; /* screen edge to the first / last item (10-12) */
   --menubar-app-pad: 9px; /* inside a left item (8-10); left pills touch, gap 0 */
   --menubar-status-pad: 7px; /* inside a right item (6-8) */
-  --menubar-status-gap: 3px; /* between right items (2-4) */
+  --menubar-status-gap: 2px; /* between right items (2-4) */
+  /* Icon-only pills: the 22px box already leaves ~3px around a 16px glyph, so 3px more is the
+     6-8px of visual padding and the pill is 28px wide, a macOS-like 30px pitch with the gap. */
+  --menubar-icon-pad: 3px;
   --menubar-pill-radius: 4px;
   --menubar-icon-box: 22px; /* square cell an icon is centred in (glyph is 15-16px) */
 }
@@ -111,6 +114,7 @@
   --spacing-menubar-app-x: var(--menubar-app-pad);
   --spacing-menubar-status-x: var(--menubar-status-pad);
   --spacing-menubar-status-gap: var(--menubar-status-gap);
+  --spacing-menubar-icon-x: var(--menubar-icon-pad);
   --spacing-menubar-icon: var(--menubar-icon-box);
   --radius-menubar-pill: var(--menubar-pill-radius);
 

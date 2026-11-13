@@ -64,6 +64,13 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 export function Controls({ state, patch }: { state: DebugState; patch: Patch }) {
   return (
     <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+      <Group title="Battery">
+        <Toggle label="Present" checked={state.batteryPresent} onChange={(v) => patch({ batteryPresent: v })} />
+        <Range label="Level" value={state.batteryPercent} max={100} step={1} show={`${state.batteryPercent}%`} onChange={(v) => patch({ batteryPercent: v })} />
+        <Toggle label="Charging (bolt)" checked={state.charging} onChange={(v) => patch({ charging: v })} />
+        <Toggle label="Plugged in" checked={state.pluggedIn} onChange={(v) => patch({ pluggedIn: v })} />
+        <Toggle label="Percentage label" checked={state.showBatteryLabel} onChange={(v) => patch({ showBatteryLabel: v })} />
+      </Group>
       <Group title="Wi-Fi and volume">
         <Range label="Wi-Fi arcs" value={state.wifiStrength} max={3} step={1} show={String(state.wifiStrength)} onChange={(v) => patch({ wifiStrength: v as DebugState["wifiStrength"] })} />
         <Toggle label="Wi-Fi off" checked={state.wifiOff} onChange={(v) => patch({ wifiOff: v })} />

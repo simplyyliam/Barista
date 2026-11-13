@@ -1,5 +1,10 @@
 /** Made-up values for the bar preview in the debug window (nothing here talks to Rust). */
 export type DebugState = {
+  batteryPresent: boolean
+  batteryPercent: number
+  charging: boolean
+  pluggedIn: boolean
+  showBatteryLabel: boolean
   wifiStrength: 0 | 1 | 2 | 3
   wifiOff: boolean
   volume: number
@@ -12,6 +17,11 @@ export type DebugState = {
 }
 
 export const DEFAULT_DEBUG_STATE: DebugState = {
+  batteryPresent: true,
+  batteryPercent: 72,
+  charging: false,
+  pluggedIn: false,
+  showBatteryLabel: true,
   wifiStrength: 3,
   wifiOff: false,
   volume: 0.6,

@@ -20,7 +20,7 @@ type WifiViewProps = HTMLAttributes<HTMLDivElement> & {
 /** The Wi-Fi pill from plain values (the debug window feeds it made-up ones). */
 export function WifiView({ strength, off = false, open, className, ...props }: WifiViewProps) {
   return (
-    <MenubarItem open={open} className={cn("cursor-default", className)} aria-label="Wi-Fi" {...props}>
+    <MenubarItem variant="icon" open={open} className={cn("cursor-default", className)} aria-label="Wi-Fi" {...props}>
       <WifiIcon off={off} strength={strength} />
     </MenubarItem>
   )

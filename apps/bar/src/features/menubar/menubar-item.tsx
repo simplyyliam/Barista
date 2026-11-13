@@ -2,8 +2,8 @@ import { cn } from "cn";
 import { type HTMLAttributes } from "react";
 
 type MenubarItemProps = HTMLAttributes<HTMLDivElement> & {
-  /** "app" = left side (wider padding, pills touch); "status" = right side (icons, clock). */
-  variant?: "app" | "status";
+  /** "app" = left side (wider padding, pills touch); "status" = right side with text (clock, labels); "icon" = icon only. */
+  variant?: "app" | "status" | "icon";
   /** Shows the pill as pressed while its menu or panel is open. */
   open?: boolean;
 };
@@ -24,7 +24,7 @@ export function MenubarItem({
     <div
       className={cn(
         "flex h-menubar-pill shrink-0 items-center justify-center rounded-menubar-pill transition-none hover:bg-bar-hover",
-        variant === "app" ? "px-menubar-app-x" : "px-menubar-status-x",
+        variant === "app" ? "px-menubar-app-x" : variant === "icon" ? "px-menubar-icon-x" : "px-menubar-status-x",
         open && "bg-bar-hover",
         className
       )}

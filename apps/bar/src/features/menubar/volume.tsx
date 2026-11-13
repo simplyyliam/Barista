@@ -7,7 +7,7 @@ type VolumeViewProps = { level: number; muted: boolean; open?: boolean }
 /** The volume pill from plain values. */
 export function VolumeView({ level, muted, open }: VolumeViewProps) {
   return (
-    <MenubarItem open={open} className="cursor-default" aria-label="Volume">
+    <MenubarItem variant="icon" open={open} className="cursor-default" aria-label="Volume">
       <VolumeIcon level={level} muted={muted} />
     </MenubarItem>
   )
