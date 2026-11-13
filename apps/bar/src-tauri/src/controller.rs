@@ -85,7 +85,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     window::install(c.hwnd, on_window_event);
     crate::platform::windows::power::register(c.hwnd());
     #[cfg(debug_assertions)]
-    window::register_tone_hotkey(c.hwnd);
+    window::register_debug_hotkeys(c.hwnd);
     crate::appearance::start(app);
     fullscreen::watch_foreground(on_foreground_changed);
     install_panic_hook();
@@ -157,6 +157,10 @@ fn handle_window_event(c: &'static Controller, event: window::WindowEvent) {
         ToneHotkey => {
             #[cfg(debug_assertions)]
             crate::appearance::cycle_override();
+        }
+        DebugHotkey => {
+            #[cfg(debug_assertions)]
+            crate::debug_window::open(&c.app);
         }
         TimeChanged | RegionChanged => crate::system::clock::refresh(),
         PowerChanged => crate::system::battery::refresh(),

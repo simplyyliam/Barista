@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the bar and menu windows (menu, menu-sub, panel) may do: call our own commands and use events. Nothing else.",
-  "windows": ["main", "menu", "menu-sub", "panel"],
+  "description": "What the bar and menu windows (menu, menu-sub, panel, and the debug-build-only debug window) may do: call our own commands and use events. Nothing else.",
+  "windows": ["main", "menu", "menu-sub", "panel", "debug"],
   "permissions": ["core:default"]
 }

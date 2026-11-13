@@ -37,6 +37,8 @@ pub enum WindowEvent {
     WallpaperChanged,
     /// The debug hotkey for forcing the bar tone was pressed (only registered in debug builds).
     ToneHotkey,
+    /// The debug hotkey for the debug window was pressed (only registered in debug builds).
+    DebugHotkey,
     /// The clock or time zone was changed (`WM_TIMECHANGE`).
     TimeChanged,
     /// Regional settings changed (`WM_SETTINGCHANGE` with "intl"): 12/24 h, first weekday.
@@ -336,19 +338,38 @@ pub fn install(raw_hwnd: isize, handler: fn(WindowEvent)) {
     }
 }
 
-/// Debug builds: Ctrl+Alt+Shift+T cycles the bar tone (auto, light, dark). Windows delivers the
-/// key to the bar even though the bar never takes focus. A taken key is only logged.
+const TONE_HOTKEY_ID: usize = 1;
+const DEBUG_HOTKEY_ID: usize = 2;
+
+/// `WM_HOTKEY` carries the id we registered the key with in wparam.
+fn hotkey_event(id: usize) -> Option<WindowEvent> {
+    match id {
+        TONE_HOTKEY_ID => Some(WindowEvent::ToneHotkey),
+        DEBUG_HOTKEY_ID => Some(WindowEvent::DebugHotkey),
+        _ => None,
+    }
+}
+
+/// Debug builds: Ctrl+Alt+Shift+T cycles the bar tone (auto, light, dark) and Ctrl+Alt+Shift+D
+/// opens the debug window. Windows delivers the keys to the bar even though the bar never takes
+/// focus. A taken key is only logged.
 #[cfg(debug_assertions)]
-pub fn register_tone_hotkey(raw_hwnd: isize) {
+pub fn register_debug_hotkeys(raw_hwnd: isize) {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         RegisterHotKey, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT,
     };
     let modifiers = MOD_CONTROL | MOD_ALT | MOD_SHIFT | MOD_NOREPEAT;
-    // SAFETY: the window is ours and lives for the whole run; id 1 is only used here.
-    let result =
-        unsafe { RegisterHotKey(Some(hwnd_from(raw_hwnd)), 1, modifiers, u32::from(b'T')) };
-    if let Err(e) = result {
-        eprintln!("barista: tone hotkey not registered: {e}");
+    for (id, key, name) in [
+        (TONE_HOTKEY_ID, b'T', "tone"),
+        (DEBUG_HOTKEY_ID, b'D', "debug window"),
+    ] {
+        // SAFETY: the window is ours and lives for the whole run; each id is only used here.
+        let result = unsafe {
+            RegisterHotKey(Some(hwnd_from(raw_hwnd)), id as i32, modifiers, u32::from(key))
+        };
+        if let Err(e) = result {
+            eprintln!("barista: {name} hotkey not registered: {e}");
+        }
     }
 }
 
@@ -403,7 +424,11 @@ unsafe extern "system" fn subclass_proc(
         {
             emit(WindowEvent::PowerChanged)
         }
-        WM_HOTKEY => emit(WindowEvent::ToneHotkey),
+        WM_HOTKEY => {
+            if let Some(event) = hotkey_event(wparam.0) {
+                emit(event);
+            }
+        }
         WM_ACTIVATE => appbar::activate(hwnd),
         WM_WINDOWPOSCHANGED => appbar::window_pos_changed(hwnd),
         m if m != 0 && m == TASKBAR_CREATED.load(Ordering::SeqCst) => {
@@ -670,5 +695,12 @@ mod tests {
         let hwnd = win.0;
         drop(win);
         assert_eq!(window_state(hwnd), None);
+    }
+
+    #[test]
+    fn hotkey_ids_map_to_their_events() {
+        assert_eq!(hotkey_event(1), Some(WindowEvent::ToneHotkey));
+        assert_eq!(hotkey_event(2), Some(WindowEvent::DebugHotkey));
+        assert_eq!(hotkey_event(3), None);
     }
 }

@@ -4,6 +4,8 @@ mod appearance;
 mod bar;
 mod commands;
 mod controller;
+#[cfg(debug_assertions)]
+mod debug_window;
 mod dismiss;
 mod events;
 mod ipc;
