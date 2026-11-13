@@ -1,4 +1,5 @@
 import { type SVGProps } from "react";
+import { waveCount } from "../lib/levels";
 import { Glyph } from "./glyph";
 
 type VolumeIconProps = SVGProps<SVGSVGElement> & {
@@ -13,12 +14,6 @@ const WAVES = [
   "M14.08 7.32A5.2 5.2 0 0 1 14.08 14.68",
   "M15.77 5.63A7.6 7.6 0 0 1 15.77 16.37",
 ];
-
-/** How many of the three waves a level lights: none at 0, then a third each. */
-export function waveCount(level: number) {
-  if (!(level > 0)) return 0;
-  return Math.min(3, Math.ceil(level * 3));
-}
 
 /**
  * Speaker with 0 to 3 waves (level), or crossed out when muted.
