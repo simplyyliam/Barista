@@ -1,5 +1,5 @@
-import { commands, events } from "@/shared/bindings";
-import { useSnapshot } from "@/shared/hooks/use-snapshot";
+import { commands } from "@/shared/bindings";
+import { useControlCenterMode } from "@/shared/hooks/use-system-state";
 import { useOpenPanel } from "@/features/panel";
 import {
   CONTROL_CENTER_HEIGHT,
@@ -17,9 +17,7 @@ const ITEM_ID = "system/control-center";
  */
 export function ControlCenter() {
   const open = useOpenPanel();
-  const mode = useSnapshot(commands.getControlCenterMode, (h) =>
-    events.controlCenterModeChanged.listen((e) => h(e.payload)),
-  );
+  const mode = useControlCenterMode();
 
   // The panel opens under the item, so Rust needs to know where it is drawn.
   useItemBounds(ITEM_ID);

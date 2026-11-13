@@ -8,8 +8,11 @@ import { useWifi } from "./hooks/use-control-center"
 
 const JOIN_WAIT_MS = 10_000
 
-/** The Wi-Fi tile after it has grown to the full width: back, name and the radio switch. */
-export function WifiHeader({ onBack }: { onBack: () => void }) {
+/**
+ * The Wi-Fi tile after it has grown to the full width: back, name and the radio switch. Without
+ * `onBack` (the Wi-Fi panel opened from the bar) there is no back arrow.
+ */
+export function WifiHeader({ onBack }: { onBack?: () => void }) {
   const wifi = useWifi()
   const enabled = wifi?.enabled === true
   return (
@@ -19,14 +22,16 @@ export function WifiHeader({ onBack }: { onBack: () => void }) {
         enabled ? "bg-cc-active" : "bg-cc-tile",
       )}
     >
-      <button
-        type="button"
-        aria-label="Back"
-        onClick={onBack}
-        className="-ml-1 flex size-8 items-center justify-center rounded-full outline-none hover:bg-cc-fg/15 focus-visible:ring-2 focus-visible:ring-cc-fg/60"
-      >
-        <Icon icon={ArrowLeft01Icon} size={18} />
-      </button>
+      {onBack && (
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={onBack}
+          className="-ml-1 flex size-8 items-center justify-center rounded-full outline-none hover:bg-cc-fg/15 focus-visible:ring-2 focus-visible:ring-cc-fg/60"
+        >
+          <Icon icon={ArrowLeft01Icon} size={18} />
+        </button>
+      )}
       <span className="flex-1 text-[13px] font-medium">Wi-Fi</span>
       <Switch
         aria-label="Wi-Fi"

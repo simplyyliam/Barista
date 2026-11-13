@@ -3,6 +3,7 @@ import {
   events,
   type Battery,
   type ClockSettings,
+  type Mode,
   type Volume,
   type Wifi_Deserialize,
 } from "@/shared/bindings"
@@ -18,3 +19,8 @@ export const useClockSettings = () =>
   )
 export const useWifi = () =>
   useSnapshot<Wifi_Deserialize>(commands.getWifi, (h) => events.wifiChanged.listen((e) => h(e.payload)))
+/** Who draws the control center: "barista" (ours) or "windows" (Quick Settings). Rule 11 switch. */
+export const useControlCenterMode = () =>
+  useSnapshot<Mode>(commands.getControlCenterMode, (h) =>
+    events.controlCenterModeChanged.listen((e) => h(e.payload)),
+  )

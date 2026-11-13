@@ -31,7 +31,12 @@ export function useItemBounds(itemsKey: string) {
     // Items move when siblings change size (a clock ticking over, a label changing).
     const observer = new ResizeObserver(send)
     observer.observe(document.body)
-    document.querySelectorAll("[data-item-id]").forEach((element) => observer.observe(element))
+    document.querySelectorAll<HTMLElement>("[data-item-id]").forEach((element) => {
+      observer.observe(element)
+      // A sibling appearing or going (volume, a status item) moves this item without resizing it,
+      // but it does resize the group the item sits in.
+      if (element.parentElement) observer.observe(element.parentElement)
+    })
     return () => observer.disconnect()
   }, [itemsKey])
 }
