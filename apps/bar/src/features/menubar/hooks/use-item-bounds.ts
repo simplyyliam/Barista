@@ -2,6 +2,26 @@ import { useLayoutEffect } from "react"
 import { commands, type ItemBounds } from "@/shared/bindings"
 
 /**
+ * Where an element sits in the page, as if no transform were applied. Pills dip while pressed and
+ * glide when a neighbour appears; Rust must get the place the pill ends up in, not a frame of the
+ * animation. (A transform is a translate plus a scale around the centre, which is what motion uses.)
+ */
+function layoutRect(element: HTMLElement) {
+  const rect = element.getBoundingClientRect()
+  const css = getComputedStyle(element).transform
+  if (css === "none") return rect
+  const m = new DOMMatrixReadOnly(css)
+  const width = rect.width / (m.a || 1)
+  const height = rect.height / (m.d || 1)
+  return {
+    left: rect.left - m.e - (width - rect.width) / 2,
+    top: rect.top - m.f - (height - rect.height) / 2,
+    width,
+    height,
+  }
+}
+
+/**
  * Tells Rust where each status item is drawn (logical px, relative to the bar window), so menus
  * open right under their icon. Items carry `data-item-id`; call this after they render.
  */
@@ -12,7 +32,7 @@ export function useItemBounds(itemsKey: string) {
       const bounds: ItemBounds[] = Array.from(
         document.querySelectorAll<HTMLElement>("[data-item-id]"),
       ).map((element) => {
-        const rect = element.getBoundingClientRect()
+        const rect = layoutRect(element)
         return {
           id: element.dataset.itemId ?? "",
           x: rect.left,

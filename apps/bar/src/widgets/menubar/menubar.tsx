@@ -11,12 +11,14 @@ import {
   Wifi,
 } from "@/features/menubar"
 import { useBarHeight } from "@/features/menubar/hooks/use-bar-height"
+import { Motion } from "@/shared/motion"
 
 export default function Menubar() {
   useBarHeight()
 
   // Fills the bar's height and centres the pills vertically. Sizes: --menubar-* in tokens.css.
   return (
+    <Motion>
     <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center justify-between px-menubar-edge font-bar text-bar font-bar-item text-bar-fg">
       {/* gap 0: neighbouring hover pills touch, like macOS */}
       <MenubarItemGroup className="justify-self-start">
@@ -34,5 +36,6 @@ export default function Menubar() {
         <Clock />
       </MenubarItemGroup>
     </div>
+    </Motion>
   )
 }
