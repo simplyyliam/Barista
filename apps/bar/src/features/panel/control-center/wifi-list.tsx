@@ -10,16 +10,17 @@ const JOIN_WAIT_MS = 10_000
 
 /**
  * The Wi-Fi tile after it has grown to the full width: back, name and the radio switch. Without
- * `onBack` (the Wi-Fi panel opened from the bar) there is no back arrow.
+ * `onBack` (the Wi-Fi panel opened from the bar) there is no back arrow. `plain` drops the tile's
+ * background (black when on), so the row sits directly on the card.
  */
-export function WifiHeader({ onBack }: { onBack?: () => void }) {
+export function WifiHeader({ onBack, plain = false }: { onBack?: () => void; plain?: boolean }) {
   const wifi = useWifi()
   const enabled = wifi?.enabled === true
   return (
     <div
       className={cn(
         "flex h-cc-tile w-full items-center gap-2.5 rounded-panel-child px-cc-label-pad text-cc-fg",
-        enabled ? "bg-cc-active" : "bg-cc-tile",
+        !plain && (enabled ? "bg-cc-active" : "bg-cc-tile"),
       )}
     >
       {onBack && (

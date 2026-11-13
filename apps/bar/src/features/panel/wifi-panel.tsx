@@ -27,7 +27,7 @@ export function WifiPanel({ active }: { active: boolean }) {
   return (
     <div className="flex w-panel-w flex-col">
       <section className="flex flex-col gap-cc-gap rounded-panel bg-cc-card p-cc-pad">
-        <WifiHeader />
+        <WifiHeader plain />
         <div className="h-60">
           <WifiList key={session} />
         </div>
