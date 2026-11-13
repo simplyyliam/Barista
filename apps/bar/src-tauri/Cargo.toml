@@ -1,6 +1,6 @@
 [package]
 name = "barista"
-version = "0.4.0"
+version = "0.4.1"
 description = "A macOS-style menu bar for Windows"
 authors = ["Liam Matthews"]
 edition = "2021"
