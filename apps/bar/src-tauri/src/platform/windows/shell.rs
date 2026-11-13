@@ -81,3 +81,25 @@ pub fn shut_down() {
 pub fn sign_out() {
     exit_windows(EWX_LOGOFF);
 }
+
+/// Tells every window a system setting changed (`WM_SETTINGCHANGE`), so apps pick up the new
+/// theme without a restart. A 1 s timeout per window keeps one hung app from blocking us.
+pub fn broadcast_setting_change(what: &str) {
+    use windows::Win32::Foundation::{LPARAM, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
+    };
+    let text = HSTRING::from(what);
+    // SAFETY: `text` outlives the call; the receivers only read the string during the message.
+    unsafe {
+        SendMessageTimeoutW(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            WPARAM(0),
+            LPARAM(text.as_ptr() as isize),
+            SMTO_ABORTIFHUNG,
+            1000,
+            None,
+        );
+    }
+}

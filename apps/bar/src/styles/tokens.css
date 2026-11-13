@@ -54,6 +54,17 @@
   --panel-separator: rgb(250 250 250 / 0.12); /* macOS menus use a ~10-15% white hairline */
 }
 
+/* Control center (App.png, sampled at 1x): a see-through grey card over the wallpaper, slightly
+   darker tiles on it, black when on. Same in both tones, like the other panels. */
+:root {
+  --cc-card: rgb(0 0 0 / 0.3); /* App.png: #919191 over the #cfcfcf wallpaper */
+  --cc-tile: rgb(0 0 0 / 0.14); /* App.png: #7d7d7d on the card */
+  --cc-tile-hover: rgb(0 0 0 / 0.22);
+  --cc-active: #0a0a0a;
+  --cc-fg: #ffffff;
+  --cc-fg-muted: rgb(255 255 255 / 0.65);
+}
+
 /* Same in both tones: macOS selects a menu row with the accent colour and white text. One place
    to change if the accent ever becomes a setting. */
 :root {
@@ -100,6 +111,19 @@
   /* App.png: ~14px between stacked notifications. */
   --spacing-panel-gap: 14px;
 
+  /* --- Control center (App.png): 62 px tiles, 12 px gaps, 8 px card padding, 50 px header --- */
+  --spacing-cc-tile: 62px;
+  --spacing-cc-gap: 12px;
+  --spacing-cc-pad: 8px;
+  --spacing-cc-header: 50px;
+  --spacing-cc-slider: 24px;
+  /* App.png: the avatar sits 4.53 px from the header's edge (6.9 on the right), the buttons 5 px. */
+  --spacing-cc-avatar-pad: 4.53px;
+  --spacing-cc-avatar-pad-end: 6.9px;
+  --spacing-cc-button-pad: 5px;
+  /* Labelled tiles: 17 px at the sides. */
+  --spacing-cc-label-pad: 17px;
+
   /* --- Radii (ADR 0008) --- */
   /* The panel window itself gets --window-radius from the OS / Windhawk. Never set it on a window's
      root. Children use the same radius minus their distance from the edge, so the curves line up. */
@@ -122,6 +146,12 @@
   --color-panel-fg: var(--panel-fg);
   --color-panel-fg-muted: var(--panel-fg-muted);
   --color-panel-separator: var(--panel-separator);
+  --color-cc-card: var(--cc-card);
+  --color-cc-tile: var(--cc-tile);
+  --color-cc-tile-hover: var(--cc-tile-hover);
+  --color-cc-active: var(--cc-active);
+  --color-cc-fg: var(--cc-fg);
+  --color-cc-fg-muted: var(--cc-fg-muted);
 
   /* --- Menus (context menus and submenus, widgets/menu) --- */
   /* macOS: 22pt rows, 5pt panel padding, 13pt text. The highlight radius is the window radius

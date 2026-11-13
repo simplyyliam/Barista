@@ -208,6 +208,58 @@ pub fn connect(ssid: &str) {
     let _ = profile;
 }
 
+/// Deletes the saved profile of a network in the list, so the UI can ask for the password again
+/// after a failed join. Nothing happens for a name that is not in range.
+pub fn forget(ssid: &str) {
+    if !super::control_center_active() || ssid.len() > MAX_SSID {
+        return;
+    }
+    let profile = INPUTS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .networks
+        .iter()
+        .find(|n| n.ssid == ssid)
+        .and_then(|n| n.profile.clone());
+    #[cfg(windows)]
+    if let Some(p) = profile {
+        crate::platform::windows::wlan::forget(p);
+    }
+    #[cfg(not(windows))]
+    let _ = profile;
+}
+
+/// Joins a network that has no saved profile. Open networks take `None`; the others need the
+/// password (8 to 63 characters). Only names that are in the list right now are accepted, so a
+/// bad client can't make the bar write a profile for any name it likes.
+pub fn join(ssid: &str, password: Option<String>) {
+    if !super::control_center_active() || ssid.len() > MAX_SSID {
+        return;
+    }
+    let network = INPUTS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .networks
+        .iter()
+        .find(|n| n.ssid == ssid)
+        .cloned();
+    let Some(network) = network else { return };
+    // A saved network keeps its profile (it may hold a working password): join it as it is.
+    if network.profile.is_some() {
+        return connect(ssid);
+    }
+    // Open networks take no password, the others need a valid one.
+    let password = match (network.secured, password) {
+        (false, _) => None,
+        (true, Some(p)) if super::wifi_profile::password_ok(&p) => Some(p),
+        (true, _) => return,
+    };
+    #[cfg(windows)]
+    crate::platform::windows::wlan::join(ssid.to_string(), password);
+    #[cfg(not(windows))]
+    let _ = password;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

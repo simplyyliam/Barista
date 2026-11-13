@@ -4,8 +4,9 @@
 use windows::core::{w, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS};
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegGetValueW, RegNotifyChangeKeyValue, RegOpenKeyExW, HKEY, HKEY_LOCAL_MACHINE,
-    KEY_NOTIFY, REG_NOTIFY_CHANGE_LAST_SET, RRF_RT_REG_DWORD,
+    RegCloseKey, RegGetValueW, RegNotifyChangeKeyValue, RegOpenKeyExW, RegSetKeyValueW, HKEY,
+    HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_NOTIFY, REG_DWORD, REG_NOTIFY_CHANGE_LAST_SET,
+    REG_BINARY, RRF_RT_REG_BINARY, RRF_RT_REG_DWORD,
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject, INFINITE};
 
@@ -15,6 +16,81 @@ pub fn read_default_dword(subkey: &str) -> Option<u32> {
 }
 
 fn read_default_dword_in(root: HKEY, subkey: &str) -> Option<u32> {
+    read_dword_in(root, subkey, None)
+}
+
+/// The DWORD `name` in `HKCU\<subkey>`, or `None` if it is missing.
+pub fn read_user_dword(subkey: &str, name: &str) -> Option<u32> {
+    read_dword_in(HKEY_CURRENT_USER, subkey, Some(name))
+}
+
+/// Writes the DWORD `name` in `HKCU\<subkey>` (the key is created when missing).
+pub fn write_user_dword(subkey: &str, name: &str, value: u32) -> bool {
+    // SAFETY: strings and the 4 value bytes live for the call; the size matches a DWORD.
+    let status = unsafe {
+        RegSetKeyValueW(
+            HKEY_CURRENT_USER,
+            &HSTRING::from(subkey),
+            &HSTRING::from(name),
+            REG_DWORD.0,
+            Some(std::ptr::from_ref(&value).cast()),
+            size_of::<u32>() as u32,
+        )
+    };
+    status == ERROR_SUCCESS
+}
+
+/// The binary value `name` in `HKCU\<subkey>`, or `None` if it is missing (or over 4 KB).
+pub fn read_user_binary(subkey: &str, name: &str) -> Option<Vec<u8>> {
+    let (subkey, name) = (HSTRING::from(subkey), HSTRING::from(name));
+    let mut buf = vec![0u8; 4096];
+    let mut size = buf.len() as u32;
+    // SAFETY: `buf` and `size` live for the call and `size` is the buffer's real length.
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            &subkey,
+            &name,
+            RRF_RT_REG_BINARY,
+            None,
+            Some(buf.as_mut_ptr().cast()),
+            Some(&mut size),
+        )
+    };
+    (status == ERROR_SUCCESS).then(|| {
+        buf.truncate(size as usize);
+        buf
+    })
+}
+
+/// Writes the binary value `name` in `HKCU\<subkey>` (an existing key).
+pub fn write_user_binary(subkey: &str, name: &str, data: &[u8]) -> bool {
+    // SAFETY: the bytes live for the call and the size is their length.
+    let status = unsafe {
+        RegSetKeyValueW(
+            HKEY_CURRENT_USER,
+            &HSTRING::from(subkey),
+            &HSTRING::from(name),
+            REG_BINARY.0,
+            Some(data.as_ptr().cast()),
+            data.len() as u32,
+        )
+    };
+    status == ERROR_SUCCESS
+}
+
+/// The DWORD `name` in `HKLM\<subkey>` (reading is allowed for everyone), or `None` if it is missing.
+pub fn read_machine_dword(subkey: &str, name: &str) -> Option<u32> {
+    read_dword_in(HKEY_LOCAL_MACHINE, subkey, Some(name))
+}
+
+/// Like `watch`, for a key under `HKEY_CURRENT_USER`.
+pub fn watch_user(subkey: &str, on_change: fn()) -> bool {
+    watch_in(HKEY_CURRENT_USER, subkey, on_change)
+}
+
+fn read_dword_in(root: HKEY, subkey: &str, name: Option<&str>) -> Option<u32> {
+    let name = name.map(HSTRING::from);
     let mut value = 0u32;
     let mut size = size_of::<u32>() as u32;
     // SAFETY: `value` and `size` live for the call and match the requested DWORD type.
@@ -22,7 +98,7 @@ fn read_default_dword_in(root: HKEY, subkey: &str) -> Option<u32> {
         RegGetValueW(
             root,
             &HSTRING::from(subkey),
-            PCWSTR::null(),
+            name.as_ref().map_or(PCWSTR::null(), |n| PCWSTR(n.as_ptr())),
             RRF_RT_REG_DWORD,
             None,
             Some(std::ptr::from_mut(&mut value).cast()),

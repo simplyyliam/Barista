@@ -218,11 +218,7 @@ export const commands = {
 	 *  `outputDevicesChanged` keeps it fresh.
 	 */
 	getOutputDevices: () => __TAURI_INVOKE<OutputDevices>("get_output_devices"),
-	/**
-	 *  Airplane mode right now. The bar can read it but not switch it: open the airplane mode
-	 *  settings page (`openSettings`) for that. Call once when the UI starts; `airplaneModeChanged`
-	 *  keeps it fresh.
-	 */
+	/**  Airplane mode right now. Call once when the UI starts; `airplaneModeChanged` keeps it fresh. */
 	getAirplaneMode: () => __TAURI_INVOKE<AirplaneMode>("get_airplane_mode"),
 	/**
 	 *  Wi-Fi right now. `available` is false without an adapter. Call once when the UI starts;
@@ -238,6 +234,17 @@ export const commands = {
 	 *  flyout (joining a new secured network is not done by the bar).
 	 */
 	connectWifi: (ssid: string) => __TAURI_INVOKE<void>("connect_wifi", { ssid }),
+	/**
+	 *  Joins a network that Windows has no saved profile for: `password` is `null` for an open
+	 *  network, otherwise 8 to 63 characters. A wrong password shows up as the network not
+	 *  connecting (`wifiChanged`). Enterprise networks open Windows' own flyout.
+	 */
+	joinWifi: (ssid: string, password: string | null) => __TAURI_INVOKE<void>("join_wifi", { ssid, password }),
+	/**
+	 *  Deletes Windows' saved profile for a network, so a wrong password doesn't stay saved. Call it
+	 *  before asking for the password again.
+	 */
+	forgetWifi: (ssid: string) => __TAURI_INVOKE<void>("forget_wifi", { ssid }),
 	/**  Disconnects from the current network. */
 	disconnectWifi: () => __TAURI_INVOKE<void>("disconnect_wifi"),
 	/**
@@ -252,6 +259,37 @@ export const commands = {
 	setBluetoothEnabled: (enabled: boolean) => __TAURI_INVOKE<void>("set_bluetooth_enabled", { enabled }),
 	/**  Opens one of Windows' own settings pages (the fallback for everything the bar can't toggle itself). */
 	openSettings: (page: SettingsPage) => __TAURI_INVOKE<void>("open_settings", { page }),
+	/**  Starts one of the apps a quick action knows (calculator, the Clock app's timer, the camera). */
+	openApp: (app: App) => __TAURI_INVOKE<void>("open_app", { app }),
+	/**
+	 *  Night light right now (`supported` is false when this Windows build stores it differently).
+	 *  Call once when the UI starts; `nightLightChanged` keeps it fresh.
+	 */
+	getNightLight: () => __TAURI_INVOKE<NightLight>("get_night_light"),
+	/**  Switches night light on or off. `nightLightChanged` follows. */
+	setNightLight: (on: boolean) => __TAURI_INVOKE<void>("set_night_light", { on }),
+	/**  Switches airplane mode on or off. `airplaneModeChanged` follows. */
+	setAirplaneMode: (on: boolean) => __TAURI_INVOKE<void>("set_airplane_mode", { on }),
+	/**
+	 *  Switches energy saver ("battery saver") on or off, the same way Quick Settings does.
+	 *  `batteryChanged` follows.
+	 */
+	setBatterySaver: (on: boolean) => __TAURI_INVOKE<void>("set_battery_saver", { on }),
+	/**
+	 *  What is playing right now (`available` is false when nothing is). Call once when the UI
+	 *  starts; `mediaChanged` keeps it fresh.
+	 */
+	getMedia: () => __TAURI_INVOKE<Media_Serialize>("get_media"),
+	/**  Plays or pauses the current player. */
+	mediaPlayPause: () => __TAURI_INVOKE<void>("media_play_pause"),
+	/**  Skips to the next track of the current player. */
+	mediaNext: () => __TAURI_INVOKE<void>("media_next"),
+	/**  Goes back to the previous track of the current player. */
+	mediaPrevious: () => __TAURI_INVOKE<void>("media_previous"),
+	/**  Dark or light mode right now. Call once when the UI starts; `themeModeChanged` keeps it fresh. */
+	getThemeMode: () => __TAURI_INVOKE<ThemeMode>("get_theme_mode"),
+	/**  Switches Windows (apps and system) to dark or light mode. `themeModeChanged` follows. */
+	setDarkMode: (dark: boolean) => __TAURI_INVOKE<void>("set_dark_mode", { dark }),
 };
 
 /** Events */
@@ -266,9 +304,11 @@ export const events = {
 	controlCenterModeChanged: makeEvent<ControlCenterModeChanged, ControlCenterModeChanged>("control-center-mode-changed"),
 	hotspotChanged: makeEvent<HotspotChanged, HotspotChanged>("hotspot-changed"),
 	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
+	mediaChanged: makeEvent<MediaChanged_Serialize, MediaChanged_Deserialize>("media-changed"),
 	menuChanged: makeEvent<MenuChanged_Serialize, MenuChanged_Deserialize>("menu-changed"),
 	menuClose: makeEvent<MenuClose, MenuClose>("menu-close"),
 	menuOpen: makeEvent<MenuOpen_Serialize, MenuOpen_Deserialize>("menu-open"),
+	nightLightChanged: makeEvent<NightLightChanged, NightLightChanged>("night-light-changed"),
 	notificationModeChanged: makeEvent<NotificationModeChanged, NotificationModeChanged>("notification-mode-changed"),
 	notificationsChanged: makeEvent<NotificationsChanged_Serialize, NotificationsChanged_Deserialize>("notifications-changed"),
 	outputDevicesChanged: makeEvent<OutputDevicesChanged, OutputDevicesChanged>("output-devices-changed"),
@@ -280,6 +320,7 @@ export const events = {
 	submenuHovered: makeEvent<SubmenuHovered_Serialize, SubmenuHovered_Deserialize>("submenu-hovered"),
 	submenuPlaced: makeEvent<SubmenuPlaced, SubmenuPlaced>("submenu-placed"),
 	submenuShow: makeEvent<SubmenuShow_Serialize, SubmenuShow_Deserialize>("submenu-show"),
+	themeModeChanged: makeEvent<ThemeModeChanged, ThemeModeChanged>("theme-mode-changed"),
 	userChanged: makeEvent<UserChanged_Serialize, UserChanged_Deserialize>("user-changed"),
 	volumeChanged: makeEvent<VolumeChanged, VolumeChanged>("volume-changed"),
 	wifiChanged: makeEvent<WifiChanged_Serialize, WifiChanged_Deserialize>("wifi-changed"),
@@ -307,6 +348,9 @@ export type AirplaneMode = {
  *  per frame.
  */
 export type AirplaneModeChanged = AirplaneMode;
+
+/**  Apps a quick action can start. An enum with fixed URIs, so the UI can't launch anything else. */
+export type App = "calculator" | "clockTimer" | "camera";
 
 /**  What the UI needs to know. `tone` is the tone of the WALLPAPER: `light` means dark content. */
 export type BarAppearance = {
@@ -363,6 +407,8 @@ export type Battery_Deserialize = {
 	secondsLeft?: number | null,
 	/**  Battery saver is on. */
 	saver: boolean,
+	/**  The bar can switch battery saver itself (true on Windows, ADR 0020). */
+	saverControllable: boolean,
 };
 
 export type Battery_Serialize = {
@@ -377,6 +423,8 @@ export type Battery_Serialize = {
 	secondsLeft: number | null,
 	/**  Battery saver is on. */
 	saver: boolean,
+	/**  The bar can switch battery saver itself (true on Windows, ADR 0020). */
+	saverControllable: boolean,
 };
 
 export type Bluetooth = {
@@ -540,6 +588,49 @@ export type ItemsChanged_Deserialize = StatusItemView_Deserialize[];
  */
 export type ItemsChanged_Serialize = StatusItemView_Serialize[];
 
+export type Media = Media_Serialize | Media_Deserialize;
+
+/**  The track, the playing state or the player changed. Full snapshot, at most once per frame. */
+export type MediaChanged = MediaChanged_Serialize | MediaChanged_Deserialize;
+
+/**  The track, the playing state or the player changed. Full snapshot, at most once per frame. */
+export type MediaChanged_Deserialize = Media_Deserialize;
+
+/**  The track, the playing state or the player changed. Full snapshot, at most once per frame. */
+export type MediaChanged_Serialize = Media_Serialize;
+
+export type Media_Deserialize = {
+	/**  False when no app is playing anything: the other fields mean nothing then. */
+	available: boolean,
+	/**  `"system"` (Windows media controls). Reserved for more sources later. */
+	source: string,
+	/**  The player's name, like "Spotify". */
+	appName: string,
+	title: string,
+	artist: string,
+	playing: boolean,
+	canNext: boolean,
+	canPrevious: boolean,
+	/**  The cover as a data URL (JPEG or PNG only), if the app gave one. */
+	cover?: string | null,
+};
+
+export type Media_Serialize = {
+	/**  False when no app is playing anything: the other fields mean nothing then. */
+	available: boolean,
+	/**  `"system"` (Windows media controls). Reserved for more sources later. */
+	source: string,
+	/**  The player's name, like "Spotify". */
+	appName: string,
+	title: string,
+	artist: string,
+	playing: boolean,
+	canNext: boolean,
+	canPrevious: boolean,
+	/**  The cover as a data URL (JPEG or PNG only), if the app gave one. */
+	cover: string | null,
+};
+
 /**  Where a menu hangs from. */
 export type MenuAnchor = {
 	/**  The item's rect on screen, in physical pixels. */
@@ -673,6 +764,18 @@ export type Monitor = {
 
 /**  Which mouse button clicked an item. */
 export type MouseButton = "left" | "right" | "middle";
+
+export type NightLight = {
+	/**  False when the stored value has a layout we don't know: `on` means nothing then. */
+	supported: boolean,
+	on: boolean,
+};
+
+/**
+ *  Night light was switched (by the bar or in Windows' settings). Full snapshot, at most once per
+ *  frame.
+ */
+export type NightLightChanged = NightLight;
 
 /**  The notification panel is now ours or Windows' (a setting, see `setNotificationMode`). */
 export type NotificationModeChanged = Mode;
@@ -821,7 +924,9 @@ export type Rect = {
  *  The settings pages the UI can open. An enum, never a free string, so the UI can't make us
  *  launch an arbitrary URI.
  */
-export type SettingsPage = "wifi" | "bluetooth" | "sound" | "display" | "airplaneMode" | "hotspot" | "nightLight" | "batterySaver" | "focus" | "accounts" | "power" | "location";
+export type SettingsPage = "wifi" | "bluetooth" | "sound" | "display" | "airplaneMode" | "hotspot" | "nightLight" | "batterySaver" | "focus" | "accounts" | "power" | "location" | 
+/**  Windows Settings' start page (the gear in the control center). */
+"home";
 
 /**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
 export type StatusItemView = StatusItemView_Serialize | StatusItemView_Deserialize;
@@ -927,6 +1032,16 @@ export type SubmenuShow_Serialize = {
 /**  Which side an open submenu goes on, so it stays on screen. */
 export type SubmenuSide = "right" | "left";
 
+export type ThemeMode = {
+	dark: boolean,
+};
+
+/**
+ *  Windows switched between dark and light mode (any app or the settings page). Full snapshot, at
+ *  most once per frame.
+ */
+export type ThemeModeChanged = ThemeMode;
+
 /**  How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round. */
 export type Tone = "light" | "dark";
 
@@ -954,6 +1069,8 @@ export type User_Deserialize = {
 	/**  False until the first read finished (or Windows gave no name). */
 	available: boolean,
 	name: string,
+	/**  The sign-in address, when Windows gives it (a Microsoft account); `None` otherwise. */
+	email?: string | null,
 	/**  The picture as a data URL; `None`: draw the initials. */
 	avatar?: string | null,
 };
@@ -962,6 +1079,8 @@ export type User_Serialize = {
 	/**  False until the first read finished (or Windows gave no name). */
 	available: boolean,
 	name: string,
+	/**  The sign-in address, when Windows gives it (a Microsoft account); `None` otherwise. */
+	email: string | null,
 	/**  The picture as a data URL; `None`: draw the initials. */
 	avatar: string | null,
 };

@@ -415,6 +415,86 @@ pub fn open_settings(page: crate::system::actions::SettingsPage) {
     crate::system::actions::open_settings(page);
 }
 
+/// Night light right now (`supported` is false when this Windows build stores it differently).
+/// Call once when the UI starts; `nightLightChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_night_light() -> crate::system::night_light::NightLight {
+    crate::system::night_light::service().get()
+}
+
+/// Switches night light on or off. `nightLightChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_night_light(on: bool) {
+    crate::system::night_light::set(on);
+}
+
+/// Switches airplane mode on or off. `airplaneModeChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_airplane_mode(on: bool) {
+    crate::system::airplane::set(on);
+}
+
+/// Switches energy saver ("battery saver") on or off, the same way Quick Settings does.
+/// `batteryChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_battery_saver(on: bool) {
+    crate::system::battery::set_saver(on);
+}
+
+/// Starts one of the apps a quick action knows (calculator, the Clock app's timer, the camera).
+#[tauri::command]
+#[specta::specta]
+pub fn open_app(app: crate::system::actions::App) {
+    crate::system::actions::open_app(app);
+}
+
+/// What is playing right now (`available` is false when nothing is). Call once when the UI
+/// starts; `mediaChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_media() -> crate::system::media::Media {
+    crate::system::media::service().get()
+}
+
+/// Plays or pauses the current player.
+#[tauri::command]
+#[specta::specta]
+pub fn media_play_pause() {
+    crate::system::media::play_pause();
+}
+
+/// Skips to the next track of the current player.
+#[tauri::command]
+#[specta::specta]
+pub fn media_next() {
+    crate::system::media::next();
+}
+
+/// Goes back to the previous track of the current player.
+#[tauri::command]
+#[specta::specta]
+pub fn media_previous() {
+    crate::system::media::previous();
+}
+
+/// Dark or light mode right now. Call once when the UI starts; `themeModeChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_theme_mode() -> crate::system::theme::ThemeMode {
+    crate::system::theme::service().get()
+}
+
+/// Switches Windows (apps and system) to dark or light mode. `themeModeChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_dark_mode(dark: bool) {
+    crate::system::theme::set_dark(dark);
+}
+
 /// Bluetooth right now: radio state and paired devices. `available` is false without a radio. Call
 /// once when the UI starts; `bluetoothChanged` keeps it fresh.
 #[tauri::command]
@@ -461,6 +541,23 @@ pub fn connect_wifi(ssid: String) {
     crate::system::wifi::connect(&ssid);
 }
 
+/// Joins a network that Windows has no saved profile for: `password` is `null` for an open
+/// network, otherwise 8 to 63 characters. A wrong password shows up as the network not
+/// connecting (`wifiChanged`). Enterprise networks open Windows' own flyout.
+#[tauri::command]
+#[specta::specta]
+pub fn join_wifi(ssid: String, password: Option<String>) {
+    crate::system::wifi::join(&ssid, password);
+}
+
+/// Deletes Windows' saved profile for a network, so a wrong password doesn't stay saved. Call it
+/// before asking for the password again.
+#[tauri::command]
+#[specta::specta]
+pub fn forget_wifi(ssid: String) {
+    crate::system::wifi::forget(&ssid);
+}
+
 /// Disconnects from the current network.
 #[tauri::command]
 #[specta::specta]
@@ -468,9 +565,7 @@ pub fn disconnect_wifi() {
     crate::system::wifi::disconnect();
 }
 
-/// Airplane mode right now. The bar can read it but not switch it: open the airplane mode
-/// settings page (`openSettings`) for that. Call once when the UI starts; `airplaneModeChanged`
-/// keeps it fresh.
+/// Airplane mode right now. Call once when the UI starts; `airplaneModeChanged` keeps it fresh.
 #[tauri::command]
 #[specta::specta]
 pub fn get_airplane_mode() -> crate::system::airplane::AirplaneMode {

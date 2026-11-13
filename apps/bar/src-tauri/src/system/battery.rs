@@ -20,6 +20,8 @@ pub struct Battery {
     pub seconds_left: Option<u32>,
     /// Battery saver is on.
     pub saver: bool,
+    /// The bar can switch battery saver itself (true on Windows, ADR 0020).
+    pub saver_controllable: bool,
 }
 
 /// `SYSTEM_POWER_STATUS` numbers to a snapshot. Windows uses 255 and `u32::MAX` for "unknown",
@@ -44,6 +46,7 @@ pub fn from_status(
         plugged_in: (ac_line != 255).then_some(ac_line == 1),
         seconds_left: (seconds_left != u32::MAX).then_some(seconds_left),
         saver: saver & 1 != 0,
+        saver_controllable: false,
     }
 }
 
@@ -52,17 +55,52 @@ pub fn service() -> &'static Service<Battery> {
     S.get_or_init(|| Service::new(Battery::default()))
 }
 
+/// Switches energy saver on or off (the same call as Quick Settings, ADR 0020). The registry watch
+/// below publishes the new state.
+pub fn set_saver(on: bool) {
+    if !super::control_center_active() {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        if let Err(status) = crate::platform::windows::energy_saver::publish(on) {
+            eprintln!("barista: energy saver not switched (status {status:#x})");
+        }
+        refresh();
+    }
+    #[cfg(not(windows))]
+    let _ = on;
+}
+
+/// Windows keeps the energy saver switch (Quick Settings) in this value: 1 = on, 2 = off. The power
+/// status flag does not show it while plugged in, so we read the value too. Only Windows' own
+/// service may write it (an ordinary program can't, it needs administrator rights).
+#[cfg(windows)]
+const SAVER_KEY: &str = r"SYSTEM\CurrentControlSet\Control\Power";
+
+/// Watches that value, so the tile follows a change made in Windows.
+pub fn start_saver_watch() {
+    #[cfg(windows)]
+    if !crate::platform::windows::registry_watch::watch(SAVER_KEY, refresh) {
+        eprintln!("barista: energy saver switch not watched");
+    }
+}
+
 /// Reads the status from Windows and publishes it if it changed.
 pub fn refresh() {
     #[cfg(windows)]
     if let Some(p) = crate::platform::windows::power::read() {
-        service().set(from_status(
+        let switch = crate::platform::windows::registry_watch::read_machine_dword(SAVER_KEY, "EnergySaverState");
+        let saver = p.saver | u8::from(switch == Some(1));
+        let mut battery = from_status(
             p.ac_line,
             p.battery_flag,
             p.percent,
             p.seconds_left,
-            p.saver,
-        ));
+            saver,
+        );
+        battery.saver_controllable = true;
+        service().set(battery);
     }
 }
 
