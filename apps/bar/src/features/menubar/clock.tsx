@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import { commands } from "@/shared/bindings";
 import { useNotificationMode, useNotifications } from "@/shared/stores/notifications";
 import { useOpenPanel } from "@/features/panel";
@@ -45,10 +44,8 @@ export function Clock() {
           click();
         }
       }}
-      className={cn(
-        "relative cursor-default gap-2 rounded-md outline-none focus-visible:bg-bar-hover",
-        isOpen && "bg-bar-hover"
-      )}
+      open={isOpen}
+      className="relative cursor-default gap-2 outline-none focus-visible:bg-bar-hover"
     >
       <p>
         {time.toLocaleDateString("en-US", {

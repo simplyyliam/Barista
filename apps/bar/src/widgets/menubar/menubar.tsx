@@ -12,7 +12,7 @@ export default function Menubar() {
 
   // Placeholder: fills the bar's height and centres its content vertically (tokens.css).
   return (
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center justify-between px-bar-x font-bar text-bar text-bar-fg">
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center justify-between px-menubar-edge font-bar text-bar font-bar-item text-bar-fg">
       <MenubarItemGroup className="justify-self-start">
         <p>Barista {version}</p>
       </MenubarItemGroup>

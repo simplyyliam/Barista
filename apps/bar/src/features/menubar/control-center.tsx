@@ -1,4 +1,3 @@
-import { cn } from "cn";
 import { commands, events } from "@/shared/bindings";
 import { useSnapshot } from "@/shared/hooks/use-snapshot";
 import { Icon, SlidersHorizontalIcon } from "@barista/ui/icons";
@@ -49,10 +48,8 @@ export function ControlCenter() {
           click();
         }
       }}
-      className={cn(
-        "cursor-default rounded-md outline-none focus-visible:bg-bar-hover",
-        isOpen && "bg-bar-hover"
-      )}
+      open={isOpen}
+      className="cursor-default outline-none focus-visible:bg-bar-hover"
     >
       <Icon icon={SlidersHorizontalIcon} size={16} />
     </MenubarItem>

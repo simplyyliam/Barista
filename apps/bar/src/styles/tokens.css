@@ -18,7 +18,7 @@
   /* Bar content on a LIGHT wallpaper: near-black, like the design (#0A0A0A in App.png). */
   --bar-fg: #0a0a0a;
   --bar-fg-muted: rgb(10 10 10 / 0.6);
-  --bar-hover: rgb(10 10 10 / 0.1);
+  --bar-hover: rgb(0 0 0 / 0.1);
 
   /* Menus follow the same tone: light wallpaper -> light glass, dark text. */
   --menu-tint: rgb(246 246 246 / 0.72); /* over the acrylic */
@@ -34,7 +34,7 @@
   /* Bar content on a DARK wallpaper: near-white (shadcn neutral-50). Not in the design; mirrors it. */
   --bar-fg: #fafafa;
   --bar-fg-muted: rgb(250 250 250 / 0.6);
-  --bar-hover: rgb(250 250 250 / 0.14);
+  --bar-hover: rgb(255 255 255 / 0.16);
 
   --menu-tint: rgb(34 34 34 / 0.62);
   --menu-opaque: #2a2a2a;
@@ -43,6 +43,21 @@
   --menu-fg-disabled: rgb(255 255 255 / 0.28);
   --menu-separator: rgb(255 255 255 / 0.13);
   --menu-ring: rgb(255 255 255 / 0.12);
+}
+
+:root {
+  /* Menu bar metrics (CSS px). Change them here: the window height follows --menubar-height
+     (widgets/menubar asks Rust to resize the bar to it on start).
+     24 = Apple HIG without a notch, 28 = default, 32 = MacBook Pro proportions. */
+  --menubar-height: 28px;
+  /* Every item is a pill 4px shorter than the bar. */
+  --menubar-pill-inset: 4px;
+  --menubar-edge-pad: 11px; /* screen edge to the first / last item (10-12) */
+  --menubar-app-pad: 9px; /* inside a left item (8-10); left pills touch, gap 0 */
+  --menubar-status-pad: 7px; /* inside a right item (6-8) */
+  --menubar-status-gap: 3px; /* between right items (2-4) */
+  --menubar-pill-radius: 4px;
+  --menubar-icon-box: 22px; /* square cell an icon is centred in (glyph is 15-16px) */
 }
 
 :root {
@@ -74,33 +89,30 @@
 
 @theme inline {
   /* --- Type --- */
-  /* App.png: SF Pro (not licensed for Windows). Inter is the closest free look; it is already
-     bundled by @barista/ui. One token, so a font setting can swap it later. */
- --font-bar: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  /* App.png: 14px text (cap height ~10px). macOS menu bar text is 13-14pt. */
+  /* SF Pro is not licensed for Windows; Segoe UI Variable is the closest system font. One token,
+     so a font setting can swap it later. */
+  --font-bar: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  /* macOS menu bar text is 13pt. line-height 1 + tracking -0.015em pull Segoe toward SF Pro.
+     `text-bar` sets all three. */
   --text-bar: 13px;
-  --text-bar--line-height: 16px;
-  /* macOS menu bar items are regular weight; the app name is semibold. App.png shows regular. */
-  --font-weight-bar: 500;
-  --font-weight-bar-strong: 500;
+  --text-bar--line-height: 1;
+  --text-bar--letter-spacing: -0.015em;
+  /* Weights: the app / brand name is bold, everything else regular (macOS). Named so they do not
+     clash with the `font-bar` family utility: `font-bar-item`, `font-bar-strong`. */
+  --font-weight-bar-item: 400;
+  --font-weight-bar-strong: 700;
   /* App.png panels: titles 14px, secondary lines ~11px (estimated by eye, ask Liam). */
   --text-panel-title: 14px;
   --text-panel-small: 11px;
 
-  /* --- Bar sizes and spacing --- */
-  /* App.png: 32px tall (macOS: 24pt). Reference only; the real height is the window's. */
-  --spacing-bar-h: 32px;
-  /* App.png: 12px from the screen edge to the first/last item. */
-  --spacing-bar-x: 12px;
-  /* App.png: 18px between the right-hand icons (32px pitch for a 14px glyph). */
-  --spacing-bar-gap: 18px;
-  /* App.png: 12px between the logo and the app name. */
-  --spacing-bar-icon-label: 12px;
-  /* App.png: 16px icon box. macOS: 16x16pt icon in a 22pt area (Bjango). */
-  --spacing-bar-icon: 16px;
-  /* 22pt-style item height in the UI's CSS-pixel scale */
-  --spacing-bar-item-h: 22px; 
-  --spacing-bar-item-x: 10px;
+  /* --- Menu bar sizes (raw values on :root above) --- */
+  --spacing-menubar-pill: calc(var(--menubar-height) - var(--menubar-pill-inset));
+  --spacing-menubar-edge: var(--menubar-edge-pad);
+  --spacing-menubar-app-x: var(--menubar-app-pad);
+  --spacing-menubar-status-x: var(--menubar-status-pad);
+  --spacing-menubar-status-gap: var(--menubar-status-gap);
+  --spacing-menubar-icon: var(--menubar-icon-box);
+  --radius-menubar-pill: var(--menubar-pill-radius);
 
   /* --- Panels --- */
   /* App.png: 340px wide, but that reads wider on a scaled screen than in the 2560 px mock, so 300px (Liam, 2026-11-12). 14px below the bar, 16px content padding, 8px inset for inner blocks. */
