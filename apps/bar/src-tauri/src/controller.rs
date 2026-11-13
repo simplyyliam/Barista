@@ -4,7 +4,7 @@
 use crate::bar::{bar_rect, pick_monitor, BarInfo, Monitor, Rect};
 use crate::events::BarChanged;
 use crate::platform::windows::{appbar, fullscreen, monitors, window};
-use crate::settings::{settings_path, Settings};
+use crate::settings::{clamp_bar_height, settings_path, Settings};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -85,7 +85,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     window::install(c.hwnd, on_window_event);
     crate::platform::windows::power::register(c.hwnd());
     #[cfg(debug_assertions)]
-    window::register_tone_hotkey(c.hwnd);
+    window::register_debug_hotkeys(c.hwnd);
     crate::appearance::start(app);
     fullscreen::watch_foreground(on_foreground_changed);
     install_panic_hook();
@@ -157,6 +157,10 @@ fn handle_window_event(c: &'static Controller, event: window::WindowEvent) {
         ToneHotkey => {
             #[cfg(debug_assertions)]
             crate::appearance::cycle_override();
+        }
+        DebugHotkey => {
+            #[cfg(debug_assertions)]
+            crate::debug_window::open(&c.app);
         }
         TimeChanged | RegionChanged => crate::system::clock::refresh(),
         PowerChanged => crate::system::battery::refresh(),
@@ -279,6 +283,31 @@ impl Controller {
             }
         });
         Ok(self.info())
+    }
+
+    /// Sets the bar height (logical px, clamped), saves it and re-places the window. A no-op when
+    /// it is already that height, so the UI can call it on every start.
+    pub fn set_bar_height(&self, height: u32) -> BarInfo {
+        let height = clamp_bar_height(height);
+        {
+            let mut state = self.lock();
+            if state.settings.bar_height != height {
+                state.settings.bar_height = height;
+                if let Err(e) = state.settings.save(&state.settings_file) {
+                    eprintln!("barista: could not save settings: {e}");
+                }
+            }
+        }
+        // Always re-place the window, even when the height was already saved: if an earlier call's
+        // job on the UI thread was lost, this one still fixes it (`apply` does nothing when the
+        // window is already right). It runs on the UI thread: this command may be on another one.
+        let app = self.app.clone();
+        let _ = app.run_on_main_thread(|| {
+            if let Some(c) = get() {
+                c.apply();
+            }
+        });
+        self.info()
     }
 
     fn set_fullscreen(&self, on: bool) {

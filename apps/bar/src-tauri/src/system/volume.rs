@@ -42,7 +42,7 @@ pub fn start() {
             },
             None => Volume::default(),
         });
-    }, super::output_devices::changed);
+    }, super::output_devices::changed, super::app_volumes::changed);
 }
 
 pub fn set_volume(level: f64) {

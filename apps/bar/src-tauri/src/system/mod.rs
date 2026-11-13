@@ -9,6 +9,7 @@
 //! ```
 
 pub mod actions;
+pub mod app_volumes;
 pub mod brightness;
 pub mod hotspot;
 pub mod media;
@@ -125,6 +126,7 @@ pub fn set_control_center_mode(mode: crate::settings::Mode) {
         user::service().set(Default::default());
         media::service().set(Default::default());
         night_light::service().set(Default::default());
+        app_volumes::service().set(Default::default());
     }
 }
 
@@ -142,6 +144,7 @@ fn refresh_control_center() {
     night_light::refresh();
     wifi::scan();
     output_devices::refresh();
+    app_volumes::refresh();
     #[cfg(windows)]
     crate::platform::windows::radios::refresh();
 }
@@ -151,6 +154,10 @@ fn refresh_control_center() {
 pub fn panel_opened(name: &str) {
     if name == "control-center" {
         refresh_control_center();
+    }
+    // Same switch as the control center: in "windows" mode nothing is read and the sliders do nothing.
+    if name == "volume" && control_center_active() {
+        app_volumes::refresh();
     }
 }
 
@@ -195,6 +202,10 @@ pub fn init(app: &tauri::AppHandle) {
     let a = app.clone();
     output_devices::service().forward(move |v| {
         let _ = OutputDevicesChanged(v).emit(&a);
+    });
+    let a = app.clone();
+    app_volumes::service().forward(move |v| {
+        let _ = crate::events::AppVolumesChanged(v).emit(&a);
     });
     let a = app.clone();
     user::service().forward(move |v| {

@@ -4,9 +4,15 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-pub const DEFAULT_BAR_HEIGHT: u32 = 24;
+// 28 like a notched MacBook's bar; 24 is Apple's HIG height without a notch. The UI's
+// `--menubar-height` token (tokens.css) is the source of truth and calls `set_bar_height`.
+pub const DEFAULT_BAR_HEIGHT: u32 = 28;
 pub const MIN_BAR_HEIGHT: u32 = 20;
 pub const MAX_BAR_HEIGHT: u32 = 64;
+
+pub fn clamp_bar_height(height: u32) -> u32 {
+    height.clamp(MIN_BAR_HEIGHT, MAX_BAR_HEIGHT)
+}
 
 /// Who draws a feature that replaces a Windows one (CLAUDE.md rule 11). `Windows` means the bar
 /// does nothing for it and opens the Windows version instead.
@@ -48,7 +54,7 @@ impl Default for Settings {
 impl Settings {
     /// A hand-edited file must not be able to make the bar huge or invisible.
     fn clamped(mut self) -> Self {
-        self.bar_height = self.bar_height.clamp(MIN_BAR_HEIGHT, MAX_BAR_HEIGHT);
+        self.bar_height = clamp_bar_height(self.bar_height);
         self
     }
 
@@ -109,6 +115,14 @@ mod tests {
         std::fs::write(&path, r#"{"barHeight": 0}"#).unwrap();
         assert_eq!(Settings::load(&path).bar_height, MIN_BAR_HEIGHT);
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn default_height_is_28_and_clamp_keeps_it_in_range() {
+        assert_eq!(Settings::default().bar_height, 28);
+        assert_eq!(clamp_bar_height(28), 28);
+        assert_eq!(clamp_bar_height(1), MIN_BAR_HEIGHT);
+        assert_eq!(clamp_bar_height(900), MAX_BAR_HEIGHT);
     }
 
     #[test]

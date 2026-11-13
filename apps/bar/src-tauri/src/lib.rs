@@ -4,6 +4,8 @@ mod appearance;
 mod bar;
 mod commands;
 mod controller;
+#[cfg(debug_assertions)]
+mod debug_window;
 mod dismiss;
 mod events;
 mod ipc;
@@ -35,6 +37,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_version,
             commands::get_bar_info,
             commands::set_monitor,
+            commands::set_bar_height,
             commands::get_items,
             commands::item_clicked,
             commands::get_window_radius,
@@ -83,6 +86,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_user,
             commands::set_output_device,
             commands::get_output_devices,
+            commands::get_app_volumes,
+            commands::set_app_volume,
+            commands::set_app_muted,
             commands::get_airplane_mode,
             commands::get_wifi,
             commands::set_wifi_enabled,
@@ -130,6 +136,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::HotspotChanged,
             events::UserChanged,
             events::OutputDevicesChanged,
+            events::AppVolumesChanged,
             events::AirplaneModeChanged,
             events::BluetoothChanged,
             events::WifiChanged,

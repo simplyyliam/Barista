@@ -207,6 +207,11 @@ pub struct AirplaneModeChanged(pub crate::system::airplane::AirplaneMode);
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct OutputDevicesChanged(pub crate::system::output_devices::OutputDevices);
 
+/// An app's volume or mute changed, or an app started or stopped using audio. Full snapshot, at
+/// most once per frame.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct AppVolumesChanged(pub crate::system::app_volumes::AppVolumes);
+
 /// The signed-in user's name or picture changed (read again whenever the control center opens).
 /// Full snapshot, at most once per frame.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]

@@ -4,29 +4,37 @@ import { Switch } from "@barista/ui/components/ui/switch"
 import { Input } from "@barista/ui/components/ui/input"
 import { ArrowLeft01Icon, Icon, LockIcon, Tick02Icon, Wifi01Icon } from "@barista/ui/icons"
 import { cn } from "cn"
+import { AnimatePresence, motion } from "motion/react"
+import { EASE_OUT, PRESS_TRANSITION, PRESS_WIDE, Swap, TEXT_EXIT, TEXT_HIDDEN, TEXT_SHOWN, TEXT_TRANSITION } from "@/shared/motion"
 import { useWifi } from "./hooks/use-control-center"
 
 const JOIN_WAIT_MS = 10_000
 
-/** The Wi-Fi tile after it has grown to the full width: back, name and the radio switch. */
-export function WifiHeader({ onBack }: { onBack: () => void }) {
+/**
+ * The Wi-Fi tile after it has grown to the full width: back, name and the radio switch. Without
+ * `onBack` (the Wi-Fi panel opened from the bar) there is no back arrow. `plain` drops the tile's
+ * background (black when on), so the row sits directly on the card.
+ */
+export function WifiHeader({ onBack, plain = false }: { onBack?: () => void; plain?: boolean }) {
   const wifi = useWifi()
   const enabled = wifi?.enabled === true
   return (
     <div
       className={cn(
         "flex h-cc-tile w-full items-center gap-2.5 rounded-panel-child px-cc-label-pad text-cc-fg",
-        enabled ? "bg-cc-active" : "bg-cc-tile",
+        !plain && (enabled ? "bg-cc-active" : "bg-cc-tile"),
       )}
     >
-      <button
-        type="button"
-        aria-label="Back"
-        onClick={onBack}
-        className="-ml-1 flex size-8 items-center justify-center rounded-full outline-none hover:bg-cc-fg/15 focus-visible:ring-2 focus-visible:ring-cc-fg/60"
-      >
-        <Icon icon={ArrowLeft01Icon} size={18} />
-      </button>
+      {onBack && (
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={onBack}
+          className="-ml-1 flex size-8 items-center justify-center rounded-full outline-none hover:bg-cc-fg/15 focus-visible:ring-2 focus-visible:ring-cc-fg/60"
+        >
+          <Icon icon={ArrowLeft01Icon} size={18} />
+        </button>
+      )}
       <span className="flex-1 text-[13px] font-medium">Wi-Fi</span>
       <Switch
         aria-label="Wi-Fi"
@@ -39,8 +47,11 @@ export function WifiHeader({ onBack }: { onBack: () => void }) {
   )
 }
 
-/** The networks in range, filling the space under the header. Scrolls when there are many. */
-export function WifiList() {
+/**
+ * The networks in range, filling the space under the header. Scrolls when there are many. It scans
+ * when it mounts, unless `scanOnMount` is off (the Wi-Fi panel scans when it opens instead).
+ */
+export function WifiList({ scanOnMount = true }: { scanOnMount?: boolean }) {
   const wifi = useWifi()
   // The network that asked for a password, and the one we just tried to join.
   const [asking, setAsking] = useState<string | null>(null)
@@ -49,7 +60,7 @@ export function WifiList() {
   const [failed, setFailed] = useState<string | null>(null)
 
   useEffect(() => {
-    void commands.scanWifi()
+    if (scanOnMount) void commands.scanWifi()
   }, [])
 
   // Connected: nothing more to wait for. Still not connected after a while: say so.
@@ -117,25 +128,48 @@ export function WifiList() {
   } else {
     body = wifi.networks.map((network) => (
       <div key={network.ssid} className="flex flex-col">
-        <button
+        <motion.button
           type="button"
+          whileTap={PRESS_WIDE}
+          transition={PRESS_TRANSITION}
           onClick={() => pick(network)}
           className="flex h-10 shrink-0 items-center gap-2.5 rounded-[max(0px,calc(var(--radius-panel-child)-var(--spacing-cc-pad)))] px-3 text-left text-cc-fg outline-none hover:bg-cc-tile-hover focus-visible:ring-2 focus-visible:ring-cc-fg/60"
         >
           <Icon icon={Wifi01Icon} size={16} className={cn("shrink-0", network.signal < 35 && "opacity-50")} />
           <span className="flex min-w-0 flex-1 flex-col leading-tight">
             <span className="truncate text-[13px]">{network.ssid}</span>
-            {(trying === network.ssid || failed === network.ssid) && (
-              <span className="text-[11px] text-cc-fg-muted">
-                {trying === network.ssid ? "Connecting…" : "Couldn't connect"}
-              </span>
-            )}
+            <AnimatePresence initial={false} mode="popLayout">
+              {(trying === network.ssid || failed === network.ssid) && (
+                <motion.span
+                  key={trying === network.ssid ? "connecting" : "failed"}
+                  initial={TEXT_HIDDEN}
+                  animate={TEXT_SHOWN}
+                  exit={TEXT_EXIT}
+                  transition={TEXT_TRANSITION}
+                  className="text-[11px] text-cc-fg-muted"
+                >
+                  {trying === network.ssid ? "Connecting…" : "Couldn't connect"}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </span>
-          {network.secured && !network.connected && <Icon icon={LockIcon} size={13} className="shrink-0 opacity-70" />}
-          {network.connected && <Icon icon={Tick02Icon} size={16} className="shrink-0" />}
-        </button>
+          {/* The lock turns into the tick (and back) with the icon motion. */}
+          <Swap id={network.connected ? "tick" : network.secured ? "lock" : "none"} className="shrink-0">
+            {network.connected ? (
+              <Icon icon={Tick02Icon} size={16} />
+            ) : network.secured ? (
+              <Icon icon={LockIcon} size={13} className="opacity-70" />
+            ) : null}
+          </Swap>
+        </motion.button>
+        <AnimatePresence initial={false}>
         {asking === network.ssid && (
-          <form
+          <motion.form
+            key="password"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1, transition: { duration: 0.2, ease: EASE_OUT } }}
+            exit={{ height: 0, opacity: 0, transition: { duration: 0.12, ease: EASE_OUT } }}
+            style={{ overflow: "hidden" }}
             className="flex gap-2 px-3 pb-2"
             onSubmit={(event) => {
               event.preventDefault()
@@ -159,8 +193,9 @@ export function WifiList() {
             >
               Join
             </button>
-          </form>
+          </motion.form>
         )}
+        </AnimatePresence>
       </div>
     ))
   }

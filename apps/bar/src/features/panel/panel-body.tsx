@@ -1,15 +1,21 @@
-import { useBattery, useClockSettings, useVolume } from "./hooks/use-system-state"
+import { useBattery, useClockSettings, useVolume } from "@/shared/hooks/use-system-state"
+import { BatteryPanel } from "./battery-panel"
 import { ControlCenterPanel } from "./control-center/control-center-panel"
 import { NotificationsPanel } from "./notifications-panel"
+import { VolumePanel } from "./volume-panel"
+import { WifiPanel } from "./wifi-panel"
 
 /**
- * What a panel route shows. `name` is `null` while the panel is closed. The notifications route is
- * and the control center route are kept mounted even then (out of the layout, invisible) so they
+ * What a panel route shows. `name` is `null` while the panel is closed. The notifications, control
+ * center and wifi routes are kept mounted even then (out of the layout, invisible) so they
  * open with everything loaded; the other routes show live values until their designs come.
  */
 export function PanelBody({ name, warm = false }: { name: string | null; warm?: boolean }) {
   const active = name === "notifications"
   const controlCenter = name === "control-center"
+  const wifi = name === "wifi"
+  const battery = name === "battery"
+  const volume = name === "volume"
   return (
     <>
       <div
@@ -27,7 +33,28 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
       >
         <ControlCenterPanel active={controlCenter} />
       </div>
-      {name !== null && !active && !controlCenter && <SystemValues name={name} />}
+      <div
+        // Always mounted too (it resets itself while hidden), so the Wi-Fi panel opens fully loaded.
+        className={wifi ? undefined : "invisible absolute top-0 left-0"}
+        aria-hidden={!wifi}
+      >
+        <WifiPanel active={wifi} />
+      </div>
+      <div
+        // Always mounted too, like the other routes: the battery panel opens fully loaded.
+        className={battery ? undefined : "invisible absolute top-0 left-0"}
+        aria-hidden={!battery}
+      >
+        <BatteryPanel />
+      </div>
+      <div
+        // Always mounted too: the volume panel opens fully loaded (its app list is kept fresh by events).
+        className={volume ? undefined : "invisible absolute top-0 left-0"}
+        aria-hidden={!volume}
+      >
+        <VolumePanel />
+      </div>
+      {name !== null && !active && !controlCenter && !wifi && !battery && !volume && <SystemValues name={name} />}
     </>
   )
 }

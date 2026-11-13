@@ -7,6 +7,7 @@ pub mod app_icon;
 pub mod appbar;
 pub mod audio;
 pub mod audio_policy;
+pub mod audio_sessions;
 pub mod bt_devices;
 pub mod ddc;
 pub mod folder_watch;

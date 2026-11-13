@@ -32,6 +32,16 @@ pub fn get_bar_info() -> Result<BarInfo, String> {
         .ok_or_else(|| "the bar is not running yet".into())
 }
 
+/// Sets the bar height in logical pixels (clamped to 20-64), saves it and resizes the bar.
+/// The UI calls it with its `--menubar-height` token on start; `barChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_bar_height(height: u32) -> Result<BarInfo, String> {
+    Ok(controller::get()
+        .ok_or("the bar is not running yet")?
+        .set_bar_height(height))
+}
+
 /// Moves the bar to another monitor (an id from `getBarInfo().monitors`) and remembers it.
 #[tauri::command]
 #[specta::specta]
@@ -578,6 +588,29 @@ pub fn get_airplane_mode() -> crate::system::airplane::AirplaneMode {
 #[specta::specta]
 pub fn get_output_devices() -> crate::system::output_devices::OutputDevices {
     crate::system::output_devices::service().get()
+}
+
+/// The apps that use the output device and each one's volume (Windows' volume mixer). Call once
+/// when the UI starts; `appVolumesChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_app_volumes() -> crate::system::app_volumes::AppVolumes {
+    crate::system::app_volumes::service().get()
+}
+
+/// Sets one app's volume (0 to 1; values outside are clamped, NaN is ignored). `id` is an app's
+/// `id` from `getAppVolumes`; an id that is not in the list does nothing. `appVolumesChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_app_volume(id: String, level: f64) {
+    crate::system::app_volumes::set_volume(id, level);
+}
+
+/// Mutes or unmutes one app. Same ids as `setAppVolume`.
+#[tauri::command]
+#[specta::specta]
+pub fn set_app_muted(id: String, muted: bool) {
+    crate::system::app_volumes::set_muted(id, muted);
 }
 
 /// Makes an output device the default (`id` from `getOutputDevices`). When `canSwitch` is false,

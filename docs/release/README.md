@@ -57,6 +57,7 @@ through a `release/v0.X.Y` PR (see `CLAUDE.md` > Releases).
 | v1.2 | Rust + Tauri | Rust crate and Tauri plugin, incl. the Tauri popover adapter (notes only, `releases/v1.2.md`) |
 | v1.3 | C# SDK | .NET SDK for WinUI, WPF, WinForms (notes only, `releases/v1.3.md`) |
 | v1.4 | Python SDK | Python SDK (notes only, `releases/v1.4.md`) |
+| – | Native feel | Cross-cutting track, N1 and N2 before v0.8, decision before v0.10: no webview tells anywhere, system colours and motion followed, screen reader works, and a measured native-strip spike (ADR 0021, proposed; `releases/native-feel.md`) |
 | – | Backlog | Dock, React package, popover host, multi-monitor, app menus; not scheduled (`releases/backlog.md`) |
 
 ## History

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { commands, type PanelOpen } from "@/shared/bindings"
 import { PanelBody, PanelFrame, useOpenPanel, useWarm } from "@/features/panel"
+import { Motion } from "@/shared/motion"
 
 /**
  * The panel window (label `panel`): one window, reused for every system panel. Rust decides when
@@ -27,6 +28,7 @@ export default function PanelWindow() {
   }, [])
 
   return (
+    <Motion>
     <PanelFrame
       acrylic={look?.acrylic ?? false}
       chrome={look?.chrome ?? "none"}
@@ -36,5 +38,6 @@ export default function PanelWindow() {
     >
       <PanelBody name={open?.name ?? null} warm={warm} />
     </PanelFrame>
+    </Motion>
   )
 }

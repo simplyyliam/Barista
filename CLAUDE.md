@@ -45,6 +45,12 @@ Claude may build a release's Rust while the UI for it isn't done yet. Then:
   `docs/release/releases/` as notes, not code.
 - Decisions live in `docs/decisions/` (ADRs). New architectural choice = new ADR.
 - Every library used gets a credit entry.
+- Before adding or changing any motion in `apps/bar/src/`: `docs/decisions/0023-motion-language.md` and
+  `docs/research/ux-motion-and-taste.md`. Values live in `shared/motion.tsx`. **Motion is the exception,
+  not the default:** only big, noticeable moments that earn it (a press, an item arriving or leaving, an
+  icon changing state). Not on everything: too many animations, even subtle ones, make people drowsy
+  and dizzy. Never on always-visible text (clock, bar battery percent), hover-in, or things used
+  hundreds of times a day.
 
 ## Hard rules
 

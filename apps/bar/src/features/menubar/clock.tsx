@@ -1,9 +1,12 @@
-import { cn } from "cn";
 import { commands } from "@/shared/bindings";
 import { useNotificationMode, useNotifications } from "@/shared/stores/notifications";
 import { useOpenPanel } from "@/features/panel";
+import { AnimatePresence, motion } from "motion/react";
+import { ICON_HIDDEN, ICON_SHOWN, ICON_TRANSITION } from "@/shared/motion";
+import { useClockSettings } from "@/shared/hooks/use-system-state";
 import { useItemBounds } from "./hooks/use-item-bounds";
 import { useNow } from "./hooks/use-now";
+import { formatClock } from "./lib/format-clock";
 import { MenubarItem } from "./menubar-item";
 
 const ITEM_ID = "system/clock";
@@ -13,7 +16,8 @@ const ITEM_ID = "system/clock";
  * when the "windows" mode is set); a dot shows unread notifications.
  */
 export function Clock() {
-  const time = useNow();
+  const now = useNow();
+  const settings = useClockSettings();
   const mode = useNotificationMode();
   const notifications = useNotifications();
   const open = useOpenPanel();
@@ -21,6 +25,7 @@ export function Clock() {
   // The panel opens under the item, so Rust needs to know where it is drawn.
   useItemBounds(ITEM_ID);
 
+  const { date, time } = formatClock(now, settings?.hour24 ?? false);
   const isOpen = open?.anchor === ITEM_ID;
   const unread = mode === "barista" && notifications?.unread === true;
 
@@ -45,31 +50,26 @@ export function Clock() {
           click();
         }
       }}
-      className={cn(
-        "relative cursor-default gap-2 rounded-md outline-none focus-visible:bg-bar-hover",
-        isOpen && "bg-bar-hover"
-      )}
+      open={isOpen}
+      className="relative cursor-default gap-1.5 tabular-nums outline-none focus-visible:bg-bar-hover"
     >
-      <p>
-        {time.toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        })}
-      </p>
-      <p>
-        {time.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </p>
-      {unread && (
-        <span
-          role="status"
-          aria-label="Unread notifications"
-          className="absolute top-1 left-1.5 size-1.5 rounded-full bg-bar-fg"
-        />
-      )}
+      <span>{date}</span>
+      {/* Hidden until the 12/24 h setting is known, so a 24 hour clock never flashes "1:18 PM". */}
+      <span className={settings ? undefined : "invisible"}>{time}</span>
+      <AnimatePresence initial={false}>
+        {unread && (
+          <motion.span
+            key="unread"
+            role="status"
+            aria-label="Unread notifications"
+            initial={ICON_HIDDEN}
+            animate={ICON_SHOWN}
+            exit={ICON_HIDDEN}
+            transition={ICON_TRANSITION}
+            className="absolute top-1 left-1.5 size-1.5 rounded-full bg-bar-fg"
+          />
+        )}
+      </AnimatePresence>
     </MenubarItem>
   );
 }

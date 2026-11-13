@@ -3,8 +3,34 @@
 Keep this file short: where we are, the next step, and facts a new session needs.
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
-## Where we are (2026-11-11)
+## Where we are (2026-11-13)
 
+- **Spec departures Liam confirmed (2026-11-13), do not "fix" them:** icon-only pills are 28px wide (3px padding, 2px gap, 30px pitch,
+  not the 6-8px of the first spec); the battery is `examples/battery`'s drawing (no 27x12 construction or masks); the hover is a 999px
+  capsule (not 4px).
+- **Release checks done (2026-11-13, after the motion pass and panel swap):** `/code-review medium` (one real bug fixed: swap generation
+  race; also volume refresh gate, icon retry spacing, dead variable), `/security-review` (no findings), end-to-end (test client item
+  appears with its menu, gone after the client is killed), rapid panel switching (last click wins, one panel open). Deferred from the
+  review: full session rebuild on every audio state change, hidden volume panel re-renders on events, `debug` window in the release
+  capability file (the window is never created in release), `SESSIONS_PENDING` cleared by the explicit refresh.
+- **Motion pass (ADR 0023, proposed)**: `motion/react`, values in `shared/motion.tsx`, research in `docs/research/ux-motion-and-taste.md`
+  (local). Press 0.96, icon swaps (fade + scale + blur), items arrive/leave, panel-to-panel swap (close with Windows' fade, then open: `SWAP_DELAY` in `panel.rs`), hover capsule
+  (`--menubar-pill-radius: 999px`). **Motion is the exception**: not on the clock or the bar's battery percent, not on hover-in, not
+  on panel open. Verified live: press holds 0.96, 0 animations at idle, anchors within 0.3 px after a click, open-from-closed stays instant.
+- **Bar tuned to macOS proportions** (branch `feature/menubar-macos-proportions`, PR #27, `UI: full`): all metrics are CSS variables
+  in `styles/tokens.css` (`--menubar-*`). `--menubar-height` (28px) is the source of truth: `useBarHeight` sends it to Rust
+  (`setBarHeight`, saved in settings.json, default 28). Pill items (bar height - 4, radius 4, no transition); icon-only pills are 28px
+  wide with a 2px gap (a 30px pitch like macOS). Custom SVG icons in `features/menubar/icons/`, clock "Thu Nov 12  1:18 PM" following
+  the 12/24 h setting. **Battery is built in** (examples/battery was removed): its drawing is the example's, colours follow the bar tone,
+  percentage left of the icon, data from the battery service. **Wi-Fi, battery and volume open panels** under their icon (routes `wifi`,
+  `battery`, `volume`; windows mode opens Quick Settings). Volume panel = master slider, a slider per app (new service, ADR 0022:
+  `getAppVolumes`, `setAppVolume`, `setAppMuted`, `appVolumesChanged`), output devices, Sound settings. `SystemSlider` has its own pointer
+  handling (the head's edge sits under the cursor; verified with real clicks at 25/50/75 %). Night light now stamps like Windows' own button (first stamp = stored + 2, recorded and
+  checked by Liam on screen: fast clicks all apply, ADR 0020). Debug window: Ctrl+Alt+Shift+D in debug builds.
+  Left for Liam: search has no action;
+  per-app volume is not measured for memory/CPU yet (`docs/perf/`).
+- **Native feel**: Liam wants the product to feel native for public users. ADR 0021 is **proposed** (tier 1 remove webview tells,
+  tier 3 native bar strip spike); plan in `docs/release/releases/native-feel.md` (local). Nothing built yet; Liam decides ADR 0021.
 - **v0.4.0 shipped** (tag `v0.4.0` on the merge of PR #19, not pushed yet: Liam runs `pnpm release`). Plan releases
   v0.0 to v0.4 are done; notes in `docs/release/history/` (local only, v0.4 in `v0.4-checkpoint.md`).
 - **v0.4b slice A done, PR #22 open** (branch `feature/v0.4b-system-panels-a`, Liam reviews and merges): panel window, clock

@@ -2,7 +2,7 @@ import { useState } from "react"
 import { cn } from "cn"
 import { Calendar } from "@barista/ui/components/ui/calendar"
 import { Icon, LucideChevronDown } from "@barista/ui/icons"
-import { useClockSettings } from "./hooks/use-system-state"
+import { useClockSettings } from "@/shared/hooks/use-system-state"
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 

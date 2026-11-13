@@ -50,19 +50,51 @@ pub struct Now {
     pub filetime: u64,
 }
 
+/// 100 ns ticks between 1601 (FILETIME) and 1970 (Unix).
+const UNIX_TO_FILETIME: u64 = 11_644_473_600 * 10_000_000;
+
 impl Now {
-    /// Now, but never the same second twice: Windows ignores a change whose time is not newer, so
-    /// two quick clicks within one second would otherwise lose the second one.
-    pub fn system() -> Self {
-        static LAST: std::sync::Mutex<u64> = std::sync::Mutex::new(0);
-        let real = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs());
-        let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner());
-        let unix_secs = if real > *last { real } else { *last + 1 };
-        *last = unix_secs;
-        Self { unix_secs, filetime: (unix_secs + 11_644_473_600) * 10_000_000 }
+    /// The two stamps for a write made `real_ticks` (100 ns) after 1970, given the stamps that are
+    /// stored now. This is what Windows' own button does (recorded while it was spammed):
+    ///
+    /// - the first stamp (Unix seconds) works like a version counter: the stored one plus 2, or the
+    ///   real time when that is later (after a pause). Quick clicks therefore each get a newer
+    ///   stamp even inside the same second, and it may run ahead of the clock, as Windows' does.
+    ///   Stamps that only follow the clock repeat within a second, and Windows ignores a change
+    ///   that is not newer, which lost fast clicks.
+    /// - the second stamp (FILETIME) is the real time, at least one tick after the stored one.
+    pub fn next(real_ticks: u64, stored: Now) -> Self {
+        let real_secs = real_ticks / 10_000_000;
+        Self {
+            unix_secs: real_secs.max(stored.unix_secs + 2),
+            filetime: (real_ticks + UNIX_TO_FILETIME).max(stored.filetime + 1),
+        }
     }
+
+    /// The real time now, in 100 ns ticks after 1970.
+    pub fn real_ticks() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| (d.as_nanos() / 100) as u64)
+    }
+}
+
+/// A varint of any of our fixed lengths, as a number.
+fn read_varint(bytes: &[u8]) -> u64 {
+    bytes
+        .iter()
+        .enumerate()
+        .fold(0, |acc, (i, b)| acc | (u64::from(b & 0x7f) << (7 * i)))
+}
+
+/// The two stamps stored in a blob. `None` for a layout we do not know.
+pub fn stamps(blob: &[u8]) -> Option<Now> {
+    let on = parse(blob)?;
+    let at = ts2_at(blob, on)?;
+    Some(Now {
+        unix_secs: read_varint(&blob[TS1_AT..TS1_AT + TS1_LEN]),
+        filetime: read_varint(&blob[at..at + TS2_LEN]),
+    })
 }
 
 /// Writes `value` as a varint of exactly `len` bytes (more bytes than needed keep their
@@ -161,7 +193,11 @@ pub fn set(on: bool) {
     {
         use crate::platform::windows::registry_watch::{read_user_binary, write_user_binary};
         let Some(blob) = read_user_binary(KEY, "Data") else { return };
-        let Some(next) = with_state(&blob, on, Now::system()) else {
+        let Some(stored) = stamps(&blob) else {
+            eprintln!("barista: night light has a layout this Windows build does not match");
+            return;
+        };
+        let Some(next) = with_state(&blob, on, Now::next(Now::real_ticks(), stored)) else {
             eprintln!("barista: night light has a layout this Windows build does not match");
             return;
         };
@@ -215,6 +251,58 @@ mod tests {
     #[test]
     fn switching_off_gives_exactly_what_windows_wrote() {
         assert_eq!(with_state(&ON, false, T_OFF).unwrap(), OFF);
+    }
+
+    #[test]
+    fn a_stamp_looks_like_the_pair_windows_wrote() {
+        // The moment Windows switched night light off (its own FILETIME, in ticks since 1970).
+        let real = T_OFF.filetime - UNIX_TO_FILETIME;
+        assert_eq!(Now::next(real, Now { unix_secs: 0, filetime: 0 }), T_OFF);
+    }
+
+    #[test]
+    fn stamps_are_read_back_from_what_windows_wrote() {
+        assert_eq!(stamps(&OFF), Some(T_OFF));
+        assert_eq!(stamps(&ON), Some(T_ON));
+        assert_eq!(stamps(&[0u8; 41]), None);
+    }
+
+    #[test]
+    fn quick_clicks_each_get_a_newer_stamp_like_windows_does() {
+        let real = T_OFF.filetime - UNIX_TO_FILETIME;
+        let mut stored = Now { unix_secs: 0, filetime: 0 };
+        // 50 clicks inside the very same clock tick (the worst case for "not newer").
+        for i in 0..50u64 {
+            let next = Now::next(real, stored);
+            assert!(next.filetime > stored.filetime, "FILETIME must always increase");
+            if i > 0 {
+                assert_eq!(next.unix_secs, stored.unix_secs + 2, "the first stamp counts up by 2, like Windows");
+            }
+            stored = next;
+        }
+        // Like Windows (recorded: +34 s after a long spam), the counter ran ahead of the clock.
+        assert_eq!(stored.unix_secs, T_OFF.unix_secs + 2 * 49);
+    }
+
+    #[test]
+    fn written_blob_carries_the_counter_stamp() {
+        // From the state Windows wrote when switching off, a click within the same second.
+        let stored = stamps(&OFF).unwrap();
+        let real = stored.unix_secs * 10_000_000 + 5_000_000; // 0.5 s after the stored second
+        let blob = with_state(&OFF, true, Now::next(real, stored)).unwrap();
+        let now = stamps(&blob).unwrap();
+        assert_eq!(parse(&blob), Some(true));
+        assert_eq!(now.unix_secs, stored.unix_secs + 2);
+        assert!(now.filetime > stored.filetime);
+    }
+
+    #[test]
+    fn the_clock_moving_on_wins_over_the_last_stamp() {
+        let stored = Now { unix_secs: T_OFF.unix_secs, filetime: T_OFF.filetime };
+        let later = T_OFF.filetime - UNIX_TO_FILETIME + 300_000_000; // 30 s later
+        let next = Now::next(later, stored);
+        assert_eq!(next.filetime, later + UNIX_TO_FILETIME);
+        assert_eq!(next.unix_secs, T_OFF.unix_secs + 30, "after a pause the real time wins");
     }
 
     #[test]

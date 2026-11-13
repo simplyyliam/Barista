@@ -1,13 +1,12 @@
-import { cn } from "cn";
-import { commands, events } from "@/shared/bindings";
-import { useSnapshot } from "@/shared/hooks/use-snapshot";
-import { Icon, SlidersHorizontalIcon } from "@barista/ui/icons";
+import { commands } from "@/shared/bindings";
+import { useControlCenterMode } from "@/shared/hooks/use-system-state";
 import { useOpenPanel } from "@/features/panel";
 import {
   CONTROL_CENTER_HEIGHT,
   CONTROL_CENTER_WIDTH,
 } from "@/features/panel/control-center/control-center-panel";
 import { useItemBounds } from "./hooks/use-item-bounds";
+import { ControlCenterIcon } from "./icons";
 import { MenubarItem } from "./menubar-item";
 
 const ITEM_ID = "system/control-center";
@@ -18,9 +17,7 @@ const ITEM_ID = "system/control-center";
  */
 export function ControlCenter() {
   const open = useOpenPanel();
-  const mode = useSnapshot(commands.getControlCenterMode, (h) =>
-    events.controlCenterModeChanged.listen((e) => h(e.payload)),
-  );
+  const mode = useControlCenterMode();
 
   // The panel opens under the item, so Rust needs to know where it is drawn.
   useItemBounds(ITEM_ID);
@@ -37,6 +34,7 @@ export function ControlCenter() {
 
   return (
     <MenubarItem
+      variant="icon"
       role="button"
       tabIndex={0}
       aria-label="Control center"
@@ -49,12 +47,10 @@ export function ControlCenter() {
           click();
         }
       }}
-      className={cn(
-        "cursor-default rounded-md outline-none focus-visible:bg-bar-hover",
-        isOpen && "bg-bar-hover"
-      )}
+      open={isOpen}
+      className="cursor-default outline-none focus-visible:bg-bar-hover"
     >
-      <Icon icon={SlidersHorizontalIcon} size={16} />
+      <ControlCenterIcon open={isOpen} />
     </MenubarItem>
   );
 }

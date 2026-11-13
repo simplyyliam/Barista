@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { motion, MotionConfig } from "motion/react"
 import { commands } from "@/shared/bindings"
-import { useBattery, useVolume } from "../hooks/use-system-state"
+import { useBattery, useVolume } from "@/shared/hooks/use-system-state"
 import {
   AirplaneModeIcon,
   BatteryEcoChargingIcon,
@@ -73,6 +73,19 @@ export function ControlCenterPanel({ active }: { active: boolean }) {
   const airplane = useAirplane()
   const hotspot = useHotspot()
   const nightLight = useNightLight()
+  // What you asked for, until Windows' answer comes back: the tile flips on the click, and a fast
+  // second click toggles what you see (not the answer that is still on its way).
+  const [nightWanted, setNightWanted] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (nightWanted === null) return
+    if (nightLight?.on === nightWanted) {
+      setNightWanted(null)
+      return
+    }
+    const timer = setTimeout(() => setNightWanted(null), 1500)
+    return () => clearTimeout(timer)
+  }, [nightWanted, nightLight?.on])
+  const nightOn = nightWanted ?? nightLight?.on === true
   const battery = useBattery()
 
   const wifiSub = !wifi?.available ? "No adapter" : !wifi.enabled ? "Off" : (wifi.current ?? "Not connected")
@@ -118,9 +131,12 @@ export function ControlCenterPanel({ active }: { active: boolean }) {
                 <Tile
                   icon={Moon02Icon}
                   aria-label="Night light"
-                  active={nightLight?.on === true}
+                  active={nightOn}
                   disabled={!nightLight?.supported}
-                  onClick={() => void commands.setNightLight(!nightLight?.on)}
+                  onClick={() => {
+                    setNightWanted(!nightOn)
+                    void commands.setNightLight(!nightOn)
+                  }}
                 />
               </Cell>
               <Cell hidden={wifiOpen}>
@@ -201,7 +217,7 @@ function BrightnessSlider() {
   )
 }
 
-function VolumeSlider() {
+export function VolumeSlider() {
   const volume = useVolume()
   const drag = useDragValue(volume?.level ?? null, (level) => void commands.setVolume(level))
   return (
