@@ -2,9 +2,9 @@ import { BrandLogo } from "./icons";
 import { MenubarItem } from "./menubar-item";
 
 /** The Barista logo, first item on the left. */
-export function BrandItem() {
+export function BrandItem({ open }: { open?: boolean }) {
   return (
-    <MenubarItem variant="app" aria-label="Barista">
+    <MenubarItem variant="app" open={open} aria-label="Barista">
       <BrandLogo />
     </MenubarItem>
   );
