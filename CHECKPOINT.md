@@ -5,6 +5,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-13)
 
+- **Motion pass (ADR 0023, proposed)**: `motion/react`, values in `shared/motion.tsx`, research in `docs/research/ux-motion-and-taste.md`
+  (local). Press 0.96, icon swaps (fade + scale + blur), items arrive/leave, panel-to-panel swap (`usePanelSwap`), hover capsule
+  (`--menubar-pill-radius: 999px`). **Motion is the exception**: not on the clock or the bar's battery percent, not on hover-in, not
+  on panel open. Verified live: press holds 0.96, 0 animations at idle, anchors within 0.3 px after a click, open-from-closed stays instant.
 - **Bar tuned to macOS proportions** (branch `feature/menubar-macos-proportions`, PR #27, `UI: full`): all metrics are CSS variables
   in `styles/tokens.css` (`--menubar-*`). `--menubar-height` (28px) is the source of truth: `useBarHeight` sends it to Rust
   (`setBarHeight`, saved in settings.json, default 28). Pill items (bar height - 4, radius 4, no transition); icon-only pills are 28px
