@@ -1,4 +1,3 @@
-export { BatteryIcon } from "./battery-icon";
 export { BrandLogo } from "./brand-logo";
 export { ControlCenterIcon } from "./control-center-icon";
 export { SearchIcon } from "./search-icon";

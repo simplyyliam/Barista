@@ -5,7 +5,6 @@ export { AppName } from "./app-name";
 export { BrandItem } from "./brand-item";
 export { Clock } from "./clock";
 export { ControlCenter } from "./control-center";
-export { Battery, BatteryView } from "./battery"
 export { Volume, VolumeView } from "./volume";
 export { Wifi, WifiView } from "./wifi";
 export { Search } from "./search";

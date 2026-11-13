@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react"
 import {
   AppName,
-  BatteryView,
   BrandItem,
   MenubarItem,
   MenubarItemGroup,
@@ -37,15 +36,6 @@ export function BarPreview({ tone, state, now }: { tone: "light" | "dark"; state
         </MenubarItemGroup>
         <span />
         <MenubarItemGroup className="justify-self-end gap-menubar-status-gap">
-          {state.batteryPresent && (
-            <BatteryView
-              open={open}
-              percent={state.batteryPercent}
-              charging={state.charging}
-              showLabel={state.showBatteryLabel}
-              showPercentInside={state.showPercentInside}
-            />
-          )}
           <WifiView open={open} strength={state.wifiStrength} off={state.wifiOff} />
           <VolumeView open={open} level={state.volume} muted={state.muted} />
           <Search open={open} />

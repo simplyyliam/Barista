@@ -60,17 +60,10 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-/** Sliders and switches for every state of the bar: battery, Wi-Fi, volume, clock, pills, height. */
+/** Sliders and switches for the bar states that come from our own items: Wi-Fi, volume, clock, pills, height. */
 export function Controls({ state, patch }: { state: DebugState; patch: Patch }) {
   return (
     <div className="grid grid-cols-2 gap-x-10 gap-y-6">
-      <Group title="Battery">
-        <Toggle label="Present (off = desktop PC)" checked={state.batteryPresent} onChange={(v) => patch({ batteryPresent: v })} />
-        <Range label="Level" value={state.batteryPercent} max={100} step={1} show={`${state.batteryPercent}%`} onChange={(v) => patch({ batteryPercent: v })} />
-        <Toggle label="Charging (bolt)" checked={state.charging} onChange={(v) => patch({ charging: v })} />
-        <Toggle label="Percentage inside" checked={state.showPercentInside} onChange={(v) => patch({ showPercentInside: v })} />
-        <Toggle label="Percentage label" checked={state.showBatteryLabel} onChange={(v) => patch({ showBatteryLabel: v })} />
-      </Group>
       <Group title="Wi-Fi and volume">
         <Range label="Wi-Fi arcs" value={state.wifiStrength} max={3} step={1} show={String(state.wifiStrength)} onChange={(v) => patch({ wifiStrength: v as DebugState["wifiStrength"] })} />
         <Toggle label="Wi-Fi off" checked={state.wifiOff} onChange={(v) => patch({ wifiOff: v })} />
@@ -81,8 +74,8 @@ export function Controls({ state, patch }: { state: DebugState; patch: Patch }) 
         <Toggle label="24 hour clock" checked={state.hour24} onChange={(v) => patch({ hour24: v })} />
       </Group>
       <Group title="Pills">
-        <Toggle label="Show every pill as open" checked={state.allOpen} onChange={(v) => patch({ allOpen: v })} />
-        <Range label="Bar height (previews only)" value={state.height} max={40} step={1} show={`${state.height}px`} onChange={(v) => patch({ height: Math.max(20, v) })} />
+        <Toggle label="Pills open" checked={state.allOpen} onChange={(v) => patch({ allOpen: v })} />
+        <Range label="Bar height" value={state.height} max={40} step={1} show={`${state.height}px`} onChange={(v) => patch({ height: Math.max(20, v) })} />
       </Group>
     </div>
   )

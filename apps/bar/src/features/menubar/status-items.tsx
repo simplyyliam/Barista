@@ -17,7 +17,7 @@ export function StatusItems() {
   useItemBounds(items.map((item) => `${item.id}:${item.label ?? ""}`).join("|"));
 
   return items.map((item) => (
-    <MenubarItem className="gap-1.5"
+    <MenubarItem className="gap-1.5 tabular-nums"
       key={item.id}
       data-item-id={item.id}
       // With a menu open, moving onto another item switches menus without a click.
