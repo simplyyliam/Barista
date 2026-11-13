@@ -50,18 +50,31 @@ pub struct Now {
     pub filetime: u64,
 }
 
+/// 100 ns ticks between 1601 (FILETIME) and 1970 (Unix).
+const UNIX_TO_FILETIME: u64 = 11_644_473_600 * 10_000_000;
+
 impl Now {
-    /// Now, but never the same second twice: Windows ignores a change whose time is not newer, so
-    /// two quick clicks within one second would otherwise lose the second one.
+    /// The stamp for a write made `real_ticks` (100 ns) after 1970, given the last stamp we used.
+    /// Windows ignores a change that does not look newer, so the FILETIME always increases, by at
+    /// least one tick, even for two clicks in the same moment. It follows the real clock and never
+    /// runs ahead of it (a stamp from the future can be ignored until the clock catches up). The
+    /// Unix seconds are the whole-second part of the FILETIME, which is how Windows writes the pair.
+    pub fn next(real_ticks: u64, last: Now) -> Self {
+        let filetime = (real_ticks + UNIX_TO_FILETIME).max(last.filetime + 1);
+        let unix_secs = ((filetime - UNIX_TO_FILETIME) / 10_000_000).max(last.unix_secs);
+        Self { unix_secs, filetime }
+    }
+
+    /// Now, from the system clock.
     pub fn system() -> Self {
-        static LAST: std::sync::Mutex<u64> = std::sync::Mutex::new(0);
-        let real = std::time::SystemTime::now()
+        static LAST: std::sync::Mutex<Now> = std::sync::Mutex::new(Now { unix_secs: 0, filetime: 0 });
+        let real_ticks = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs());
+            .map_or(0, |d| (d.as_nanos() / 100) as u64);
         let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner());
-        let unix_secs = if real > *last { real } else { *last + 1 };
-        *last = unix_secs;
-        Self { unix_secs, filetime: (unix_secs + 11_644_473_600) * 10_000_000 }
+        let now = Self::next(real_ticks, *last);
+        *last = now;
+        now
     }
 }
 
@@ -215,6 +228,38 @@ mod tests {
     #[test]
     fn switching_off_gives_exactly_what_windows_wrote() {
         assert_eq!(with_state(&ON, false, T_OFF).unwrap(), OFF);
+    }
+
+    #[test]
+    fn a_stamp_looks_like_the_pair_windows_wrote() {
+        // The moment Windows switched night light off (its own FILETIME, in ticks since 1970).
+        let real = T_OFF.filetime - UNIX_TO_FILETIME;
+        assert_eq!(Now::next(real, Now { unix_secs: 0, filetime: 0 }), T_OFF);
+    }
+
+    #[test]
+    fn quick_clicks_get_newer_stamps_without_running_ahead_of_the_clock() {
+        let real = T_OFF.filetime - UNIX_TO_FILETIME;
+        let mut last = Now { unix_secs: 0, filetime: 0 };
+        // 50 clicks inside the very same clock tick (the worst case for "not newer").
+        for _ in 0..50 {
+            let next = Now::next(real, last);
+            assert!(next.filetime > last.filetime, "FILETIME must always increase");
+            assert!(next.unix_secs >= last.unix_secs);
+            last = next;
+        }
+        // Still in the same second, and only 50 ticks (5 microseconds) ahead of the clock.
+        assert_eq!(last.unix_secs, T_OFF.unix_secs);
+        assert_eq!(last.filetime - (real + UNIX_TO_FILETIME), 49);
+    }
+
+    #[test]
+    fn the_clock_moving_on_wins_over_the_last_stamp() {
+        let last = Now { unix_secs: T_OFF.unix_secs, filetime: T_OFF.filetime };
+        let later = T_OFF.filetime - UNIX_TO_FILETIME + 30_000_000; // 3 s later
+        let next = Now::next(later, last);
+        assert_eq!(next.filetime, later + UNIX_TO_FILETIME);
+        assert_eq!(next.unix_secs, T_OFF.unix_secs + 3);
     }
 
     #[test]
