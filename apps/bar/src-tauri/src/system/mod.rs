@@ -9,6 +9,7 @@
 //! ```
 
 pub mod actions;
+pub mod app_volumes;
 pub mod brightness;
 pub mod hotspot;
 pub mod media;
@@ -152,6 +153,9 @@ pub fn panel_opened(name: &str) {
     if name == "control-center" {
         refresh_control_center();
     }
+    if name == "volume" {
+        app_volumes::refresh();
+    }
 }
 
 /// Starts the services and their event forwarding. Call once from `setup`.
@@ -195,6 +199,10 @@ pub fn init(app: &tauri::AppHandle) {
     let a = app.clone();
     output_devices::service().forward(move |v| {
         let _ = OutputDevicesChanged(v).emit(&a);
+    });
+    let a = app.clone();
+    app_volumes::service().forward(move |v| {
+        let _ = crate::events::AppVolumesChanged(v).emit(&a);
     });
     let a = app.clone();
     user::service().forward(move |v| {

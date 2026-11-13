@@ -48,11 +48,24 @@ pub fn icon_png(app_id: &str) -> Option<Vec<u8>> {
     if !valid_app_id(app_id) {
         return None;
     }
+    icon_of(&format!("shell:AppsFolder\\{app_id}"))
+}
+
+/// The icon of a program file (an `.exe` path we read from Windows ourselves), as PNG bytes.
+pub fn icon_png_for_file(path: &str) -> Option<Vec<u8>> {
+    if path.is_empty() || path.len() > 1024 || path.chars().any(|c| c.is_control()) {
+        return None;
+    }
+    icon_of(path)
+}
+
+/// The shell's image for anything it can parse by name: an AppsFolder entry or a file path.
+fn icon_of(parsing_name: &str) -> Option<Vec<u8>> {
     ensure_com();
     // SAFETY: COM calls on this thread with values that live for the whole call. The bitmap the
     // shell gives us is ours to delete, which happens once, right after it is copied.
     unsafe {
-        let path = HSTRING::from(format!("shell:AppsFolder\\{app_id}"));
+        let path = HSTRING::from(parsing_name);
         let factory: IShellItemImageFactory = SHCreateItemFromParsingName(&path, None).ok()?;
         let hbitmap = factory
             .GetImage(

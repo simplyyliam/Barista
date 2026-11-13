@@ -590,6 +590,29 @@ pub fn get_output_devices() -> crate::system::output_devices::OutputDevices {
     crate::system::output_devices::service().get()
 }
 
+/// The apps that use the output device and each one's volume (Windows' volume mixer). Call once
+/// when the UI starts; `appVolumesChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_app_volumes() -> crate::system::app_volumes::AppVolumes {
+    crate::system::app_volumes::service().get()
+}
+
+/// Sets one app's volume (0 to 1; values outside are clamped, NaN is ignored). `id` is an app's
+/// `id` from `getAppVolumes`; an id that is not in the list does nothing. `appVolumesChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_app_volume(id: String, level: f64) {
+    crate::system::app_volumes::set_volume(id, level);
+}
+
+/// Mutes or unmutes one app. Same ids as `setAppVolume`.
+#[tauri::command]
+#[specta::specta]
+pub fn set_app_muted(id: String, muted: bool) {
+    crate::system::app_volumes::set_muted(id, muted);
+}
+
 /// Makes an output device the default (`id` from `getOutputDevices`). When `canSwitch` is false,
 /// or the id is stale, this opens Windows' sound settings instead.
 #[tauri::command]

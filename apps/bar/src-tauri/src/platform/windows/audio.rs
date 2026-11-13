@@ -3,9 +3,11 @@
 //! One thread owns every COM object and sleeps in `recv()`. Windows calls our callbacks on its own
 //! threads, so they never touch COM: they only send a message to the owner thread, which re-reads
 //! everything (calling COM from inside a callback can deadlock). No polling.
+//! The per-app volume sessions (`audio_sessions.rs`) live on this same thread.
 
+use super::audio_sessions::{Change, RawApp, Sessions};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use windows::core::{implement, Result as WinResult, PCWSTR};
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
 use windows::Win32::Media::Audio::Endpoints::{
@@ -53,6 +55,12 @@ enum Msg {
     Rebind,
     SetVolume(f32),
     SetMuted(bool),
+    /// An app session came, went or changed state (or the panel opened): list them again.
+    AppSessions,
+    /// An app's volume or mute changed: read the levels again.
+    AppLevels,
+    SetAppVolume(String, f32),
+    SetAppMuted(String, bool),
 }
 
 static TX: OnceLock<Sender<Msg>> = OnceLock::new();
@@ -61,6 +69,26 @@ static TX: OnceLock<Sender<Msg>> = OnceLock::new();
 pub fn relist_outputs() {
     if let Some(tx) = TX.get() {
         let _ = tx.send(Msg::Rebind);
+    }
+}
+
+/// Lists the app sessions again (the volume panel opened).
+pub fn refresh_apps() {
+    if let Some(tx) = TX.get() {
+        let _ = tx.send(Msg::AppSessions);
+    }
+}
+
+/// `id` must be one of the ids the last app list had; anything else does nothing.
+pub fn set_app_volume(id: String, level: f32) {
+    if let Some(tx) = TX.get() {
+        let _ = tx.send(Msg::SetAppVolume(id, level));
+    }
+}
+
+pub fn set_app_muted(id: String, muted: bool) {
+    if let Some(tx) = TX.get() {
+        let _ = tx.send(Msg::SetAppMuted(id, muted));
     }
 }
 
@@ -220,6 +248,7 @@ fn run(
     tx: Sender<Msg>,
     on_change: fn(Option<RawVolume>),
     on_outputs: fn(RawOutputs),
+    on_apps: fn(Vec<RawApp>),
 ) {
     // SAFETY: first COM call on this thread; it keeps the apartment for its whole life.
     let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
@@ -230,6 +259,7 @@ fn run(
         eprintln!("barista: audio not available");
         on_change(None);
         on_outputs(RawOutputs::default());
+        on_apps(Vec::new());
         return;
     };
     let watcher: IMMNotificationClient = DeviceWatcher { tx: tx.clone() }.into();
@@ -241,17 +271,48 @@ fn run(
     // sound settings page instead of switching.
     let policy = super::audio_policy::create();
     let can_switch = policy.is_some();
+    // Windows' callbacks for app sessions only send a message to this thread.
+    let notify: super::audio_sessions::Notify = {
+        let tx = tx.clone();
+        Arc::new(move |change| {
+            let _ = tx.send(match change {
+                Change::Sessions => Msg::AppSessions,
+                Change::Levels => Msg::AppLevels,
+            });
+        })
+    };
     let mut bound = bind(&enumerator, &tx);
+    let mut sessions = Sessions::bind(&enumerator, notify.clone());
     on_change(bound.as_ref().and_then(read));
     on_outputs(list_outputs(&enumerator, can_switch));
+    on_apps(sessions.as_mut().map(Sessions::rebuild).unwrap_or_default());
     while let Ok(msg) = rx.recv() {
         let relist = matches!(msg, Msg::Rebind | Msg::SetDefault(_));
+        // 2 = list the sessions again, 1 = only read their levels, 0 = nothing for the apps.
+        let apps = match &msg {
+            Msg::Rebind | Msg::AppSessions => 2,
+            Msg::AppLevels | Msg::SetAppVolume(..) | Msg::SetAppMuted(..) => 1,
+            _ => 0,
+        };
         match msg {
             Msg::Rebind => {
                 // Drop first so the old callback is unregistered before the new one is added.
                 drop(bound.take());
                 bound = bind(&enumerator, &tx);
+                drop(sessions.take());
+                sessions = Sessions::bind(&enumerator, notify.clone());
             }
+            Msg::SetAppVolume(id, level) => {
+                if let Some(s) = &sessions {
+                    s.set_volume(&id, level);
+                }
+            }
+            Msg::SetAppMuted(id, muted) => {
+                if let Some(s) = &sessions {
+                    s.set_muted(&id, muted);
+                }
+            }
+            Msg::AppSessions | Msg::AppLevels => {}
             Msg::SetVolume(level) => {
                 if let Some(b) = &bound {
                     // SAFETY: a plain call; the null context means no event source we track.
@@ -281,6 +342,12 @@ fn run(
             Msg::Refresh => {}
         }
         on_change(bound.as_ref().and_then(read));
+        match (apps, sessions.as_mut()) {
+            (2, Some(s)) => on_apps(s.rebuild()),
+            (1, Some(s)) => on_apps(s.levels()),
+            (2 | 1, None) => on_apps(Vec::new()),
+            _ => {}
+        }
         // A volume tick must not re-list devices (property store reads): only device changes do.
         if relist {
             on_outputs(list_outputs(&enumerator, can_switch));
@@ -289,14 +356,14 @@ fn run(
 }
 
 /// Starts the audio thread. `on_change` runs on it with the full state (`None` = no output device).
-pub fn start(on_change: fn(Option<RawVolume>), on_outputs: fn(RawOutputs)) {
+pub fn start(on_change: fn(Option<RawVolume>), on_outputs: fn(RawOutputs), on_apps: fn(Vec<RawApp>)) {
     let (tx, rx) = channel();
     if TX.set(tx.clone()).is_err() {
         return;
     }
     let spawned = std::thread::Builder::new()
         .name("barista-audio".into())
-        .spawn(move || run(rx, tx, on_change, on_outputs));
+        .spawn(move || run(rx, tx, on_change, on_outputs, on_apps));
     if let Err(e) = spawned {
         eprintln!("barista: could not start the audio thread: {e}");
     }

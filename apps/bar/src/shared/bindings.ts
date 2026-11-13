@@ -223,6 +223,18 @@ export const commands = {
 	 *  `outputDevicesChanged` keeps it fresh.
 	 */
 	getOutputDevices: () => __TAURI_INVOKE<OutputDevices>("get_output_devices"),
+	/**
+	 *  The apps that use the output device and each one's volume (Windows' volume mixer). Call once
+	 *  when the UI starts; `appVolumesChanged` keeps it fresh.
+	 */
+	getAppVolumes: () => __TAURI_INVOKE<AppVolumes_Serialize>("get_app_volumes"),
+	/**
+	 *  Sets one app's volume (0 to 1; values outside are clamped, NaN is ignored). `id` is an app's
+	 *  `id` from `getAppVolumes`; an id that is not in the list does nothing. `appVolumesChanged` follows.
+	 */
+	setAppVolume: (id: string, level: number | null) => __TAURI_INVOKE<void>("set_app_volume", { id, level }),
+	/**  Mutes or unmutes one app. Same ids as `setAppVolume`. */
+	setAppMuted: (id: string, muted: boolean) => __TAURI_INVOKE<void>("set_app_muted", { id, muted }),
 	/**  Airplane mode right now. Call once when the UI starts; `airplaneModeChanged` keeps it fresh. */
 	getAirplaneMode: () => __TAURI_INVOKE<AirplaneMode>("get_airplane_mode"),
 	/**
@@ -300,6 +312,7 @@ export const commands = {
 /** Events */
 export const events = {
 	airplaneModeChanged: makeEvent<AirplaneModeChanged, AirplaneModeChanged>("airplane-mode-changed"),
+	appVolumesChanged: makeEvent<AppVolumesChanged_Serialize, AppVolumesChanged_Deserialize>("app-volumes-changed"),
 	barAppearanceChanged: makeEvent<BarAppearanceChanged, BarAppearanceChanged>("bar-appearance-changed"),
 	barChanged: makeEvent<BarChanged, BarChanged>("bar-changed"),
 	batteryChanged: makeEvent<BatteryChanged_Serialize, BatteryChanged_Deserialize>("battery-changed"),
@@ -356,6 +369,64 @@ export type AirplaneModeChanged = AirplaneMode;
 
 /**  Apps a quick action can start. An enum with fixed URIs, so the UI can't launch anything else. */
 export type App = "calculator" | "clockTimer" | "camera";
+
+export type AppVolume = AppVolume_Serialize | AppVolume_Deserialize;
+
+export type AppVolume_Deserialize = {
+	/**  Stable per program (its file name, lower case). Pass it back to `setAppVolume` unchanged. */
+	id: string,
+	/**  What the program calls itself ("Google Chrome"), or its file name. */
+	name: string,
+	/**  The program's icon as a `data:image/png;base64,...` URL, when the shell has one. */
+	icon?: string | null,
+	/**  0.0 to 1.0. */
+	level: number | null,
+	muted: boolean,
+	/**  Making sound right now. Apps that are only open come after the ones that play. */
+	playing: boolean,
+};
+
+export type AppVolume_Serialize = {
+	/**  Stable per program (its file name, lower case). Pass it back to `setAppVolume` unchanged. */
+	id: string,
+	/**  What the program calls itself ("Google Chrome"), or its file name. */
+	name: string,
+	/**  The program's icon as a `data:image/png;base64,...` URL, when the shell has one. */
+	icon: string | null,
+	/**  0.0 to 1.0. */
+	level: number | null,
+	muted: boolean,
+	/**  Making sound right now. Apps that are only open come after the ones that play. */
+	playing: boolean,
+};
+
+export type AppVolumes = AppVolumes_Serialize | AppVolumes_Deserialize;
+
+/**
+ *  An app's volume or mute changed, or an app started or stopped using audio. Full snapshot, at
+ *  most once per frame.
+ */
+export type AppVolumesChanged = AppVolumesChanged_Serialize | AppVolumesChanged_Deserialize;
+
+/**
+ *  An app's volume or mute changed, or an app started or stopped using audio. Full snapshot, at
+ *  most once per frame.
+ */
+export type AppVolumesChanged_Deserialize = AppVolumes_Deserialize;
+
+/**
+ *  An app's volume or mute changed, or an app started or stopped using audio. Full snapshot, at
+ *  most once per frame.
+ */
+export type AppVolumesChanged_Serialize = AppVolumes_Serialize;
+
+export type AppVolumes_Deserialize = {
+	apps: AppVolume_Deserialize[],
+};
+
+export type AppVolumes_Serialize = {
+	apps: AppVolume_Serialize[],
+};
 
 /**  What the UI needs to know. `tone` is the tone of the WALLPAPER: `light` means dark content. */
 export type BarAppearance = {
