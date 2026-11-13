@@ -10,13 +10,11 @@ import {
   type NightLight,
   type ThemeMode,
   type User_Deserialize,
-  type Wifi_Deserialize,
 } from "@/shared/bindings"
 import { useSnapshot } from "@/shared/hooks/use-snapshot"
 
 // One live snapshot per system service: read once, then replaced by every `...Changed` event.
-export const useWifi = () =>
-  useSnapshot<Wifi_Deserialize>(commands.getWifi, (h) => events.wifiChanged.listen((e) => h(e.payload)))
+export { useWifi } from "@/shared/hooks/use-system-state"
 export const useBluetooth = () =>
   useSnapshot<Bluetooth>(commands.getBluetooth, (h) => events.bluetoothChanged.listen((e) => h(e.payload)))
 export const useAirplane = () =>

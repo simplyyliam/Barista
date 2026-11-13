@@ -1,4 +1,4 @@
-import { useBattery, useClockSettings, useVolume } from "./hooks/use-system-state"
+import { useBattery, useClockSettings, useVolume } from "@/shared/hooks/use-system-state"
 import { ControlCenterPanel } from "./control-center/control-center-panel"
 import { NotificationsPanel } from "./notifications-panel"
 

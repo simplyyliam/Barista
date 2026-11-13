@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { motion, MotionConfig } from "motion/react"
 import { commands } from "@/shared/bindings"
-import { useBattery, useVolume } from "../hooks/use-system-state"
+import { useBattery, useVolume } from "@/shared/hooks/use-system-state"
 import {
   AirplaneModeIcon,
   BatteryEcoChargingIcon,
