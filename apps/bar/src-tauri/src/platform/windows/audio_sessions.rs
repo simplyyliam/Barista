@@ -182,8 +182,16 @@ pub struct Sessions {
     created: IAudioSessionNotification,
     notify: Notify,
     entries: Vec<Entry>,
-    /// Icon per program file, so each one is drawn once.
-    icons: HashMap<String, Option<String>>,
+    /// Name and icon per program file (by full path), so the file is read once, not on every rebuild.
+    known: HashMap<String, Known>,
+}
+
+/// What we learned about one program file.
+struct Known {
+    name: String,
+    icon: Option<String>,
+    /// The shell can fail once (busy, file in use): try a few times, then give up.
+    icon_tries: u8,
 }
 
 impl Drop for Sessions {
@@ -210,7 +218,7 @@ impl Sessions {
                 created,
                 notify,
                 entries: Vec::new(),
-                icons: HashMap::new(),
+                known: HashMap::new(),
             })
         }
     }
@@ -230,14 +238,19 @@ impl Sessions {
         group(
             self.entries
                 .iter()
-                .map(|e| RawSession {
-                    key: e.key.clone(),
-                    name: e.name.clone(),
-                    icon: e.icon.clone(),
-                    // SAFETY: plain COM calls on live objects.
-                    level: unsafe { e.simple.GetMasterVolume().unwrap_or(0.0) },
-                    muted: unsafe { e.simple.GetMute().map(|m| m.as_bool()).unwrap_or(false) },
-                    playing: e.playing,
+                .filter_map(|e| {
+                    // SAFETY: plain COM calls on live objects. A failing read means the session
+                    // is going away (a rebuild follows), so it is left out, not shown as 0.
+                    let level = unsafe { e.simple.GetMasterVolume() }.ok()?;
+                    let muted = unsafe { e.simple.GetMute() }.ok()?.as_bool();
+                    Some(RawSession {
+                        key: e.key.clone(),
+                        name: e.name.clone(),
+                        icon: e.icon.clone(),
+                        level,
+                        muted,
+                        playing: e.playing,
+                    })
                 })
                 .collect(),
         )
@@ -283,9 +296,9 @@ impl Sessions {
             let Ok(simple) = control.cast::<ISimpleAudioVolume>() else { continue };
             let (key, name, icon) = self.identify(pid);
             let events: IAudioSessionEvents = Events { notify: self.notify.clone() }.into();
-            if control.RegisterAudioSessionNotification(&events).is_err() {
-                continue;
-            }
+            // If this fails the app still gets its slider; it just won't follow outside changes
+            // until the next rebuild.
+            let _ = control.RegisterAudioSessionNotification(&events);
             out.push(Entry {
                 key,
                 name,
@@ -299,26 +312,30 @@ impl Sessions {
         out
     }
 
-    /// Key, name and icon of the program behind a process id.
+    /// Key, name and icon of the program behind a process id. The key is the full path of the
+    /// program file, so two different programs with the same file name stay apart.
     unsafe fn identify(&mut self, pid: u32) -> (String, String, Option<String>) {
         let Some(path) = exe_path(pid) else {
             // Protected process: we can't read its file, so it can only be told apart by pid.
             return (format!("pid:{pid}"), "Unknown app".into(), None);
         };
-        let file = path.rsplit('\\').next().unwrap_or(&path).to_string();
-        let key = file.to_lowercase();
-        let name = file_description(&path)
-            .filter(|d| !d.trim().is_empty())
-            .unwrap_or_else(|| title_from_file(&file));
-        let icon = self
-            .icons
-            .entry(key.clone())
-            .or_insert_with(|| {
-                super::app_icon::icon_png_for_file(&path)
-                    .map(|png| format!("data:image/png;base64,{}", STANDARD.encode(png)))
-            })
-            .clone();
-        (key, name, icon)
+        let key = path.to_lowercase();
+        let known = self.known.entry(key.clone()).or_insert_with(|| {
+            let file = path.rsplit('\\').next().unwrap_or(&path);
+            Known {
+                name: file_description(&path)
+                    .filter(|d| !d.trim().is_empty())
+                    .unwrap_or_else(|| title_from_file(file)),
+                icon: None,
+                icon_tries: 0,
+            }
+        });
+        if known.icon.is_none() && known.icon_tries < 3 {
+            known.icon_tries += 1;
+            known.icon = super::app_icon::icon_png_for_file(&path)
+                .map(|png| format!("data:image/png;base64,{}", STANDARD.encode(png)));
+        }
+        (key, known.name.clone(), known.icon.clone())
     }
 }
 

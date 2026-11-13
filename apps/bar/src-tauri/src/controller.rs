@@ -300,15 +300,16 @@ impl Controller {
             }
             changed
         };
-        if changed {
-            // Resize on the UI thread: this command may be running on another one.
-            let app = self.app.clone();
-            let _ = app.run_on_main_thread(|| {
-                if let Some(c) = get() {
-                    c.apply();
-                }
-            });
-        }
+        let _ = changed;
+        // Always re-place the window, even when the height was already saved: if an earlier call's
+        // job on the UI thread was lost, this one still fixes it (`apply` does nothing when the
+        // window is already right). It runs on the UI thread: this command may be on another one.
+        let app = self.app.clone();
+        let _ = app.run_on_main_thread(|| {
+            if let Some(c) = get() {
+                c.apply();
+            }
+        });
         self.info()
     }
 

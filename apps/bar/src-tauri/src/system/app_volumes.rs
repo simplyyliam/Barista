@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppVolume {
-    /// Stable per program (its file name, lower case). Pass it back to `setAppVolume` unchanged.
+    /// Stable per program (the full path of its file, lower case). Pass it back to `setAppVolume` unchanged.
     pub id: String,
     /// What the program calls itself ("Google Chrome"), or its file name.
     pub name: String,
@@ -62,9 +62,9 @@ pub fn refresh() {
     crate::platform::windows::audio::refresh_apps();
 }
 
-/// Ids come from the list we published (a program file name): a sane length is checked here, and
+/// Ids come from the list we published (a program file path): a sane length is checked here, and
 /// the audio thread then only acts on an id it has in its own fresh list.
-const MAX_ID: usize = 260;
+const MAX_ID: usize = 1024;
 
 /// An id from the UI that we are willing to pass on.
 pub fn valid_id(id: &str) -> bool {

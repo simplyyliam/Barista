@@ -7,6 +7,7 @@
 
 use super::audio_sessions::{Change, RawApp, Sessions};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use windows::core::{implement, Result as WinResult, PCWSTR};
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
@@ -64,6 +65,12 @@ enum Msg {
 }
 
 static TX: OnceLock<Sender<Msg>> = OnceLock::new();
+
+/// A burst of Windows callbacks (an app starting opens many sessions) queues one message, not one
+/// each: the flag is cleared when the audio thread picks the message up, so a change that arrives
+/// while it works still queues the next one.
+static SESSIONS_PENDING: AtomicBool = AtomicBool::new(false);
+static LEVELS_PENDING: AtomicBool = AtomicBool::new(false);
 
 /// Asks the audio thread to list the output devices again.
 pub fn relist_outputs() {
@@ -275,10 +282,13 @@ fn run(
     let notify: super::audio_sessions::Notify = {
         let tx = tx.clone();
         Arc::new(move |change| {
-            let _ = tx.send(match change {
-                Change::Sessions => Msg::AppSessions,
-                Change::Levels => Msg::AppLevels,
-            });
+            let (pending, msg) = match change {
+                Change::Sessions => (&SESSIONS_PENDING, Msg::AppSessions),
+                Change::Levels => (&LEVELS_PENDING, Msg::AppLevels),
+            };
+            if !pending.swap(true, Ordering::SeqCst) {
+                let _ = tx.send(msg);
+            }
         })
     };
     let mut bound = bind(&enumerator, &tx);
@@ -289,11 +299,23 @@ fn run(
     while let Ok(msg) = rx.recv() {
         let relist = matches!(msg, Msg::Rebind | Msg::SetDefault(_));
         // 2 = list the sessions again, 1 = only read their levels, 0 = nothing for the apps.
-        let apps = match &msg {
+        match &msg {
+            Msg::AppSessions => SESSIONS_PENDING.store(false, Ordering::SeqCst),
+            Msg::AppLevels => LEVELS_PENDING.store(false, Ordering::SeqCst),
+            _ => {}
+        }
+        let mut apps = match &msg {
             Msg::Rebind | Msg::AppSessions => 2,
             Msg::AppLevels | Msg::SetAppVolume(..) | Msg::SetAppMuted(..) => 1,
             _ => 0,
         };
+        // No session manager yet (no device when we started)? Try again whenever the apps are asked for.
+        if apps != 0 && sessions.is_none() && !matches!(msg, Msg::Rebind) {
+            sessions = Sessions::bind(&enumerator, notify.clone());
+            if sessions.is_some() {
+                apps = 2;
+            }
+        }
         match msg {
             Msg::Rebind => {
                 // Drop first so the old callback is unregistered before the new one is added.

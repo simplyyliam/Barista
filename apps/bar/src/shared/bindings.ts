@@ -373,7 +373,7 @@ export type App = "calculator" | "clockTimer" | "camera";
 export type AppVolume = AppVolume_Serialize | AppVolume_Deserialize;
 
 export type AppVolume_Deserialize = {
-	/**  Stable per program (its file name, lower case). Pass it back to `setAppVolume` unchanged. */
+	/**  Stable per program (the full path of its file, lower case). Pass it back to `setAppVolume` unchanged. */
 	id: string,
 	/**  What the program calls itself ("Google Chrome"), or its file name. */
 	name: string,
@@ -387,7 +387,7 @@ export type AppVolume_Deserialize = {
 };
 
 export type AppVolume_Serialize = {
-	/**  Stable per program (its file name, lower case). Pass it back to `setAppVolume` unchanged. */
+	/**  Stable per program (the full path of its file, lower case). Pass it back to `setAppVolume` unchanged. */
 	id: string,
 	/**  What the program calls itself ("Google Chrome"), or its file name. */
 	name: string,

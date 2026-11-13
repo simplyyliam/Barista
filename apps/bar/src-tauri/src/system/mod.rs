@@ -126,6 +126,7 @@ pub fn set_control_center_mode(mode: crate::settings::Mode) {
         user::service().set(Default::default());
         media::service().set(Default::default());
         night_light::service().set(Default::default());
+        app_volumes::service().set(Default::default());
     }
 }
 
@@ -143,6 +144,7 @@ fn refresh_control_center() {
     night_light::refresh();
     wifi::scan();
     output_devices::refresh();
+    app_volumes::refresh();
     #[cfg(windows)]
     crate::platform::windows::radios::refresh();
 }

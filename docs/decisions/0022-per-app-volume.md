@@ -16,13 +16,13 @@ API for this: Core Audio *sessions* on the default output device. Nothing here i
   sessions, `IAudioSessionEvents` for volume, state and disconnect) only send a message to that
   thread, which re-reads (calling COM from inside a callback can deadlock). No polling (rule 9).
 - **One app = one slider.** A browser has many sessions, so sessions are grouped by program file
-  (`chrome.exe`); the loudest session sets the shown level, the app is muted when all are, and a
+  (its full path, so two programs with the same file name stay apart); the loudest session sets the shown level, the app is muted when all are, and a
   change is applied to every session of the app. Playing apps come first. Expired sessions and the
   system sounds session are left out, and so is the bar itself.
 - **Name and icon.** The name is the file's description ("Google Chrome"), else the file name; the
   icon comes from the shell for the program file (`app_icon.rs`), cached per file as a `data:` PNG.
   A process we cannot open (a protected one) shows as "Unknown app", told apart by its pid.
-- **IDs and validation (rule 3).** The id is the lower-case file name. The UI sends it back; the
+- **IDs and validation (rule 3).** The id is the lower-case path of the program file. The UI sends it back; the
   audio thread only acts on an id that is in the list it read itself, never on the string as it is.
   Levels are clamped and NaN is refused; ids must be short and printable.
 - **Surface.** `getAppVolumes`, `setAppVolume`, `setAppMuted` and the `appVolumesChanged` event
