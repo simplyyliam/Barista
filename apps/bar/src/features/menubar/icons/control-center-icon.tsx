@@ -13,24 +13,24 @@ import { Glyph } from "./glyph";
 export function ControlCenterIcon({ open = false, ...props }: SVGProps<SVGSVGElement> & { open?: boolean }) {
   return (
     <Glyph {...props}>
-      <rect x="4.75" y="4.75" width="12.5" height="5" rx="2.5" />
-      <rect x="4.75" y="12.25" width="12.5" height="5" rx="2.5" />
+      <rect x="4.25" y="4.25" width="13.5" height="5.5" rx="2.75" />
+      <rect x="4.25" y="12.25" width="13.5" height="5.5" rx="2.75" />
       <motion.circle
-        cy="7.25"
+        cy="7"
         r="1.4"
         fill="currentColor"
         stroke="none"
         initial={false}
-        animate={{ cx: open ? 14.5 : 7.5 }}
+        animate={{ cx: open ? 15 : 7 }}
         transition={SLIDE}
       />
       <motion.circle
-        cy="14.75"
+        cy="15"
         r="1.4"
         fill="currentColor"
         stroke="none"
         initial={false}
-        animate={{ cx: open ? 7.5 : 14.5 }}
+        animate={{ cx: open ? 7 : 15 }}
         transition={SLIDE}
       />
     </Glyph>

@@ -10,8 +10,8 @@ import { Glyph } from "./glyph";
 export function SearchIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Glyph {...props}>
-      <circle cx="9.6" cy="9.6" r="5.1" />
-      <path d="M13.4 13.4L17.4 17.4" />
+      <circle cx="9.5" cy="9.5" r="5.5" />
+      <path d="M13.6 13.6L18 18" />
     </Glyph>
   );
 }
