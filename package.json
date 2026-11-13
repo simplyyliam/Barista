@@ -8,7 +8,7 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "dev": "concurrently -k \"dotenv -- pnpm --filter @barista/bar dev\" \"pnpm --filter @barista/sdk build --watch\" \"pnpm exec tsx scripts/wait-for-barista.ts && dotenv -- pnpm --filter @barista/integrations-demo start\" \"pnpm exec tsx scripts/wait-for-barista.ts && pnpm --filter @barista/sdk build && pnpm --filter @barista/test-client start:electron\" \"pnpm exec tsx scripts/wait-for-barista.ts && pnpm --filter @barista/sdk build && pnpm --filter @barista/battery start\" \"pnpm exec tsx scripts/wait-for-barista.ts && pnpm --filter @barista/sdk build && pnpm --filter @barista/quick-note start\" \"pnpm exec tsx scripts/wait-for-barista.ts && pnpm --filter @barista/sdk build && dotenv -- pnpm --filter @barista/spotify-demo start\"",
+    "dev": "concurrently -k \"dotenv -- pnpm --filter @barista/bar dev\" \"pnpm --filter @barista/sdk build --watch\" \"pnpm exec tsx scripts/wait-for-barista.ts && dotenv -- pnpm --filter @barista/integrations-demo start\" \"pnpm exec tsx scripts/wait-for-barista.ts && pnpm --filter @barista/sdk build && pnpm --filter @barista/test-client start:electron\" \"pnpm exec tsx scripts/wait-for-barista.ts && pnpm --filter @barista/sdk build && pnpm --filter @barista/quick-note start\" \"pnpm exec tsx scripts/wait-for-barista.ts && pnpm --filter @barista/sdk build && dotenv -- pnpm --filter @barista/spotify-demo start\"",
     "web:dev": "pnpm --filter @barista/web dev",
     "web:build": "pnpm --filter @barista/web build",
     "gen": "cargo test --workspace export_ -q",

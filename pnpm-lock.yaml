@@ -304,16 +304,6 @@ importers:
         specifier: npm:@typescript/typescript6@~6.0.2
         version: '@typescript/typescript6@6.0.2'
 
-  examples/battery:
-    dependencies:
-      '@barista/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
-    devDependencies:
-      typescript:
-        specifier: npm:@typescript/typescript6@~6.0.2
-        version: '@typescript/typescript6@6.0.2'
-
   examples/clock:
     dependencies:
       '@barista/sdk':
