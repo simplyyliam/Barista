@@ -3,8 +3,18 @@
 Keep this file short: where we are, the next step, and facts a new session needs.
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
-## Where we are (2026-11-11)
+## Where we are (2026-11-13)
 
+- **Bar tuned to macOS proportions** (branch `feature/menubar-macos-proportions`, PR open, `UI: full`): all metrics are CSS variables
+  in `styles/tokens.css` (`--menubar-*`). `--menubar-height` (28px) is the source of truth: `useBarHeight` sends it to Rust
+  (`setBarHeight`, saved in settings.json, default 28). Pill items (bar height - 4, radius 4, no transition), custom SVG icons in
+  `features/menubar/icons/` (Wi-Fi, volume, control center, search, logo = Hugeicons Coffee03), clock "Thu Nov 12  1:18 PM" following
+  the 12/24 h setting. **The battery is not built in**: it is the `examples/battery` status item (live, its own SVGs), the bar only
+  styles its pill. The Wi-Fi item opens the new `wifi` panel route = the control center's own `WifiHeader` + `WifiList`
+  (windows mode opens Quick Settings). Debug window: Ctrl+Alt+Shift+D in debug builds (made-up Wi-Fi, volume, clock, pill states).
+  Left for Liam: icon pitch is 36px (22px box + 7px padding), try `--menubar-icon-box: 18px` for a tighter macOS look; search has no action yet.
+- **Native feel**: Liam wants the product to feel native for public users. ADR 0021 is **proposed** (tier 1 remove webview tells,
+  tier 3 native bar strip spike); plan in `docs/release/releases/native-feel.md` (local). Nothing built yet; Liam decides ADR 0021.
 - **v0.4.0 shipped** (tag `v0.4.0` on the merge of PR #19, not pushed yet: Liam runs `pnpm release`). Plan releases
   v0.0 to v0.4 are done; notes in `docs/release/history/` (local only, v0.4 in `v0.4-checkpoint.md`).
 - **v0.4b slice A done, PR #22 open** (branch `feature/v0.4b-system-panels-a`, Liam reviews and merges): panel window, clock
