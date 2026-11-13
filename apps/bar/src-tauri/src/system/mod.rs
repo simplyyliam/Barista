@@ -155,7 +155,8 @@ pub fn panel_opened(name: &str) {
     if name == "control-center" {
         refresh_control_center();
     }
-    if name == "volume" {
+    // Same switch as the control center: in "windows" mode nothing is read and the sliders do nothing.
+    if name == "volume" && control_center_active() {
         app_volumes::refresh();
     }
 }

@@ -289,18 +289,15 @@ impl Controller {
     /// it is already that height, so the UI can call it on every start.
     pub fn set_bar_height(&self, height: u32) -> BarInfo {
         let height = clamp_bar_height(height);
-        let changed = {
+        {
             let mut state = self.lock();
-            let changed = state.settings.bar_height != height;
-            if changed {
+            if state.settings.bar_height != height {
                 state.settings.bar_height = height;
                 if let Err(e) = state.settings.save(&state.settings_file) {
                     eprintln!("barista: could not save settings: {e}");
                 }
             }
-            changed
-        };
-        let _ = changed;
+        }
         // Always re-place the window, even when the height was already saved: if an earlier call's
         // job on the UI thread was lost, this one still fixes it (`apply` does nothing when the
         // window is already right). It runs on the UI thread: this command may be on another one.

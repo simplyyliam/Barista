@@ -190,9 +190,13 @@ pub struct Sessions {
 struct Known {
     name: String,
     icon: Option<String>,
-    /// The shell can fail once (busy, file in use): try a few times, then give up.
+    /// The shell can fail (busy, file in use, an app that is just starting): try a few times, at
+    /// least `ICON_RETRY_AFTER` apart, so a burst of rebuilds cannot use them all up. Then give up.
     icon_tries: u8,
+    last_icon_try: Option<std::time::Instant>,
 }
+
+const ICON_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(2);
 
 impl Drop for Sessions {
     fn drop(&mut self) {
@@ -328,10 +332,15 @@ impl Sessions {
                     .unwrap_or_else(|| title_from_file(file)),
                 icon: None,
                 icon_tries: 0,
+                last_icon_try: None,
             }
         });
-        if known.icon.is_none() && known.icon_tries < 3 {
+        if known.icon.is_none()
+            && known.icon_tries < 4
+            && known.last_icon_try.map_or(true, |t| t.elapsed() >= ICON_RETRY_AFTER)
+        {
             known.icon_tries += 1;
+            known.last_icon_try = Some(std::time::Instant::now());
             known.icon = super::app_icon::icon_png_for_file(&path)
                 .map(|png| format!("data:image/png;base64,{}", STANDARD.encode(png)));
         }

@@ -256,7 +256,9 @@ impl PanelWindow {
             Action::Nothing => {}
             Action::Open(_) => self.show(name, anchor, size, chrome),
             Action::Swap(_) => self.swap(name, anchor, size, chrome),
-            Action::Close => self.hide(),
+            Action::Close => {
+                self.hide();
+            }
         }
     }
 
@@ -265,8 +267,9 @@ impl PanelWindow {
     /// (the same fade as a click outside) and the new one opens once that is done. Any click in
     /// between wins: it bumps `generation`, so this open is dropped.
     fn swap(&self, name: &str, anchor: &str, size: (f64, f64), chrome: PanelChrome) {
-        self.close();
-        let generation = self.lock().generation;
+        // The generation comes from the close itself: reading it in a second lock would let a click
+        // that lands in between be mistaken for part of this swap.
+        let generation = self.close_generation();
         let (name, anchor) = (name.to_string(), anchor.to_string());
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(SWAP_DELAY).await;
@@ -482,26 +485,32 @@ impl PanelWindow {
 
     /// `closePanel` (Esc, or the UI decided) and the one-open rule. Does nothing if none is open.
     pub fn close(&self) {
-        self.lock().machine.reset();
-        self.hide();
+        self.close_generation();
     }
 
-    /// Hides the window and tells the UI. Windows fades it out itself.
-    fn hide(&self) {
-        let was_open = {
+    /// `close`, returning the generation it left behind (anything that happens later bumps it).
+    fn close_generation(&self) -> u64 {
+        self.lock().machine.reset();
+        self.hide()
+    }
+
+    /// Hides the window and tells the UI. Windows fades it out itself. Returns the new generation.
+    fn hide(&self) -> u64 {
+        let (was_open, generation) = {
             let mut inner = self.lock();
             inner.pending_show = false;
             inner.generation += 1;
-            inner.open.take().is_some()
+            (inner.open.take().is_some(), inner.generation)
         };
         if !was_open {
-            return;
+            return generation;
         }
         let _ = PanelChanged { open: None }.emit(&self.app);
         if let Some(window) = self.window() {
             crate::menu_window::transitions(&window, true);
             let _ = window.hide();
         }
+        generation
     }
 }
 
