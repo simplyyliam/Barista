@@ -1,27 +1,37 @@
-import { Clock, ControlCenter, MenubarItemGroup, StatusItems } from "@/features/menubar"
-import { commands } from "@/shared/bindings"
-import { useState, useEffect } from "react"
+import {
+  AppName,
+  Battery,
+  BrandItem,
+  Clock,
+  ControlCenter,
+  MenubarItemGroup,
+  Search,
+  StatusItems,
+  Volume,
+  Wifi,
+} from "@/features/menubar"
+import { useBarHeight } from "@/features/menubar/hooks/use-bar-height"
 
 export default function Menubar() {
-  const [version, setVersion] = useState("…")
+  useBarHeight()
 
-  useEffect(() => {
-    // Proves the Rust <-> TypeScript bridge works.
-    void commands.getVersion().then(setVersion)
-  }, [])
-
-  // Placeholder: fills the bar's height and centres its content vertically (tokens.css).
+  // Fills the bar's height and centres the pills vertically. Sizes: --menubar-* in tokens.css.
   return (
     <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center justify-between px-menubar-edge font-bar text-bar font-bar-item text-bar-fg">
+      {/* gap 0: neighbouring hover pills touch, like macOS */}
       <MenubarItemGroup className="justify-self-start">
-        <p>Barista {version}</p>
+        <BrandItem />
+        <AppName />
       </MenubarItemGroup>
-      <MenubarItemGroup className="justify-self-center">
-      </MenubarItemGroup>
-      <MenubarItemGroup className="justify-self-end">
+      <MenubarItemGroup className="justify-self-center"></MenubarItemGroup>
+      <MenubarItemGroup className="justify-self-end gap-menubar-status-gap">
         <StatusItems />
-        <Clock />
+        <Battery />
+        <Wifi />
+        <Volume />
+        <Search />
         <ControlCenter />
+        <Clock />
       </MenubarItemGroup>
     </div>
   )

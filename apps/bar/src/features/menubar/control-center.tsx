@@ -1,12 +1,12 @@
 import { commands, events } from "@/shared/bindings";
 import { useSnapshot } from "@/shared/hooks/use-snapshot";
-import { Icon, SlidersHorizontalIcon } from "@barista/ui/icons";
 import { useOpenPanel } from "@/features/panel";
 import {
   CONTROL_CENTER_HEIGHT,
   CONTROL_CENTER_WIDTH,
 } from "@/features/panel/control-center/control-center-panel";
 import { useItemBounds } from "./hooks/use-item-bounds";
+import { ControlCenterIcon } from "./icons";
 import { MenubarItem } from "./menubar-item";
 
 const ITEM_ID = "system/control-center";
@@ -51,7 +51,7 @@ export function ControlCenter() {
       open={isOpen}
       className="cursor-default outline-none focus-visible:bg-bar-hover"
     >
-      <Icon icon={SlidersHorizontalIcon} size={16} />
+      <ControlCenterIcon />
     </MenubarItem>
   );
 }
