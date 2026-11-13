@@ -76,9 +76,10 @@ export function Swap({
 
 /**
  * Switching from one open panel to another (click Wi-Fi while the control center is open): the new
- * panel travels in from where the old one was (at most 48px), with fade + scale + blur. Opening a
- * panel from nothing stays instant (ADR 0018); only a swap, where the window is already on screen, moves.
+ * panel fades in and grows from 0.97, from the side the old panel was on. Only opacity and scale, and
+ * the scale origin stays inside the panel: the window is exactly as big as the panel, so anything that
+ * moves or blurs past its edge would be cut off in a hard line. Opening a panel from nothing stays
+ * instant (ADR 0018); only a swap, where the window is already on screen, moves.
  */
-export const PANEL_SWAP_TRAVEL = 48
-export const PANEL_SWAP_FROM = { opacity: 0, scale: 0.96, filter: "blur(6px)" }
-export const PANEL_SWAP_TRANSITION: Transition = { duration: 0.24, ease: EASE_OUT }
+export const PANEL_SWAP_FROM = { opacity: 0, scale: 0.97 }
+export const PANEL_SWAP_TRANSITION: Transition = { duration: 0.22, ease: EASE_OUT }

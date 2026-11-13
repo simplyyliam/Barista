@@ -21,9 +21,10 @@ Reasoning and sources: `docs/research/ux-motion-and-taste.md` (local, not tracke
   spring 0.2 s, no bounce; icon swap fade + scale 0.25 to 1 + blur 4px, spring 0.3 s, no bounce;
   items fade + scale + blur, exit faster than enter; ease-out `[0.23, 1, 0.32, 1]`.
 - **Switching panels** (a panel is open and another item is clicked): Rust moves the one window at once, so
-  the page animates the incoming content from where the old panel was (`usePanelSwap`, at most 48px,
-  fade + scale + blur, 240 ms). Opening from closed stays instant. The old content cannot fade out: the
-  window is already at its new place and size.
+  the page fades the incoming content in and grows it from 0.97, from the side the old panel was on
+  (`usePanelSwap`, 220 ms). **Only opacity and scale, never a move or a blur on the whole panel:** the
+  window is exactly the panel's size, so anything past its edge is cut in a hard line (it looked like
+  Figma's "clip content"). The old content cannot fade out: the window is already at its new place.
 - **Hover is instant in, 150 ms out** (CSS, not motion). The hover capsule is fully rounded
   (`--menubar-pill-radius: 999px`, like macOS; set 8px for a softer rectangle).
 - **Only transform, opacity and a small blur.** No loops. Idle = zero running animations.
