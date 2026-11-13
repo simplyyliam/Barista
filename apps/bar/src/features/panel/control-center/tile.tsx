@@ -23,7 +23,7 @@ export function Tile({ icon, label, sub, active = false, className, children, ..
       aria-pressed={active}
       {...props}
       className={cn(
-        "flex h-cc-tile w-full items-center rounded-panel-child text-cc-fg outline-none transition-colors",
+        "flex h-cc-tile w-full items-center rounded-panel-child text-cc-fg outline-none transition-none",
         "focus-visible:ring-2 focus-visible:ring-cc-fg/60 disabled:opacity-40",
         active ? "bg-cc-active" : "bg-cc-tile enabled:hover:bg-cc-tile-hover",
         label ? "justify-start gap-2.5 px-cc-label-pad text-left" : "justify-center",
