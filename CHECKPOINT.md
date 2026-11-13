@@ -9,7 +9,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   not the 6-8px of the first spec); the battery is `examples/battery`'s drawing (no 27x12 construction or masks); the hover is a 999px
   capsule (not 4px).
 - **Motion pass (ADR 0023, proposed)**: `motion/react`, values in `shared/motion.tsx`, research in `docs/research/ux-motion-and-taste.md`
-  (local). Press 0.96, icon swaps (fade + scale + blur), items arrive/leave, panel-to-panel swap (`usePanelSwap`), hover capsule
+  (local). Press 0.96, icon swaps (fade + scale + blur), items arrive/leave, panel-to-panel swap (close with Windows' fade, then open: `SWAP_DELAY` in `panel.rs`), hover capsule
   (`--menubar-pill-radius: 999px`). **Motion is the exception**: not on the clock or the bar's battery percent, not on hover-in, not
   on panel open. Verified live: press holds 0.96, 0 animations at idle, anchors within 0.3 px after a click, open-from-closed stays instant.
 - **Bar tuned to macOS proportions** (branch `feature/menubar-macos-proportions`, PR #27, `UI: full`): all metrics are CSS variables
