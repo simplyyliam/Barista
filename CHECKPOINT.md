@@ -13,9 +13,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   percentage left of the icon, data from the battery service. **Wi-Fi, battery and volume open panels** under their icon (routes `wifi`,
   `battery`, `volume`; windows mode opens Quick Settings). Volume panel = master slider, a slider per app (new service, ADR 0022:
   `getAppVolumes`, `setAppVolume`, `setAppMuted`, `appVolumesChanged`), output devices, Sound settings. `SystemSlider` has its own pointer
-  handling (the head's edge sits under the cursor; verified with real clicks at 25/50/75 %). Night light stamps follow the real clock (no
-  future-dated changes), unverified on screen: see below. Debug window: Ctrl+Alt+Shift+D in debug builds.
-  Left for Liam: check night light spam on the real screen (I could only verify that every click reaches the registry); search has no action;
+  handling (the head's edge sits under the cursor; verified with real clicks at 25/50/75 %). Night light now stamps like Windows' own button (first stamp = stored + 2, recorded and
+  checked by Liam on screen: fast clicks all apply, ADR 0020). Debug window: Ctrl+Alt+Shift+D in debug builds.
+  Left for Liam: search has no action;
   per-app volume is not measured for memory/CPU yet (`docs/perf/`).
 - **Native feel**: Liam wants the product to feel native for public users. ADR 0021 is **proposed** (tier 1 remove webview tells,
   tier 3 native bar strip spike); plan in `docs/release/releases/native-feel.md` (local). Nothing built yet; Liam decides ADR 0021.
