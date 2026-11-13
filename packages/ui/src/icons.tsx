@@ -35,6 +35,7 @@ export {
   LockIcon,
   UserIcon,
   Tick02Icon,
+  Coffee03Icon,
 } from "@hugeicons/core-free-icons"
 
 // Lucide names clash with Hugeicons' style, so they get a "Lucide" prefix.
