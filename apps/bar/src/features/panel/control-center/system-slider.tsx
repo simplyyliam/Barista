@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentProps, type KeyboardEvent, t
 import { AnimatePresence, motion } from "motion/react"
 import { Icon } from "@barista/ui/icons"
 import { cn } from "cn"
+import { ICON_HIDDEN, ICON_SHOWN, ICON_TRANSITION } from "@/shared/motion"
 import { clamp01, toPercentStep, valueForKey, valueFromPointer } from "./lib/slider-math"
 
 type SystemSliderProps = {
@@ -15,11 +16,6 @@ type SystemSliderProps = {
   /** Click on the icon (volume: mute). */
   onIconClick?: () => void
 }
-
-// Fade, shrink and blur in one go; the icon and the number swap places with this.
-const HIDDEN = { opacity: 0, scale: 0.5, filter: "blur(4px)" }
-const SHOWN = { opacity: 1, scale: 1, filter: "blur(0px)" }
-const SWAP = { duration: 0.16, ease: [0.2, 0, 0, 1] as const }
 
 /** The icon is 14px with 8px on both sides inside the head, so the head is never narrower than this. */
 const ICON = 14
@@ -171,16 +167,16 @@ export function SystemSlider({ label, icon, value, disabled, onChange, onCommit,
             {dragging ? (
               <motion.span
                 key="value"
-                initial={HIDDEN}
-                animate={SHOWN}
-                exit={HIDDEN}
-                transition={SWAP}
+                initial={ICON_HIDDEN}
+                animate={ICON_SHOWN}
+                exit={ICON_HIDDEN}
+                transition={ICON_TRANSITION}
                 className="text-[11px] leading-none font-medium tabular-nums"
               >
                 {percent}
               </motion.span>
             ) : (
-              <motion.span key="icon" initial={HIDDEN} animate={SHOWN} exit={HIDDEN} transition={SWAP} className="flex">
+              <motion.span key="icon" initial={ICON_HIDDEN} animate={ICON_SHOWN} exit={ICON_HIDDEN} transition={ICON_TRANSITION} className="flex">
                 <Icon icon={icon} size={ICON} />
               </motion.span>
             )}

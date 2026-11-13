@@ -1,8 +1,10 @@
 import type { ComponentProps, ReactNode } from "react"
+import { motion, type HTMLMotionProps } from "motion/react"
+import { PRESS, PRESS_TRANSITION } from "@/shared/motion"
 import { cn } from "cn"
 import { Icon } from "@barista/ui/icons"
 
-type TileProps = Omit<ComponentProps<"button">, "children"> & {
+type TileProps = Omit<HTMLMotionProps<"button">, "children"> & {
   icon: ComponentProps<typeof Icon>["icon"]
   /** With a label the tile is meant for two columns (136 px in App.png), without one for one (62 px). The grid decides. */
   label?: string
@@ -18,9 +20,11 @@ type TileProps = Omit<ComponentProps<"button">, "children"> & {
  */
 export function Tile({ icon, label, sub, active = false, className, children, ...props }: TileProps) {
   return (
-    <button
+    <motion.button
       type="button"
       aria-pressed={active}
+      whileTap={props.disabled ? undefined : PRESS}
+      transition={PRESS_TRANSITION}
       {...props}
       className={cn(
         "flex h-cc-tile w-full items-center rounded-panel-child text-cc-fg outline-none transition-none",
@@ -38,6 +42,6 @@ export function Tile({ icon, label, sub, active = false, className, children, ..
         </span>
       )}
       {children}
-    </button>
+    </motion.button>
   )
 }

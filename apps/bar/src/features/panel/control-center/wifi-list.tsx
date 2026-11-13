@@ -4,6 +4,8 @@ import { Switch } from "@barista/ui/components/ui/switch"
 import { Input } from "@barista/ui/components/ui/input"
 import { ArrowLeft01Icon, Icon, LockIcon, Tick02Icon, Wifi01Icon } from "@barista/ui/icons"
 import { cn } from "cn"
+import { AnimatePresence, motion } from "motion/react"
+import { EASE_OUT, PRESS_TRANSITION, PRESS_WIDE, Swap, TEXT_EXIT, TEXT_HIDDEN, TEXT_SHOWN, TEXT_TRANSITION } from "@/shared/motion"
 import { useWifi } from "./hooks/use-control-center"
 
 const JOIN_WAIT_MS = 10_000
@@ -126,25 +128,48 @@ export function WifiList({ scanOnMount = true }: { scanOnMount?: boolean }) {
   } else {
     body = wifi.networks.map((network) => (
       <div key={network.ssid} className="flex flex-col">
-        <button
+        <motion.button
           type="button"
+          whileTap={PRESS_WIDE}
+          transition={PRESS_TRANSITION}
           onClick={() => pick(network)}
           className="flex h-10 shrink-0 items-center gap-2.5 rounded-[max(0px,calc(var(--radius-panel-child)-var(--spacing-cc-pad)))] px-3 text-left text-cc-fg outline-none hover:bg-cc-tile-hover focus-visible:ring-2 focus-visible:ring-cc-fg/60"
         >
           <Icon icon={Wifi01Icon} size={16} className={cn("shrink-0", network.signal < 35 && "opacity-50")} />
           <span className="flex min-w-0 flex-1 flex-col leading-tight">
             <span className="truncate text-[13px]">{network.ssid}</span>
-            {(trying === network.ssid || failed === network.ssid) && (
-              <span className="text-[11px] text-cc-fg-muted">
-                {trying === network.ssid ? "Connecting…" : "Couldn't connect"}
-              </span>
-            )}
+            <AnimatePresence initial={false} mode="popLayout">
+              {(trying === network.ssid || failed === network.ssid) && (
+                <motion.span
+                  key={trying === network.ssid ? "connecting" : "failed"}
+                  initial={TEXT_HIDDEN}
+                  animate={TEXT_SHOWN}
+                  exit={TEXT_EXIT}
+                  transition={TEXT_TRANSITION}
+                  className="text-[11px] text-cc-fg-muted"
+                >
+                  {trying === network.ssid ? "Connecting…" : "Couldn't connect"}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </span>
-          {network.secured && !network.connected && <Icon icon={LockIcon} size={13} className="shrink-0 opacity-70" />}
-          {network.connected && <Icon icon={Tick02Icon} size={16} className="shrink-0" />}
-        </button>
+          {/* The lock turns into the tick (and back) with the icon motion. */}
+          <Swap id={network.connected ? "tick" : network.secured ? "lock" : "none"} className="shrink-0">
+            {network.connected ? (
+              <Icon icon={Tick02Icon} size={16} />
+            ) : network.secured ? (
+              <Icon icon={LockIcon} size={13} className="opacity-70" />
+            ) : null}
+          </Swap>
+        </motion.button>
+        <AnimatePresence initial={false}>
         {asking === network.ssid && (
-          <form
+          <motion.form
+            key="password"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1, transition: { duration: 0.2, ease: EASE_OUT } }}
+            exit={{ height: 0, opacity: 0, transition: { duration: 0.12, ease: EASE_OUT } }}
+            style={{ overflow: "hidden" }}
             className="flex gap-2 px-3 pb-2"
             onSubmit={(event) => {
               event.preventDefault()
@@ -168,8 +193,9 @@ export function WifiList({ scanOnMount = true }: { scanOnMount?: boolean }) {
             >
               Join
             </button>
-          </form>
+          </motion.form>
         )}
+        </AnimatePresence>
       </div>
     ))
   }

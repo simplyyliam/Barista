@@ -8,7 +8,16 @@ import {
   VolumeHighIcon,
   VolumeMute01Icon,
 } from "@barista/ui/icons"
-import { cn } from "cn"
+import { AnimatePresence, motion } from "motion/react"
+import {
+  ITEM_ENTER,
+  ITEM_EXIT,
+  ITEM_HIDDEN,
+  ITEM_SHOWN,
+  PRESS_TRANSITION,
+  PRESS_WIDE,
+  Swap,
+} from "@/shared/motion"
 import { useDragValue } from "./control-center/hooks/use-control-center"
 import { VolumeSlider } from "./control-center/control-center-panel"
 import { SystemSlider } from "./control-center/system-slider"
@@ -31,7 +40,7 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
 function AppRow({ app }: { app: AppVolume }) {
   const drag = useDragValue(app.level, (level) => void commands.setAppVolume(app.id, level))
   return (
-    <div className={cn("flex flex-col gap-1", !app.playing && "opacity-60")}>
+    <div className="flex flex-col gap-1">
       {/* Indented by the icon (20px) and the gap (10px), so the name lines up with the slider. */}
       <span className="truncate pl-[30px] text-[12px] leading-tight">{app.name}</span>
       <div className="flex items-center gap-2.5">
@@ -82,9 +91,21 @@ export function VolumePanel() {
             <span className="px-0.5 py-2 text-[12px] text-cc-fg-muted">No app is using audio</span>
           ) : (
             <div className="flex max-h-[168px] flex-col gap-3 overflow-y-auto py-1">
-              {apps.apps.map((app) => (
-                <AppRow key={app.id} app={app} />
-              ))}
+              {/* Rows arrive and leave with fade + scale + blur; the others glide into the gap. Apps
+                  that are only open (not playing) rest at 60 %. */}
+              <AnimatePresence initial={false}>
+                {apps.apps.map((app) => (
+                  <motion.div
+                    key={app.id}
+                    layout="position"
+                    initial={ITEM_HIDDEN}
+                    animate={{ ...ITEM_SHOWN, opacity: app.playing ? 1 : 0.6, transition: ITEM_ENTER }}
+                    exit={{ ...ITEM_HIDDEN, transition: ITEM_EXIT }}
+                  >
+                    <AppRow app={app} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </Block>
@@ -93,27 +114,33 @@ export function VolumePanel() {
           <Block title="Output device">
             <div className="flex max-h-[108px] flex-col overflow-y-auto">
               {outputs.devices.map((device) => (
-                <button
+                <motion.button
                   key={device.id}
                   type="button"
+                  whileTap={PRESS_WIDE}
+                  transition={PRESS_TRANSITION}
                   onClick={() => void commands.setOutputDevice(device.id)}
                   className="flex h-9 shrink-0 items-center gap-2 rounded-[max(0px,calc(var(--radius-panel-child)-var(--spacing-cc-pad)))] px-2 text-left text-[13px] outline-none hover:bg-cc-tile-hover focus-visible:ring-2 focus-visible:ring-cc-fg/60"
                 >
                   <span className="min-w-0 flex-1 truncate">{device.name}</span>
-                  {device.default && <Icon icon={Tick02Icon} size={16} className="shrink-0" />}
-                </button>
+                  <Swap id={device.default} className="shrink-0">
+                    {device.default ? <Icon icon={Tick02Icon} size={16} /> : <span className="size-4" />}
+                  </Swap>
+                </motion.button>
               ))}
             </div>
           </Block>
         )}
 
-        <button
+        <motion.button
           type="button"
+          whileTap={PRESS_WIDE}
+          transition={PRESS_TRANSITION}
           onClick={() => void commands.openSettings("sound")}
           className="h-9 rounded-panel-child bg-cc-tile px-3 text-left text-[13px] text-cc-fg outline-none hover:bg-cc-tile-hover focus-visible:ring-2 focus-visible:ring-cc-fg/60"
         >
           Sound settings…
-        </button>
+        </motion.button>
       </section>
     </div>
   )

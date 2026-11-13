@@ -8,6 +8,8 @@ import {
   Timer02Icon,
 } from "@barista/ui/icons"
 import { cn } from "cn"
+import { motion } from "motion/react"
+import { PRESS, PRESS_TRANSITION } from "@/shared/motion"
 import { useThemeMode } from "./hooks/use-control-center"
 
 /** The card holds at most 4 x 2 actions. The list is data, so a settings screen can fill it later. */
@@ -47,21 +49,23 @@ export function QuickActions() {
       {ACTIONS.slice(0, MAX_QUICK_ACTIONS).map((action) => {
         const on = action.id === "dark-mode" && theme?.dark === true
         return (
-          <button
+          <motion.button
             key={action.id}
             type="button"
+            whileTap={PRESS}
+            transition={PRESS_TRANSITION}
             aria-label={action.label}
             title={action.label}
             aria-pressed={action.id === "dark-mode" ? on : undefined}
             onClick={() => run(action.id)}
             className={cn(
-              "flex h-cc-tile w-full items-center justify-center rounded-panel-child text-cc-fg outline-none transition-colors",
+              "flex h-cc-tile w-full items-center justify-center rounded-panel-child text-cc-fg outline-none transition-none",
               "focus-visible:ring-2 focus-visible:ring-cc-fg/60",
               on ? "bg-cc-active" : "bg-cc-tile hover:bg-cc-tile-hover",
             )}
           >
             <Icon icon={action.icon} size={24} />
-          </button>
+          </motion.button>
         )
       })}
     </section>

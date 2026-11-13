@@ -3,6 +3,7 @@ import { commands } from "@/shared/bindings"
 import { useBattery } from "@/shared/hooks/use-system-state"
 import { Switch } from "@barista/ui/components/ui/switch"
 import { BatteryIcon } from "@/features/menubar/icons"
+import { Swap } from "@/shared/motion"
 import { formatDuration } from "./lib/format-duration"
 
 /** Same width as the control center (--spacing-panel-w). */
@@ -34,8 +35,12 @@ export function BatteryPanel() {
       <section className="flex flex-col gap-cc-gap rounded-panel bg-cc-card p-cc-pad text-cc-fg">
         <div className="flex h-cc-header items-center justify-between px-cc-label-pad">
           <div className="flex flex-col leading-tight">
-            <span className="text-[24px] font-semibold tabular-nums">{percent === null ? "–" : `${Math.round(percent)}%`}</span>
-            <span className="text-[12px] text-cc-fg-muted">{state}</span>
+            <Swap id={percent === null ? "-" : Math.round(percent)} kind="text" className="text-[24px] font-semibold tabular-nums">
+              {percent === null ? "–" : `${Math.round(percent)}%`}
+            </Swap>
+            <Swap id={state} kind="text" className="text-[12px] text-cc-fg-muted">
+              {state}
+            </Swap>
           </div>
           <BatteryIcon percent={percent} charging={charging} pluggedIn={battery?.pluggedIn === true} height={22} />
         </div>
