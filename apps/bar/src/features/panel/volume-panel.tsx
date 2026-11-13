@@ -31,26 +31,29 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
 function AppRow({ app }: { app: AppVolume }) {
   const drag = useDragValue(app.level, (level) => void commands.setAppVolume(app.id, level))
   return (
-    <div className={cn("flex items-center gap-2.5", !app.playing && "opacity-60")}>
-      {app.icon ? (
-        <img src={app.icon} alt="" draggable={false} className="size-5 shrink-0 rounded-[4px]" />
-      ) : (
-        <Icon icon={MusicNote01Icon} size={18} className="shrink-0 text-cc-fg-muted" />
-      )}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate text-[12px] leading-tight">{app.name}</span>
-        <SystemSlider
-          label={app.name}
-          icon={app.muted ? VolumeMute01Icon : VolumeHighIcon}
-          value={app.muted ? 0 : drag.value}
-          // Moving a muted app up unmutes it, like the master slider does.
-          onChange={(level) => {
-            if (app.muted && level > 0) void commands.setAppMuted(app.id, false)
-            drag.change(level)
-          }}
-          onCommit={drag.end}
-          onIconClick={() => void commands.setAppMuted(app.id, !app.muted)}
-        />
+    <div className={cn("flex flex-col gap-1", !app.playing && "opacity-60")}>
+      {/* Indented by the icon (20px) and the gap (10px), so the name lines up with the slider. */}
+      <span className="truncate pl-[30px] text-[12px] leading-tight">{app.name}</span>
+      <div className="flex items-center gap-2.5">
+        {app.icon ? (
+          <img src={app.icon} alt="" draggable={false} className="size-5 shrink-0 rounded-[4px]" />
+        ) : (
+          <Icon icon={MusicNote01Icon} size={18} className="shrink-0 text-cc-fg-muted" />
+        )}
+        <div className="min-w-0 flex-1">
+          <SystemSlider
+            label={app.name}
+            icon={app.muted ? VolumeMute01Icon : VolumeHighIcon}
+            value={app.muted ? 0 : drag.value}
+            // Moving a muted app up unmutes it, like the master slider does.
+            onChange={(level) => {
+              if (app.muted && level > 0) void commands.setAppMuted(app.id, false)
+              drag.change(level)
+            }}
+            onCommit={drag.end}
+            onIconClick={() => void commands.setAppMuted(app.id, !app.muted)}
+          />
+        </div>
       </div>
     </div>
   )
