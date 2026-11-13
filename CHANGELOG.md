@@ -6,6 +6,68 @@ All notable changes to the Barista app are listed here. The SDK has its own chan
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-13
+
+The bar now shows your real clock, battery, volume and Wi-Fi, and each one opens a panel.
+
+### Added
+
+- **A clock like macOS.** Day, date and time in the bar, following your 12 or 24 hour setting.
+  Click it for your notifications and a calendar.
+- **Notifications panel.** Your Windows notifications in one list, with pictures. Dismiss one or
+  clear them all, and click one to open it. A dot shows when there is something new.
+- **Control center.** Wi-Fi, Bluetooth, airplane mode, hotspot, focus, night light, brightness,
+  volume, battery saver and what's playing, plus lock, sleep, restart and shut down.
+- **Battery in the bar.** It shows your real charge and opens a panel with the details.
+- **Volume panel.** One slider for the main volume, one for each app that is playing sound, and
+  a list to switch where sound comes out.
+- **Wi-Fi panel.** See your network and the others nearby, and turn Wi-Fi on or off.
+- **Animated icons.** Volume, Wi-Fi, battery and the control center icon change with a short
+  animation when their state changes. Items dip a little when you press them.
+- **Switching panels is smooth.** Clicking another icon while a panel is open closes it first,
+  then opens the next one.
+- **Each part can be handed back to Windows.** Notifications and the control center can open
+  Windows' own version instead (there's no setting for it yet).
+
+### Changed
+
+- **The bar is tighter, like macOS.** Smaller icon buttons, a rounded highlight when you hover,
+  and a bar height that follows the design.
+- Panels open right under their icon in about one beat.
+
+### Fixed
+
+- Night light now works like Windows' own button: fast clicks all count and it keeps the right time.
+- Volume sliders follow the pointer exactly.
+- The Wi-Fi panel scans once each time it opens, and the bar keeps its height after a screen change.
+- The notification list shrinks to fit what's in it.
+
+### Known issues
+
+- Windows SmartScreen may warn that the installer is from an unknown publisher, because it isn't
+  code-signed yet. Click "More info", then "Run anyway".
+- No automatic updates yet. To get a newer version, download its installer from the GitHub
+  Releases page and run it.
+- The search item in the bar doesn't do anything yet.
+- Windows still shows its own notification pop-ups; the panel lists them but doesn't replace them.
+- Keyboard shortcut hints in menus are only text. Showing "Ctrl+Enter" next to an entry doesn't
+  create a real shortcut.
+- The usual Windows tray icons stay in the taskbar for now; they move into the bar in a later version.
+- The bar shows on one screen only, and there's no way yet to pick which screen from the app.
+- Menus take about 50 ms to appear and Barista uses about 130 MB of memory, because the panel
+  and menu windows are ready in the background.
+
+### Privacy
+
+- Barista sends nothing over the internet. It doesn't check for updates yet.
+- Your notifications, Wi-Fi networks, battery and volume are read on this computer only and never
+  sent anywhere.
+- Apps that add items, menus or popovers talk to the bar only on this computer; nothing leaves the
+  machine.
+- The bar looks at the wallpaper behind it only to pick light or dark text. This happens on your
+  computer, and the wallpaper is never sent anywhere.
+- Tray icons aren't read yet. When they are, they'll be read locally and never sent anywhere.
+
 ## [0.4.0] - 2026-11-11
 
 Apps can now open their own small window right under their item in the bar.
