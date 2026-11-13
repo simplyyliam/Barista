@@ -50,7 +50,7 @@ export function ControlCenter() {
       open={isOpen}
       className="cursor-default outline-none focus-visible:bg-bar-hover"
     >
-      <ControlCenterIcon />
+      <ControlCenterIcon open={isOpen} />
     </MenubarItem>
   );
 }

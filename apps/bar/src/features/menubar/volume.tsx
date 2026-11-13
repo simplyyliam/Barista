@@ -1,4 +1,4 @@
-import { type HTMLAttributes } from "react"
+import { type ComponentProps } from "react"
 import { cn } from "cn"
 import { commands } from "@/shared/bindings"
 import { useControlCenterMode, useVolume } from "@/shared/hooks/use-system-state"
@@ -6,16 +6,16 @@ import { useOpenPanel } from "@/features/panel"
 import { VOLUME_PANEL_HEIGHT, VOLUME_PANEL_WIDTH } from "@/features/panel/volume-panel"
 import { VolumeIcon } from "./icons"
 import { useItemBounds } from "./hooks/use-item-bounds"
-import { MenubarItem } from "./menubar-item"
+import { ITEM_APPEAR, MenubarItem } from "./menubar-item"
 
 const ITEM_ID = "system/volume"
 
-type VolumeViewProps = HTMLAttributes<HTMLDivElement> & { level: number; muted: boolean; open?: boolean }
+type VolumeViewProps = ComponentProps<typeof MenubarItem> & { level: number; muted: boolean; open?: boolean }
 
 /** The volume pill from plain values (the debug window feeds it made-up ones). */
 export function VolumeView({ level, muted, open, className, ...props }: VolumeViewProps) {
   return (
-    <MenubarItem variant="icon" open={open} className={cn("cursor-default", className)} aria-label="Volume" {...props}>
+    <MenubarItem variant="icon" open={open} className={cn("cursor-default", className)} aria-label="Volume" {...ITEM_APPEAR} {...props}>
       <VolumeIcon level={level} muted={muted} />
     </MenubarItem>
   )

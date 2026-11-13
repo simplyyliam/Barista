@@ -1,6 +1,8 @@
 import { commands } from "@/shared/bindings";
 import { useNotificationMode, useNotifications } from "@/shared/stores/notifications";
 import { useOpenPanel } from "@/features/panel";
+import { AnimatePresence, motion } from "motion/react";
+import { ICON_HIDDEN, ICON_SHOWN, ICON_TRANSITION } from "@/shared/motion";
 import { useClockSettings } from "@/shared/hooks/use-system-state";
 import { useItemBounds } from "./hooks/use-item-bounds";
 import { useNow } from "./hooks/use-now";
@@ -54,13 +56,20 @@ export function Clock() {
       <span>{date}</span>
       {/* Hidden until the 12/24 h setting is known, so a 24 hour clock never flashes "1:18 PM". */}
       <span className={settings ? undefined : "invisible"}>{time}</span>
-      {unread && (
-        <span
-          role="status"
-          aria-label="Unread notifications"
-          className="absolute top-1 left-1.5 size-1.5 rounded-full bg-bar-fg"
-        />
-      )}
+      <AnimatePresence initial={false}>
+        {unread && (
+          <motion.span
+            key="unread"
+            role="status"
+            aria-label="Unread notifications"
+            initial={ICON_HIDDEN}
+            animate={ICON_SHOWN}
+            exit={ICON_HIDDEN}
+            transition={ICON_TRANSITION}
+            className="absolute top-1 left-1.5 size-1.5 rounded-full bg-bar-fg"
+          />
+        )}
+      </AnimatePresence>
     </MenubarItem>
   );
 }

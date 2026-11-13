@@ -50,7 +50,7 @@ export function BarPreview({ tone, state, now }: { tone: "light" | "dark"; state
           <VolumeView open={open} level={state.volume} muted={state.muted} />
           <Search open={open} />
           <MenubarItem variant="icon" open={open} className="cursor-default" aria-label="Control center">
-            <ControlCenterIcon />
+            <ControlCenterIcon open={open} />
           </MenubarItem>
           <MenubarItem open={open} className="cursor-default gap-1.5 tabular-nums">
             <span>{date}</span>

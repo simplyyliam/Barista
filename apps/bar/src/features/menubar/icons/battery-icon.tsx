@@ -1,4 +1,6 @@
+import { AnimatePresence, motion } from "motion/react";
 import { type SVGProps } from "react";
+import { ICON_HIDDEN, ICON_SHOWN, ICON_TRANSITION } from "@/shared/motion";
 
 type BatteryIconProps = Omit<SVGProps<SVGSVGElement>, "children"> & {
   /** 0 to 100. `null` = unknown: only the outline is drawn. */
@@ -26,7 +28,8 @@ const VIEW_BOX = "1.25 5.25 21.5 13.5";
 
 /**
  * The battery: outline, a fill that follows the level (red at 15 % or less) and a bolt while
- * charging.
+ * charging. The fill slides to a new level, turns red with a short colour fade, and the bolt
+ * arrives and leaves with the icon motion (scale, fade, blur).
  *
  * @example
  * <BatteryIcon percent={72} charging />
@@ -56,26 +59,35 @@ export function BatteryIcon({ percent, charging = false, pluggedIn = false, ...p
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {fillWidth > 0 && (
-        <rect
-          x={FILL.x}
-          y={FILL.y}
-          width={fillWidth.toFixed(2)}
-          height={FILL.height}
-          rx={FILL.radius}
-          fill={fillColor}
-        />
-      )}
-      {charging && (
-        <path
-          d={`M${c + 1.8} 7.2 L${c - 4.2} 12 H${c - 0.5} L${c - 1.8} 16.6 L${c + 4.6} 11 H${c + 0.7} Z`}
-          fill="#ffffff"
-          stroke={MARK_OUTLINE}
-          strokeWidth="1"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      )}
+      <motion.rect
+        x={FILL.x}
+        y={FILL.y}
+        height={FILL.height}
+        rx={FILL.radius}
+        fill={fillColor}
+        className="transition-[fill] duration-200 ease-out"
+        initial={false}
+        animate={{ width: fillWidth, opacity: fillWidth > 0 ? 1 : 0 }}
+        transition={{ type: "spring", duration: 0.5, bounce: 0 }}
+      />
+      <AnimatePresence initial={false}>
+        {charging && (
+          <motion.path
+            key="bolt"
+            d={`M${c + 1.8} 7.2 L${c - 4.2} 12 H${c - 0.5} L${c - 1.8} 16.6 L${c + 4.6} 11 H${c + 0.7} Z`}
+            fill="#ffffff"
+            stroke={MARK_OUTLINE}
+            strokeWidth="1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ transformBox: "fill-box", transformOrigin: "center" }}
+            initial={ICON_HIDDEN}
+            animate={ICON_SHOWN}
+            exit={ICON_HIDDEN}
+            transition={ICON_TRANSITION}
+          />
+        )}
+      </AnimatePresence>
     </svg>
   );
 }

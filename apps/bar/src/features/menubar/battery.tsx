@@ -1,4 +1,4 @@
-import { type HTMLAttributes } from "react"
+import { type ComponentProps } from "react"
 import { cn } from "cn"
 import { commands } from "@/shared/bindings"
 import { useBattery, useControlCenterMode } from "@/shared/hooks/use-system-state"
@@ -6,11 +6,11 @@ import { useOpenPanel } from "@/features/panel"
 import { BATTERY_PANEL_HEIGHT, BATTERY_PANEL_WIDTH } from "@/features/panel/battery-panel"
 import { BatteryIcon } from "./icons"
 import { useItemBounds } from "./hooks/use-item-bounds"
-import { MenubarItem } from "./menubar-item"
+import { ITEM_APPEAR, MenubarItem } from "./menubar-item"
 
 const ITEM_ID = "system/battery"
 
-type BatteryViewProps = HTMLAttributes<HTMLDivElement> & {
+type BatteryViewProps = ComponentProps<typeof MenubarItem> & {
   percent: number | null
   charging: boolean
   pluggedIn?: boolean
@@ -30,7 +30,7 @@ export function BatteryView({
   ...props
 }: BatteryViewProps) {
   return (
-    <MenubarItem variant={showLabel && percent !== null ? "status" : "icon"} open={open} className={cn("cursor-default gap-1.5 tabular-nums", className)} {...props}>
+    <MenubarItem variant={showLabel && percent !== null ? "status" : "icon"} open={open} className={cn("cursor-default gap-1.5 tabular-nums", className)} {...ITEM_APPEAR} {...props}>
       {showLabel && percent !== null && <span>{Math.round(percent)}%</span>}
       <BatteryIcon percent={percent} charging={charging} pluggedIn={pluggedIn} />
     </MenubarItem>

@@ -1,4 +1,4 @@
-import { type HTMLAttributes } from "react"
+import { type ComponentProps } from "react"
 import { cn } from "cn"
 import { commands } from "@/shared/bindings"
 import { useControlCenterMode, useWifi } from "@/shared/hooks/use-system-state"
@@ -7,11 +7,11 @@ import { WIFI_PANEL_HEIGHT, WIFI_PANEL_WIDTH } from "@/features/panel/wifi-panel
 import { WifiIcon } from "./icons"
 import { useItemBounds } from "./hooks/use-item-bounds"
 import { wifiStrength } from "./lib/levels"
-import { MenubarItem } from "./menubar-item"
+import { ITEM_APPEAR, MenubarItem } from "./menubar-item"
 
 const ITEM_ID = "system/wifi"
 
-type WifiViewProps = HTMLAttributes<HTMLDivElement> & {
+type WifiViewProps = ComponentProps<typeof MenubarItem> & {
   strength: 0 | 1 | 2 | 3
   off?: boolean
   open?: boolean
@@ -20,7 +20,7 @@ type WifiViewProps = HTMLAttributes<HTMLDivElement> & {
 /** The Wi-Fi pill from plain values (the debug window feeds it made-up ones). */
 export function WifiView({ strength, off = false, open, className, ...props }: WifiViewProps) {
   return (
-    <MenubarItem variant="icon" open={open} className={cn("cursor-default", className)} aria-label="Wi-Fi" {...props}>
+    <MenubarItem variant="icon" open={open} className={cn("cursor-default", className)} aria-label="Wi-Fi" {...ITEM_APPEAR} {...props}>
       <WifiIcon off={off} strength={strength} />
     </MenubarItem>
   )
