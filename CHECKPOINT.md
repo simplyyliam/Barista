@@ -5,6 +5,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-13)
 
+- **Spec departures Liam confirmed (2026-11-13), do not "fix" them:** icon-only pills are 28px wide (3px padding, 2px gap, 30px pitch,
+  not the 6-8px of the first spec); the battery is `examples/battery`'s drawing (no 27x12 construction or masks); the hover is a 999px
+  capsule (not 4px).
 - **Motion pass (ADR 0023, proposed)**: `motion/react`, values in `shared/motion.tsx`, research in `docs/research/ux-motion-and-taste.md`
   (local). Press 0.96, icon swaps (fade + scale + blur), items arrive/leave, panel-to-panel swap (`usePanelSwap`), hover capsule
   (`--menubar-pill-radius: 999px`). **Motion is the exception**: not on the clock or the bar's battery percent, not on hover-in, not
