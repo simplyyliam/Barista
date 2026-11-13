@@ -2,9 +2,13 @@
 //! made-up states (charging, mute, 12/24 h, ...), so nothing needs to happen on the real machine.
 
 use crate::window_radius::{self, Mode};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const LABEL: &str = "debug";
+
+/// Set while a build thread runs: a second key press must not start a second build.
+static BUILDING: AtomicBool = AtomicBool::new(false);
 
 /// Opens the debug window, or brings it to the front if it is already open.
 pub fn open(app: &AppHandle) {
@@ -13,12 +17,16 @@ pub fn open(app: &AppHandle) {
         let _ = window.set_focus();
         return;
     }
+    if BUILDING.swap(true, Ordering::SeqCst) {
+        return;
+    }
     // Building a window inside a Win32 message handler can deadlock Tauri, so do it elsewhere.
     let app = app.clone();
     std::thread::spawn(move || {
         if let Err(e) = build(&app) {
             eprintln!("barista: could not open the debug window: {e}");
         }
+        BUILDING.store(false, Ordering::SeqCst);
     });
 }
 

@@ -52,7 +52,8 @@ export function Clock() {
       className="relative cursor-default gap-1.5 tabular-nums outline-none focus-visible:bg-bar-hover"
     >
       <span>{date}</span>
-      <span>{time}</span>
+      {/* Hidden until the 12/24 h setting is known, so a 24 hour clock never flashes "1:18 PM". */}
+      <span className={settings ? undefined : "invisible"}>{time}</span>
       {unread && (
         <span
           role="status"

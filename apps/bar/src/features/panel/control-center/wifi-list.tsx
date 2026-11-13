@@ -45,8 +45,11 @@ export function WifiHeader({ onBack, plain = false }: { onBack?: () => void; pla
   )
 }
 
-/** The networks in range, filling the space under the header. Scrolls when there are many. */
-export function WifiList() {
+/**
+ * The networks in range, filling the space under the header. Scrolls when there are many. It scans
+ * when it mounts, unless `scanOnMount` is off (the Wi-Fi panel scans when it opens instead).
+ */
+export function WifiList({ scanOnMount = true }: { scanOnMount?: boolean }) {
   const wifi = useWifi()
   // The network that asked for a password, and the one we just tried to join.
   const [asking, setAsking] = useState<string | null>(null)
@@ -55,7 +58,7 @@ export function WifiList() {
   const [failed, setFailed] = useState<string | null>(null)
 
   useEffect(() => {
-    void commands.scanWifi()
+    if (scanOnMount) void commands.scanWifi()
   }, [])
 
   // Connected: nothing more to wait for. Still not connected after a while: say so.
