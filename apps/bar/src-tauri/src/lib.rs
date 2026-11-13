@@ -35,6 +35,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_version,
             commands::get_bar_info,
             commands::set_monitor,
+            commands::set_bar_height,
             commands::get_items,
             commands::item_clicked,
             commands::get_window_radius,

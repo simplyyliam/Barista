@@ -16,6 +16,11 @@ export const commands = {
 	getBarInfo: () => typedError<BarInfo, string>(__TAURI_INVOKE("get_bar_info")),
 	/**  Moves the bar to another monitor (an id from `getBarInfo().monitors`) and remembers it. */
 	setMonitor: (id: string) => typedError<BarInfo, string>(__TAURI_INVOKE("set_monitor", { id })),
+	/**
+	 *  Sets the bar height in logical pixels (clamped to 20-64), saves it and resizes the bar.
+	 *  The UI calls it with its `--menubar-height` token on start; `barChanged` follows.
+	 */
+	setBarHeight: (height: number) => typedError<BarInfo, string>(__TAURI_INVOKE("set_bar_height", { height })),
 	/**  The items in the bar right now. Call once when the UI starts; `itemsChanged` keeps it fresh. */
 	getItems: () => __TAURI_INVOKE<StatusItemView_Serialize[]>("get_items"),
 	/**

@@ -4,7 +4,7 @@
 use crate::bar::{bar_rect, pick_monitor, BarInfo, Monitor, Rect};
 use crate::events::BarChanged;
 use crate::platform::windows::{appbar, fullscreen, monitors, window};
-use crate::settings::{settings_path, Settings};
+use crate::settings::{clamp_bar_height, settings_path, Settings};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -279,6 +279,33 @@ impl Controller {
             }
         });
         Ok(self.info())
+    }
+
+    /// Sets the bar height (logical px, clamped), saves it and re-places the window. A no-op when
+    /// it is already that height, so the UI can call it on every start.
+    pub fn set_bar_height(&self, height: u32) -> BarInfo {
+        let height = clamp_bar_height(height);
+        let changed = {
+            let mut state = self.lock();
+            let changed = state.settings.bar_height != height;
+            if changed {
+                state.settings.bar_height = height;
+                if let Err(e) = state.settings.save(&state.settings_file) {
+                    eprintln!("barista: could not save settings: {e}");
+                }
+            }
+            changed
+        };
+        if changed {
+            // Resize on the UI thread: this command may be running on another one.
+            let app = self.app.clone();
+            let _ = app.run_on_main_thread(|| {
+                if let Some(c) = get() {
+                    c.apply();
+                }
+            });
+        }
+        self.info()
     }
 
     fn set_fullscreen(&self, on: bool) {

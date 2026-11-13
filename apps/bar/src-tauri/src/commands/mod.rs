@@ -32,6 +32,16 @@ pub fn get_bar_info() -> Result<BarInfo, String> {
         .ok_or_else(|| "the bar is not running yet".into())
 }
 
+/// Sets the bar height in logical pixels (clamped to 20-64), saves it and resizes the bar.
+/// The UI calls it with its `--menubar-height` token on start; `barChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_bar_height(height: u32) -> Result<BarInfo, String> {
+    Ok(controller::get()
+        .ok_or("the bar is not running yet")?
+        .set_bar_height(height))
+}
+
 /// Moves the bar to another monitor (an id from `getBarInfo().monitors`) and remembers it.
 #[tauri::command]
 #[specta::specta]
