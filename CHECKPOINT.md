@@ -8,6 +8,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **Spec departures Liam confirmed (2026-11-13), do not "fix" them:** icon-only pills are 28px wide (3px padding, 2px gap, 30px pitch,
   not the 6-8px of the first spec); the battery is `examples/battery`'s drawing (no 27x12 construction or masks); the hover is a 999px
   capsule (not 4px).
+- **Release checks done (2026-11-13, after the motion pass and panel swap):** `/code-review medium` (one real bug fixed: swap generation
+  race; also volume refresh gate, icon retry spacing, dead variable), `/security-review` (no findings), end-to-end (test client item
+  appears with its menu, gone after the client is killed), rapid panel switching (last click wins, one panel open). Deferred from the
+  review: full session rebuild on every audio state change, hidden volume panel re-renders on events, `debug` window in the release
+  capability file (the window is never created in release), `SESSIONS_PENDING` cleared by the explicit refresh.
 - **Motion pass (ADR 0023, proposed)**: `motion/react`, values in `shared/motion.tsx`, research in `docs/research/ux-motion-and-taste.md`
   (local). Press 0.96, icon swaps (fade + scale + blur), items arrive/leave, panel-to-panel swap (close with Windows' fade, then open: `SWAP_DELAY` in `panel.rs`), hover capsule
   (`--menubar-pill-radius: 999px`). **Motion is the exception**: not on the clock or the bar's battery percent, not on hover-in, not
