@@ -1,5 +1,6 @@
 import {
   AppName,
+  Battery,
   BrandItem,
   Clock,
   ControlCenter,
@@ -25,6 +26,7 @@ export default function Menubar() {
       <MenubarItemGroup className="justify-self-center"></MenubarItemGroup>
       <MenubarItemGroup className="justify-self-end gap-menubar-status-gap">
         <StatusItems />
+        <Battery />
         <Wifi />
         <Volume />
         <Search />

@@ -1,4 +1,5 @@
 import { useBattery, useClockSettings, useVolume } from "@/shared/hooks/use-system-state"
+import { BatteryPanel } from "./battery-panel"
 import { ControlCenterPanel } from "./control-center/control-center-panel"
 import { NotificationsPanel } from "./notifications-panel"
 import { WifiPanel } from "./wifi-panel"
@@ -12,6 +13,7 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
   const active = name === "notifications"
   const controlCenter = name === "control-center"
   const wifi = name === "wifi"
+  const battery = name === "battery"
   return (
     <>
       <div
@@ -36,7 +38,14 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
       >
         <WifiPanel active={wifi} />
       </div>
-      {name !== null && !active && !controlCenter && !wifi && <SystemValues name={name} />}
+      <div
+        // Always mounted too, like the other routes: the battery panel opens fully loaded.
+        className={battery ? undefined : "invisible absolute top-0 left-0"}
+        aria-hidden={!battery}
+      >
+        <BatteryPanel />
+      </div>
+      {name !== null && !active && !controlCenter && !wifi && !battery && <SystemValues name={name} />}
     </>
   )
 }
