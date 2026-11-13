@@ -2,8 +2,10 @@ import {
   commands,
   events,
   type Battery,
+  type AppVolumes,
   type ClockSettings,
   type Mode,
+  type OutputDevices,
   type Volume,
   type Wifi_Deserialize,
 } from "@/shared/bindings"
@@ -23,4 +25,14 @@ export const useWifi = () =>
 export const useControlCenterMode = () =>
   useSnapshot<Mode>(commands.getControlCenterMode, (h) =>
     events.controlCenterModeChanged.listen((e) => h(e.payload)),
+  )
+
+/** The apps that use the output device, each with its own volume (Windows' volume mixer). */
+export const useAppVolumes = () =>
+  useSnapshot<AppVolumes>(commands.getAppVolumes, (h) => events.appVolumesChanged.listen((e) => h(e.payload)))
+
+/** The output devices and which one is the default. */
+export const useOutputDevices = () =>
+  useSnapshot<OutputDevices>(commands.getOutputDevices, (h) =>
+    events.outputDevicesChanged.listen((e) => h(e.payload)),
   )

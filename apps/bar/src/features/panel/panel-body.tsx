@@ -2,6 +2,7 @@ import { useBattery, useClockSettings, useVolume } from "@/shared/hooks/use-syst
 import { BatteryPanel } from "./battery-panel"
 import { ControlCenterPanel } from "./control-center/control-center-panel"
 import { NotificationsPanel } from "./notifications-panel"
+import { VolumePanel } from "./volume-panel"
 import { WifiPanel } from "./wifi-panel"
 
 /**
@@ -14,6 +15,7 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
   const controlCenter = name === "control-center"
   const wifi = name === "wifi"
   const battery = name === "battery"
+  const volume = name === "volume"
   return (
     <>
       <div
@@ -45,7 +47,14 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
       >
         <BatteryPanel />
       </div>
-      {name !== null && !active && !controlCenter && !wifi && !battery && <SystemValues name={name} />}
+      <div
+        // Always mounted too: the volume panel opens fully loaded (its app list is kept fresh by events).
+        className={volume ? undefined : "invisible absolute top-0 left-0"}
+        aria-hidden={!volume}
+      >
+        <VolumePanel />
+      </div>
+      {name !== null && !active && !controlCenter && !wifi && !battery && !volume && <SystemValues name={name} />}
     </>
   )
 }

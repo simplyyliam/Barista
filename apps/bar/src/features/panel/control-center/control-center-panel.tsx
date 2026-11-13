@@ -201,7 +201,7 @@ function BrightnessSlider() {
   )
 }
 
-function VolumeSlider() {
+export function VolumeSlider() {
   const volume = useVolume()
   const drag = useDragValue(volume?.level ?? null, (level) => void commands.setVolume(level))
   return (
