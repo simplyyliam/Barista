@@ -25,6 +25,11 @@ use tauri_specta::Event;
 
 pub const LABEL: &str = "panel";
 
+/// Switching from one open panel to another closes the first one (Windows fades it out), waits this
+/// long for that fade to finish, then opens the second. Tuned by feel: 200 ms with an instant open
+/// felt right; 110 ms with Windows' show animation on the new panel made the close jitter.
+const SWAP_DELAY: Duration = Duration::from_millis(200);
+
 /// If the UI never reports its size (it should within a frame), show the window anyway.
 const REVEAL_FALLBACK: Duration = Duration::from_millis(150);
 
@@ -239,7 +244,8 @@ impl PanelWindow {
         self.lock().open.clone()
     }
 
-    /// `openPanel`: a click on the item `anchor`. Same anchor again closes, another anchor swaps.
+    /// `openPanel`: a click on the item `anchor`. Same anchor again closes, another anchor swaps (closes
+    /// the open panel with its fade, then opens the new one).
     /// `size` is the UI's first guess (logical px); `panelResized` fixes it.
     pub fn open(&self, name: &str, anchor: &str, size: (f64, f64), chrome: PanelChrome) {
         if !valid_name(name) || !valid_anchor(anchor) {
@@ -248,9 +254,28 @@ impl PanelWindow {
         let action = self.lock().machine.click(anchor, Instant::now());
         match action {
             Action::Nothing => {}
-            Action::Open(_) | Action::Swap(_) => self.show(name, anchor, size, chrome),
+            Action::Open(_) => self.show(name, anchor, size, chrome),
+            Action::Swap(_) => self.swap(name, anchor, size, chrome),
             Action::Close => self.hide(),
         }
+    }
+
+    /// Another item was clicked while a panel is open. The window is exactly the panel's size, so
+    /// there is no room to slide it without clipping; instead the open panel closes the normal way
+    /// (the same fade as a click outside) and the new one opens once that is done. Any click in
+    /// between wins: it bumps `generation`, so this open is dropped.
+    fn swap(&self, name: &str, anchor: &str, size: (f64, f64), chrome: PanelChrome) {
+        self.close();
+        let generation = self.lock().generation;
+        let (name, anchor) = (name.to_string(), anchor.to_string());
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(SWAP_DELAY).await;
+            let Some(p) = get() else { return };
+            if p.lock().generation != generation {
+                return;
+            }
+            p.open(&name, &anchor, size, chrome);
+        });
     }
 
     fn show(&self, name: &str, anchor: &str, size: (f64, f64), chrome: PanelChrome) {

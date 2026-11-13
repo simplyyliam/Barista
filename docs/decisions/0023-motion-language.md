@@ -20,11 +20,11 @@ Reasoning and sources: `docs/research/ux-motion-and-taste.md` (local, not tracke
 - **Values:** press `scale 0.96` (0.985 on full-width rows, where 0.96 looks like a lurch),
   spring 0.2 s, no bounce; icon swap fade + scale 0.25 to 1 + blur 4px, spring 0.3 s, no bounce;
   items fade + scale + blur, exit faster than enter; ease-out `[0.23, 1, 0.32, 1]`.
-- **Switching panels** (a panel is open and another item is clicked): Rust moves the one window at once, so
-  the page fades the incoming content in and grows it from 0.97, from the side the old panel was on
-  (`usePanelSwap`, 220 ms). **Only opacity and scale, never a move or a blur on the whole panel:** the
-  window is exactly the panel's size, so anything past its edge is cut in a hard line (it looked like
-  Figma's "clip content"). The old content cannot fade out: the window is already at its new place.
+- **Switching panels** (a panel is open and another item is clicked) is a close, then an open: the open
+  panel closes the normal way (the same Windows fade-and-scale-out as a click outside), and the new one
+  opens instantly after `SWAP_DELAY` (200 ms, `panel.rs`). Tested by Liam: it closes and opens without jitter. Shortening it to 110 ms with a show animation on the new panel made the close jitter, so it was reverted (the SDK popovers overlap smoothly because they are separate windows; one shared window cannot). A click in between wins. We tried sliding or
+  fading the new content in the page first: the window is exactly the panel's size, so anything moving or
+  blurring past its edge was cut off in a hard line (it looked like Figma's "clip content"). Liam's idea.
 - **Hover is instant in, 150 ms out** (CSS, not motion). The hover capsule is fully rounded
   (`--menubar-pill-radius: 999px`, like macOS; set 8px for a softer rectangle).
 - **Only transform, opacity and a small blur.** No loops. Idle = zero running animations.

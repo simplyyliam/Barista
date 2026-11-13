@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react"
 import { commands, type PanelOpen } from "@/shared/bindings"
 import { PanelBody, PanelFrame, useOpenPanel, useWarm } from "@/features/panel"
 import { Motion } from "@/shared/motion"
-import { usePanelSwap } from "@/features/panel/hooks/use-panel-swap"
 
 /**
  * The panel window (label `panel`): one window, reused for every system panel. Rust decides when
@@ -19,7 +18,6 @@ export default function PanelWindow() {
   const last = useRef<PanelOpen | null>(null)
   if (open) last.current = open
   const look = open ?? last.current
-  const swap = usePanelSwap(open)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -38,9 +36,7 @@ export default function PanelWindow() {
       // used to start the report; Rust sizes the hidden window from it).
       openKey={open ? `${open.name}|${open.anchor}` : warm ? "warm" : null}
     >
-      <div ref={swap}>
-        <PanelBody name={open?.name ?? null} warm={warm} />
-      </div>
+      <PanelBody name={open?.name ?? null} warm={warm} />
     </PanelFrame>
     </Motion>
   )

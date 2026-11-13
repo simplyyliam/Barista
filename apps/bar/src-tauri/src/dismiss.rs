@@ -197,4 +197,15 @@ mod tests {
         m.focus();
         assert_eq!(m.blur_timeout(later(t, 500)), Action::Nothing);
     }
+
+    #[test]
+    fn a_panel_swap_is_a_close_then_a_fresh_open() {
+        // The panel closes the first item (reset) and opens the second one after the fade.
+        let t = Instant::now();
+        let mut m = Machine::default();
+        assert_eq!(m.click("system/wifi", t), Action::Open("system/wifi".into()));
+        assert_eq!(m.click("system/volume", t), Action::Swap("system/volume".into()));
+        m.reset();
+        assert_eq!(m.click("system/volume", t), Action::Open("system/volume".into()));
+    }
 }
