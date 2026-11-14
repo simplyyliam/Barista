@@ -15,7 +15,7 @@ by itself after a bar restart, and waits if the bar is not running yet.
 ```text
             start / retry                      welcome
  waiting ───────────────► connecting ─────────────────► connected
-    ▲   backoff 100 ms → 1 s  │ fail                         │ pipe closed
+    ▲   backoff 100 ms → 0.5 s │ fail                        │ pipe closed
     └─────────────────────────┘◄─────────────────────────────┘ → "unavailable"
  closed (for good): bar.close(), a refused hello, shutdown { too_many_errors } → "close"
 ```
@@ -23,9 +23,11 @@ by itself after a bar restart, and waits if the bar is not running yet.
 - **Waiting is not an error.** `connect()` and `StatusItem.create()` resolve even with no bar. It
   rejects only for a refused `hello` (`version_mismatch`, a bad app name): retrying would be refused again.
   No logs while waiting.
-- **Backoff** 100, 200, 400, 800 ms, then every second, each ±20 % (never above 1 s). The cap is what
-  makes "items back within 2 s of the bar starting" true: worst case one second of waiting plus one
-  connection attempt. A failed `connect` on a missing pipe costs microseconds. The timer is not
+- **Backoff** 100, 200, 400 ms, then every half second, each ±20 % (never above 0.5 s). The cap is what
+  makes "items back within 2 s of the bar starting" hold with room: worst case half a second of waiting
+  plus one connection attempt (it was one second at first; a bar restart measured from launch had its worst
+  case right at 2.0 s). A failed `connect` on a missing pipe costs microseconds, so two a second per app
+  while the bar is away is no load. The timer is not
   `unref`'d: an app that only shows an item must keep running while the bar is away.
 - **Replay.** Every `StatusItem` keeps its last state (icon, label, tooltip, visible, `Menu` object with
   its mirrored `checked` flags, popover options). On each `welcome` the bar object calls `item.replay()`

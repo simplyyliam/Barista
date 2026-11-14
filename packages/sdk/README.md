@@ -98,7 +98,7 @@ bar.on("available", () => console.log("Barista is here"))
 
 - **Bar not running yet:** `connect()` and `StatusItem.create()` still resolve. Nothing is logged or
   thrown. The item appears when the bar starts.
-- **Bar quits, crashes or restarts:** your items return within about two seconds of it starting. A
+- **Bar quits, crashes or restarts:** your items return within about a second of it starting. A
   menu or popover that was open is closed (your `close` listeners run).
 - **While the bar is away**, `setLabel` and the other setters do nothing visible and never throw. The
   latest value is what gets shown when the bar is back; nothing piles up.

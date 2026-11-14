@@ -139,7 +139,7 @@ describe("the bar is killed and started again", () => {
     const pipeName = first.pipeName
     await first.stop()
     await until(() => !bar.available)
-    // Let it settle into the slowest retry rhythm (one try a second) first.
+    // Let it settle into the slowest retry rhythm (a try every half second) first.
     await new Promise((r) => setTimeout(r, 2500))
     const started = Date.now()
     const second = await startBar(pipeName)
@@ -294,20 +294,20 @@ describe("close and isAvailable", () => {
 })
 
 describe("retryDelay", () => {
-  it("backs off 100, 200, 400, 800 ms and then stays at one second", () => {
+  it("backs off 100, 200, 400 ms and then stays at half a second", () => {
     const middle = () => 0.5 // no jitter
-    expect([0, 1, 2, 3, 4, 5, 50].map((n) => retryDelay(n, middle))).toEqual([
-      100, 200, 400, 800, 1000, 1000, 1000,
+    expect([0, 1, 2, 3, 4, 50].map((n) => retryDelay(n, middle))).toEqual([
+      100, 200, 400, 500, 500, 500,
     ])
   })
 
-  it("jitters by at most 20 percent and never goes over one second", () => {
-    for (const n of [0, 1, 2, 3, 4, 10]) {
+  it("jitters by at most 20 percent and never goes over half a second", () => {
+    for (const n of [0, 1, 2, 3, 10]) {
       for (const random of [0, 0.5, 0.999]) {
         const delay = retryDelay(n, () => random)
-        const base = [100, 200, 400, 800][n] ?? 1000
+        const base = [100, 200, 400][n] ?? 500
         expect(delay).toBeGreaterThanOrEqual(Math.round(base * 0.8))
-        expect(delay).toBeLessThanOrEqual(1000)
+        expect(delay).toBeLessThanOrEqual(500)
       }
     }
   })

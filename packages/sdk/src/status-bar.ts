@@ -44,15 +44,17 @@ type Listener<T> = (event: T) => void
 type Event = "error" | "close" | "quit" | "available" | "unavailable"
 
 /**
- * Waits before reconnect attempt number `attempt` (0 is the first retry): 100, 200, 400, 800 ms,
- * then every second, each a little random so many apps do not knock at the same moment. The
- * cap of one second is what brings items back within two seconds of the bar starting.
+ * Waits before reconnect attempt number `attempt` (0 is the first retry): 100, 200, 400 ms, then
+ * every half second, each a little random so many apps do not knock at the same moment. The cap
+ * is what brings items back soon after the bar starts (at most half a second plus one connection).
+ * A failed open of a missing pipe costs next to nothing, so two a second while the bar is away
+ * is fine.
  * @internal
  */
 export function retryDelay(attempt: number, random: () => number = Math.random): number {
-  const steps = [100, 200, 400, 800]
-  const base = steps[attempt] ?? 1000
-  return Math.min(1000, Math.round(base * (0.8 + random() * 0.4)))
+  const steps = [100, 200, 400]
+  const base = steps[attempt] ?? 500
+  return Math.min(500, Math.round(base * (0.8 + random() * 0.4)))
 }
 
 /** Outcome of one connection attempt. A refused `hello` rejects instead. */

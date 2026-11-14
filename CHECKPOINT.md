@@ -148,8 +148,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - `bar.barVersion` is the Cargo version (`0.4.1`), not a protocol or release name; fine for now.
   - `@barista/sdk` is not on npm until the `sdk-v0.1.0` tag is pushed: the install was tried by name against a local stand-in registry, not npmjs.
     Do `npm install @barista/sdk` in a fresh folder once after the first real publish.
-  - A bar restart takes about 1.2 s (median, worst about 2.0 s) from launching the bar to items back; the pipe opens at the very start of setup
-    (`lib.rs`), the SDK adds under 1 s. If the worst case must stay under 2 s, lower the SDK retry cap (now 1 s) to about 500 ms.
+  - A bar restart takes about 1.25 s from launching the bar to items back (worst 1.28 s in the last run); the pipe opens at the very start of
+    setup (`lib.rs`) and the SDK retries every 0.5 s at most while the bar is away.
 
 - From dogfooding the v0.4 popovers: the open papercuts (Electron window helper, `closePopover()`, async `on("open")`,
   stale `popover.shown` token, `setPopover` resize while open) are in `docs/release/history/v0.4-checkpoint.md`.
