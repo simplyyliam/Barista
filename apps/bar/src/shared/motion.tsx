@@ -56,6 +56,11 @@ export const waveEnter = (delay: number): Transition => ({
 })
 export const WAVE_EXIT: Transition = { duration: 0.14, ease: EASE_OUT }
 
+/** The same wave for tiles in a grid inside a panel: they drop in from the arrow above them. */
+export const GRID_HIDDEN = { opacity: 0, scale: 0.6, y: -8 }
+export const GRID_SHOWN = { opacity: 1, scale: 1, y: 0 }
+export const gridEnter = waveEnter
+
 /** A neighbour sliding into the gap someone left: a no-bounce spring, interruptible. */
 export const SLIDE: Transition = { type: "spring", duration: 0.3, bounce: 0 }
 

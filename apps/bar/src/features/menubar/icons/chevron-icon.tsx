@@ -7,10 +7,16 @@ import { Glyph } from "./glyph";
  * @example
  * <ChevronIcon direction="left" />
  */
-export function ChevronIcon({ direction = "left", ...props }: SVGProps<SVGSVGElement> & { direction?: "left" | "right" }) {
+const PATHS = {
+  left: "M12.5 6.5L8 11l4.5 4.5",
+  right: "M9.5 6.5L14 11l-4.5 4.5",
+  down: "M6.5 9L11 13.5 15.5 9",
+} as const;
+
+export function ChevronIcon({ direction = "left", ...props }: SVGProps<SVGSVGElement> & { direction?: keyof typeof PATHS }) {
   return (
     <Glyph {...props}>
-      <path d={direction === "left" ? "M12.5 6.5L8 11l4.5 4.5" : "M9.5 6.5L14 11l-4.5 4.5"} />
+      <path d={PATHS[direction]} />
     </Glyph>
   );
 }

@@ -2,6 +2,7 @@ import { useBattery, useClockSettings, useVolume } from "@/shared/hooks/use-syst
 import { BatteryPanel } from "./battery-panel"
 import { ControlCenterPanel } from "./control-center/control-center-panel"
 import { NotificationsPanel } from "./notifications-panel"
+import { TrayPanel } from "./tray-panel"
 import { VolumePanel } from "./volume-panel"
 import { WifiPanel } from "./wifi-panel"
 
@@ -16,6 +17,7 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
   const wifi = name === "wifi"
   const battery = name === "battery"
   const volume = name === "volume"
+  const tray = name === "tray"
   return (
     <>
       <div
@@ -54,7 +56,14 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
       >
         <VolumePanel />
       </div>
-      {name !== null && !active && !controlCenter && !wifi && !battery && !volume && <SystemValues name={name} />}
+      <div
+        // Always mounted too: the tray panel opens with its icons already decoded.
+        className={tray ? undefined : "invisible absolute top-0 left-0"}
+        aria-hidden={!tray}
+      >
+        <TrayPanel active={tray} />
+      </div>
+      {name !== null && !active && !controlCenter && !wifi && !battery && !volume && !tray && <SystemValues name={name} />}
     </>
   )
 }

@@ -11,6 +11,12 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `scripts/tray-icons.ps1` (fake tray app), `scripts/tray-zorder.ps1`, tray rows in `pnpm bench`. Left: bench numbers in
   `docs/perf/0.6.md`, dogfooding, `/code-review`, `/security-review`, end-to-end, PR. **New for the UI:** `StatusItemView.source`
   (`"app" | "tray"`), wired already (`useItems`, `TrayItems`). Liam's feedback so far is in `ux-taste-feedback` memory and the research file.
+  **Open issues found while testing (2026-11-14):** (1) the bar aborts (0xc0000409) when `TaskbarCreated` arrives (Explorer restart, or a
+  broadcast of it); Windows names `ExplorerHooks.dll`, a third-party hook DLL loaded into `barista.exe`, as the faulting module, and it
+  also happened once before any Explorer restart; needs to be confirmed with `trayMode: windows` (no host) to see if our hidden
+  `Shell_TrayWnd` is what it trips on. (2) Bench over budget: idle CPU 0.99 % (0.05 % in v0.5), memory 173 MB; the bar process itself
+  is 0.06 %, the cost is in the WebView2 processes (see `docs/perf/0.6.md`). (3) The inline tray group overflows on a narrow screen and
+  pushes the other items off the bar; Liam wants both styles (inline and a dropdown panel) as a setting later.
   Start of a dev bar kills the installed one (fixed pipe name): quit it first; `tauri dev` restarts the bar on every `src-tauri` edit.
 
 - **v0.5.0 shipped** (tag `v0.5.0` on the merge of PR #32, not pushed yet: Liam runs `pnpm release`). `sdk-v0.1.0` is pushed and the Action

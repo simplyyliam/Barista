@@ -240,6 +240,10 @@ pub struct MediaChanged(pub crate::system::media::Media);
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct ThemeModeChanged(pub crate::system::theme::ThemeMode);
 
+/// The tray icons are now shown in a panel or inline (a setting, see `setTrayStyle`).
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct TrayStyleChanged(pub crate::settings::TrayStyle);
+
 /// The control center is now ours or Windows' (a setting, see `setControlCenterMode`).
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct ControlCenterModeChanged(pub crate::settings::Mode);
