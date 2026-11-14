@@ -27,6 +27,23 @@ fn quit_signal() -> &'static watch::Sender<bool> {
 /// Sessions still running (including the moment they flush their last message).
 static LIVE_SESSIONS: AtomicUsize = AtomicUsize::new(0);
 
+/// Counts a session while it lives and gives back its connection slot when dropped, also when
+/// the session task panics.
+struct LiveSession(#[allow(dead_code)] tokio::sync::OwnedSemaphorePermit);
+
+impl LiveSession {
+    fn new(permit: tokio::sync::OwnedSemaphorePermit) -> Self {
+        LIVE_SESSIONS.fetch_add(1, Ordering::SeqCst);
+        Self(permit)
+    }
+}
+
+impl Drop for LiveSession {
+    fn drop(&mut self) {
+        LIVE_SESSIONS.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 /// Starts listening in the background. A failure is logged and never stops the bar: it just
 /// runs without clients (for example when another bar already owns the pipe).
 pub fn start(registry: Arc<Registry>) {
@@ -86,11 +103,10 @@ async fn serve(registry: Arc<Registry>) -> std::io::Result<()> {
             heartbeat: Heartbeat::default(),
             shutdown: quit_signal().subscribe(),
         };
-        LIVE_SESSIONS.fetch_add(1, Ordering::SeqCst);
+        let live = LiveSession::new(permit);
         tauri::async_runtime::spawn(async move {
             session::run(connected, Some(pid), registry, config).await;
-            LIVE_SESSIONS.fetch_sub(1, Ordering::SeqCst);
-            drop(permit);
+            drop(live);
         });
     }
 }

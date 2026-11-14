@@ -531,6 +531,14 @@ export class StatusItem {
 
   #update(fields: { icon?: string; label?: string; tooltip?: string; visible?: boolean }): void {
     if (this.#removed) throw new Error(`Item ${JSON.stringify(this.id)} was removed`)
+    // Send first: if the message cannot be sent (too big) the stored state must not change,
+    // or the bad value would be replayed after every bar restart.
+    this.#bar.send({
+      type: "item.update",
+      requestId: this.#bar.requestIdFor(this.id),
+      id: this.id,
+      ...fields,
+    })
     for (const key of ["icon", "label", "tooltip"] as const) {
       const value = fields[key]
       if (value === undefined) continue
@@ -538,11 +546,5 @@ export class StatusItem {
       else this.#state[key] = value
     }
     if (fields.visible !== undefined) this.#state.visible = fields.visible
-    this.#bar.send({
-      type: "item.update",
-      requestId: this.#bar.requestIdFor(this.id),
-      id: this.id,
-      ...fields,
-    })
   }
 }

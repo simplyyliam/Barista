@@ -203,7 +203,9 @@ async fn serve(
         heartbeat,
         mut shutdown,
     } = config;
-    let Some(accepted) = handshake(frames, tx, client_pid, registry, &bar_version).await else {
+    let Some(accepted) =
+        handshake(frames, tx, client_pid, registry, &bar_version, &mut shutdown).await
+    else {
         return;
     };
     let session = accepted.session;
@@ -325,12 +327,25 @@ async fn handshake(
     client_pid: Option<u32>,
     registry: &Arc<Registry>,
     bar_version: &str,
+    shutdown: &mut watch::Receiver<bool>,
 ) -> Option<Accepted> {
     let refuse = |request_id, code, message: &str| {
         send_error(tx, request_id, code, message);
         None
     };
-    let bytes = match timeout(HELLO_TIMEOUT, frames.recv()).await {
+    // A bar that quits while a client is still saying hello tells it too, instead of making
+    // `ipc::shutdown` wait for the hello timeout.
+    let first = tokio::select! {
+        first = timeout(HELLO_TIMEOUT, frames.recv()) => first,
+        quit = async { shutdown.wait_for(|quitting| *quitting).await.is_ok() } => {
+            if quit {
+                send(tx, BarMessage::Shutdown { reason: ShutdownReason::Quit });
+                return None;
+            }
+            timeout(HELLO_TIMEOUT, frames.recv()).await
+        }
+    };
+    let bytes = match first {
         Ok(Some(Ok(bytes))) => bytes,
         Ok(Some(Err(FrameError::BadLength(n)))) => {
             return refuse(
@@ -1139,11 +1154,11 @@ mod tests {
     #[tokio::test]
     async fn pings_arrive_and_pongs_keep_the_session() {
         let registry = Arc::new(Registry::new());
-        let mut c = connect_beating(&registry, 30, 120);
+        let mut c = connect_beating(&registry, 40, 250);
         c.hello().await;
         c.send(json!({"type":"item.create","id":"a"})).await;
-        // Answer eight pings (about 240 ms, twice the timeout): the item must survive.
-        for expected in 1..=8u32 {
+        // Answer ten pings (about 400 ms, more than the timeout): the item must survive.
+        for expected in 1..=10u32 {
             assert_eq!(c.recv().await, BarMessage::Ping { seq: expected });
             c.send(json!({"type":"pong","seq":expected})).await;
         }
@@ -1223,6 +1238,20 @@ mod tests {
         );
         c.expect_closed().await;
         assert!(registry.snapshot().is_empty());
+    }
+
+    #[tokio::test]
+    async fn quitting_also_reaches_a_client_that_has_not_said_hello() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.quit.send(true).unwrap();
+        assert_eq!(
+            c.recv().await,
+            BarMessage::Shutdown {
+                reason: ShutdownReason::Quit
+            }
+        );
+        c.expect_closed().await;
     }
 
     #[tokio::test]

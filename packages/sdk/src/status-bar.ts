@@ -214,11 +214,13 @@ export class StatusBar {
    */
   on(event: "quit", listener: Listener<void>): this
   /**
-   * Called each time the connection to the bar is up: the first time, and after every
-   * reconnect. Your items are already back in the bar when it fires.
+   * Called each time the bar comes back after it was away, with your items already back in it.
+   * The very first connection happens before `connect()` returns, so check `bar.available` for
+   * that one.
    *
    * @example
    * ```ts
+   * if (bar.available) console.log("connected")
    * bar.on("available", () => console.log(`connected to bar ${bar.barVersion}`))
    * ```
    */
@@ -238,7 +240,16 @@ export class StatusBar {
     return this
   }
 
-  /** Stops a listener added with {@link StatusBar.on}. */
+  /**
+   * Stops a listener added with {@link StatusBar.on}.
+   *
+   * @example
+   * ```ts
+   * const onGone = () => console.log("bar is gone")
+   * bar.on("unavailable", onGone)
+   * bar.off("unavailable", onGone)
+   * ```
+   */
   off(event: Event, listener: Listener<never>): this {
     this.#listeners[event].delete(listener)
     return this
