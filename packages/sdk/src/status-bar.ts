@@ -38,6 +38,8 @@ export interface ConnectOptions {
   timeoutMs?: number
   /** Another pipe to connect to. For tests; apps never need it. */
   pipeName?: string
+  /** How long to wait for the bar before printing the one-time "waiting" hint. For tests; apps never need it. */
+  waitingHintMs?: number
 }
 
 type Listener<T> = (event: T) => void
@@ -74,7 +76,7 @@ let sharedBar: StatusBar | undefined
 
 /**
  * Your app's connection to the Barista bar. It lives as long as your app: when the bar is not
- * running it waits quietly, and when the bar goes away or restarts it reconnects by itself and
+ * running it waits (one hint after about 10 s), and when the bar goes away or restarts it reconnects by itself and
  * puts every {@link StatusItem} back, with its menu and popover and your callbacks.
  *
  * @example
@@ -99,6 +101,7 @@ export class StatusBar {
   #barVersion: string | undefined
   #attempts = 0
   #retryTimer: NodeJS.Timeout | undefined
+  #hintTimer: NodeJS.Timeout | undefined
   #closeEmitted = false
   #requestCounter = 0
   /** @internal items by id, so clicks and errors find their item, and a reconnect finds them all */
@@ -159,6 +162,7 @@ export class StatusBar {
       bar.#closeForGood(false)
       throw error
     }
+    bar.#hintIfStillWaiting()
     return bar
   }
 
@@ -310,6 +314,18 @@ export class StatusBar {
     this.#adopt(result)
   }
 
+  /** A script with no bar running prints nothing and looks hung: say once that we are waiting. */
+  #hintIfStillWaiting(): void {
+    if (this.#state !== "waiting") return
+    // unref'd: the hint alone never keeps a process alive.
+    this.#hintTimer = setTimeout(() => {
+      if (this.#state === "waiting") {
+        process.stderr.write("[barista] Waiting for the Barista bar to start. Your items appear when it does.\n")
+      }
+    }, this.#options.waitingHintMs ?? 10_000)
+    this.#hintTimer.unref()
+  }
+
   #tryConnect(): Promise<Attempt> {
     return new Promise((resolve, reject) => {
       const socket = net.connect(this.#options.pipeName ?? PIPE_NAME)
@@ -370,6 +386,7 @@ export class StatusBar {
   /** Takes over a welcomed socket: replays the items, then starts listening. */
   #adopt(attempt: Extract<Attempt, { kind: "connected" }>): void {
     const { socket, decoder, welcome, rest } = attempt
+    clearTimeout(this.#hintTimer)
     this.#socket = socket
     this.#sessionId = welcome.sessionId
     this.#barVersion = welcome.barVersion
@@ -424,6 +441,7 @@ export class StatusBar {
     if (this.#state === "closed") return
     const socket = this.#socket
     this.#state = "closed"
+    clearTimeout(this.#hintTimer)
     clearTimeout(this.#retryTimer)
     this.#retryTimer = undefined
     this.#suspendItems()

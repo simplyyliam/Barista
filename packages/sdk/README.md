@@ -27,28 +27,33 @@ Save this as `index.js` and run `node index.js`:
 ```js
 import * as BA from "@baristabar/sdk"
 
-// 1. Create an item. This connects to the bar for you.
+// 1. Connect and name your app: the bar shows the name in tooltips.
+await BA.connect({ appName: "Clock" })
+
+// 2. Create an item.
 const item = await BA.StatusItem.create({
   id: "time",
   label: "12:00",
   tooltip: "The time",
 })
 
-// 2. Change it whenever you like.
+// 3. Change it whenever you like.
 setInterval(() => item.setLabel(new Date().toLocaleTimeString()), 1000)
 
-// 3. React to clicks.
+// 4. React to clicks.
 item.on("click", ({ button }) => console.log(button)) // "left" | "right" | "middle"
 ```
 
 The item shows up in the bar. Stop the script and it disappears.
 
-**The bar does not have to be running first.** If it is not, your script waits quietly and the item
-appears when the bar starts. If the bar quits or restarts, your items come back by themselves, with
+**The bar does not have to be running first.** If it is not, your script waits and the item
+appears when the bar starts. After about 10 seconds without a bar it prints one line to stderr
+("Waiting for the Barista bar to start") so it does not look stuck. If the bar quits or restarts, your items come back by themselves, with
 their menu, popover and your callbacks. You write no reconnect code. See "The bar comes and goes".
 
-To name your app (the bar shows it in tooltips and debug tools) or to react when the bar comes and
-goes, connect yourself first:
+`BA.connect()` is optional (`StatusItem.create` connects for you), but call it first to name your app
+(otherwise the bar shows the script's file name, like "index") or to react when the bar comes and
+goes:
 
 ```js
 const bar = await BA.connect({ appName: "Clock" })

@@ -206,6 +206,56 @@ describe("the client starts before the bar", () => {
   })
 })
 
+describe("the waiting hint", () => {
+  async function hintsWhile(run: () => Promise<void>): Promise<string[]> {
+    const lines: string[] = []
+    const original = process.stderr.write.bind(process.stderr)
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      lines.push(String(chunk))
+      return true
+    }) as typeof process.stderr.write
+    try {
+      await run()
+    } finally {
+      process.stderr.write = original
+    }
+    return lines.filter((line) => line.includes("[barista]"))
+  }
+
+  it("prints once on stderr when no bar shows up, and the connection keeps waiting", async () => {
+    const hints = await hintsWhile(async () => {
+      const bar = await StatusBar.connect({ pipeName: unusedPipe(), timeoutMs: 200, waitingHintMs: 100 })
+      bars.push(bar)
+      await new Promise((r) => setTimeout(r, 500))
+      expect(bar.available).toBe(false)
+    })
+    expect(hints).toHaveLength(1)
+    expect(hints[0]).toContain("Waiting for the Barista bar")
+  })
+
+  it("stays quiet when the bar is there, or arrives before the hint", async () => {
+    const hints = await hintsWhile(async () => {
+      await connect(await startBar())
+      const pipeName = unusedPipe()
+      const early = await StatusBar.connect({ pipeName, timeoutMs: 200, waitingHintMs: 400 })
+      bars.push(early)
+      await startBar(pipeName)
+      await until(() => early.available)
+      await new Promise((r) => setTimeout(r, 600))
+    })
+    expect(hints).toEqual([])
+  })
+
+  it("stays quiet after close()", async () => {
+    const hints = await hintsWhile(async () => {
+      const bar = await StatusBar.connect({ pipeName: unusedPipe(), timeoutMs: 200, waitingHintMs: 100 })
+      bar.close()
+      await new Promise((r) => setTimeout(r, 300))
+    })
+    expect(hints).toEqual([])
+  })
+})
+
 describe("the bar says goodbye", () => {
   it("answers ping with pong, echoing the seq", async () => {
     const fake = await startBar()
