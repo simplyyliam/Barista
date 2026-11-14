@@ -106,7 +106,8 @@ fn u32_at(data: &[u8], offset: usize) -> Option<u32> {
     Some(u32::from_le_bytes(bytes.try_into().ok()?))
 }
 
-/// UTF-16 text up to the first NUL (or `units` characters), `None` if it isn't valid UTF-16.
+/// UTF-16 text up to the first NUL (or `units` characters). Garbage becomes U+FFFD instead of
+/// failing: apps fill `szTip` carelessly, and a bad tip must not drop a delete or an icon change.
 fn utf16_at(data: &[u8], offset: usize, units: usize) -> Option<String> {
     let mut chars = Vec::new();
     for i in 0..units {
@@ -118,7 +119,7 @@ fn utf16_at(data: &[u8], offset: usize, units: usize) -> Option<String> {
         }
         chars.push(unit);
     }
-    String::from_utf16(&chars).ok()
+    Some(String::from_utf16_lossy(&chars))
 }
 
 /// Parses a tray payload. `None` for anything that isn't a well-formed message: the caller still
@@ -273,11 +274,13 @@ mod tests {
     }
 
     #[test]
-    fn broken_utf16_is_rejected() {
-        let mut d = payload(0, NIF_TIP, FULL);
+    fn broken_utf16_is_replaced_not_rejected() {
+        let mut d = payload(2, NIF_TIP, FULL); // a delete with a careless tip must still delete
         let at = HEADER + OFF_TIP;
         d[at..at + 2].copy_from_slice(&0xD800u16.to_le_bytes()); // lone surrogate
-        assert_eq!(parse(&d), None);
+        let m = parse(&d).unwrap();
+        assert_eq!(m.action, Action::Delete);
+        assert_eq!(m.tip.as_deref(), Some("\u{FFFD}"));
     }
 
     #[test]

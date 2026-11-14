@@ -76,6 +76,8 @@ mod worker {
         registry: Arc<Registry>,
         state: TrayState,
         cache: IconCache,
+        /// How many events the host had dropped when we last looked (queue full).
+        dropped_seen: u64,
     }
 
     impl Worker {
@@ -84,6 +86,7 @@ mod worker {
                 registry,
                 state: TrayState::default(),
                 cache: IconCache::default(),
+                dropped_seen: 0,
             }
         }
 
@@ -91,6 +94,7 @@ mod worker {
             // Sleeps in `recv` until the host sends something: no polling.
             while let Ok(event) = events.recv() {
                 self.handle(event);
+                self.reconcile_if_events_were_lost();
             }
         }
 
@@ -109,11 +113,26 @@ mod worker {
                     };
                     let outcome = self.state.apply(&message, pid, &name, picture);
                     self.publish(outcome);
-                    if message.action == Action::Delete && !self.state.owns_window(message.hwnd) {
-                        tray_host::unwatch(message.hwnd);
-                    }
                 }
                 HostEvent::WindowGone(hwnd) => {
+                    let outcome = self.state.remove_window(hwnd);
+                    self.publish(outcome);
+                    tray_host::unwatch(hwnd);
+                }
+            }
+        }
+
+        /// The host drops events when we fall behind. A lost "window gone" or delete would leave a
+        /// ghost icon for good, so after a drop we check every owner window once and remove the
+        /// ones that are gone. (A lost add is only healed when the app adds its icon again.)
+        fn reconcile_if_events_were_lost(&mut self) {
+            let dropped = tray_host::stats().dropped;
+            if dropped == self.dropped_seen {
+                return;
+            }
+            self.dropped_seen = dropped;
+            for hwnd in self.state.windows() {
+                if !tray_host::window_exists(hwnd) {
                     let outcome = self.state.remove_window(hwnd);
                     self.publish(outcome);
                     tray_host::unwatch(hwnd);
@@ -141,7 +160,8 @@ mod worker {
                 Some(fingerprint) => self.cache.get_or_convert(fingerprint, convert),
                 None => convert(),
             };
-            url.map_or(Picture::Clear, Picture::Set)
+            // A failed conversion keeps the picture we have: it must not blank a working icon.
+            url.map_or(Picture::Keep, Picture::Set)
         }
 
         fn publish(&self, outcome: Outcome) {

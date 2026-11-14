@@ -16,6 +16,8 @@ export function useAutoCollapse(active: boolean, collapse: () => void, delay = 5
     const stop = () => window.clearTimeout(timer)
     root.addEventListener("mouseleave", start)
     root.addEventListener("mouseenter", stop)
+    // Opened with the keyboard, or the pointer is already elsewhere: no mouseleave will come.
+    if (!root.matches(":hover")) start()
     return () => {
       stop()
       root.removeEventListener("mouseleave", start)

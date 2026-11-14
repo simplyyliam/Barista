@@ -20,8 +20,8 @@ pub fn png_to_data_url(png: &[u8]) -> Option<String> {
 
 #[derive(Default)]
 pub struct IconCache {
-    // A failed conversion is remembered too (`None`): the same pixels fail the same way.
-    map: HashMap<u64, Option<String>>,
+    // Failures are not kept: a conversion can fail once (COM busy) and work the next time.
+    map: HashMap<u64, String>,
     order: VecDeque<u64>,
 }
 
@@ -38,9 +38,9 @@ impl IconCache {
         convert: impl FnOnce() -> Option<String>,
     ) -> Option<String> {
         if let Some(hit) = self.map.get(&fingerprint) {
-            return hit.clone();
+            return Some(hit.clone());
         }
-        let value = convert();
+        let value = convert()?;
         if self.map.len() >= MAX_ENTRIES {
             if let Some(oldest) = self.order.pop_front() {
                 self.map.remove(&oldest);
@@ -48,7 +48,7 @@ impl IconCache {
         }
         self.map.insert(fingerprint, value.clone());
         self.order.push_back(fingerprint);
-        value
+        Some(value)
     }
 }
 
@@ -77,7 +77,7 @@ mod tests {
     }
 
     #[test]
-    fn failures_are_remembered_too() {
+    fn failures_are_not_remembered() {
         let mut cache = IconCache::default();
         let mut calls = 0;
         for _ in 0..3 {
@@ -87,7 +87,10 @@ mod tests {
             });
             assert_eq!(url, None);
         }
-        assert_eq!(calls, 1);
+        assert_eq!(calls, 3);
+        // A later success is kept.
+        assert_eq!(cache.get_or_convert(1, || Some("ok".into())).as_deref(), Some("ok"));
+        assert_eq!(cache.len(), 1);
     }
 
     #[test]

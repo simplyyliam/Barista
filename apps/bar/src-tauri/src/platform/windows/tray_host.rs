@@ -134,6 +134,12 @@ pub fn unwatch(hwnd: u32) {
     watched().lock().unwrap_or_else(|e| e.into_inner()).remove(&hwnd);
 }
 
+/// Is this window (a 32-bit handle from a tray message) still there?
+pub fn window_exists(hwnd: u32) -> bool {
+    // SAFETY: IsWindow accepts any value.
+    unsafe { IsWindow(Some(from_32(hwnd))) }.as_bool()
+}
+
 /// The process that owns a window, or 0 if the window is gone.
 pub fn window_pid(hwnd: u32) -> u32 {
     let mut pid = 0u32;
@@ -373,7 +379,8 @@ unsafe fn handle(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESUL
             LRESULT(0)
         }
         // Some apps send commands (show desktop) and registered messages to the taskbar.
-        WM_COMMAND | WM_USER..=0x7FFF => forward(msg, wparam, lparam, 0),
+        // (0x8000 and up: WM_APP and registered messages.)
+        WM_COMMAND | WM_USER..=0xFFFF => forward(msg, wparam, lparam, 0),
         _ => DefWindowProcW(hwnd, msg, wparam, lparam),
     }
 }
@@ -402,6 +409,11 @@ fn on_event_inner(event: u32, hwnd: HWND, object: i32) {
             .contains(&handle);
         if known {
             send(HostEvent::WindowGone(handle));
+        }
+    } else if event == EVENT_OBJECT_REORDER {
+        // Fires for every list and tree in every app: only Explorer's own taskbar matters.
+        if hwnd.0 as isize == EXPLORER.load(Ordering::Relaxed) {
+            ensure_first();
         }
     } else {
         ensure_first();

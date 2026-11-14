@@ -60,7 +60,16 @@ impl TrayState {
         self.icons.len()
     }
 
-    /// Windows that still own at least one icon (so the host knows which to watch).
+    /// Every window that owns at least one icon.
+    pub fn windows(&self) -> Vec<u32> {
+        let mut windows: Vec<u32> = self.icons.values().map(|i| i.hwnd).collect();
+        windows.sort_unstable();
+        windows.dedup();
+        windows
+    }
+
+    /// Windows that still own at least one icon.
+    #[cfg(test)]
     pub fn owns_window(&self, hwnd: u32) -> bool {
         self.icons.values().any(|i| i.hwnd == hwnd)
     }
@@ -328,6 +337,15 @@ mod tests {
         assert!(!state.owns_window(1));
         assert_eq!(state.len(), 1);
         assert_eq!(state.remove_window(1), Outcome::Nothing);
+    }
+
+    #[test]
+    fn lists_each_owner_window_once() {
+        let mut state = TrayState::default();
+        state.apply(&message(Action::Add, 2, 1), 5, "A", Picture::Clear);
+        state.apply(&message(Action::Add, 2, 2), 5, "A", Picture::Clear);
+        state.apply(&message(Action::Add, 1, 1), 6, "B", Picture::Clear);
+        assert_eq!(state.windows(), vec![1, 2]);
     }
 
     #[test]
