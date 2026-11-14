@@ -9,7 +9,7 @@ pub mod anchor;
 pub mod menu;
 
 use barista_protocol::{
-    BarMessage, ErrorCode, ItemInfo, MenuTemplateItem, MouseButton, ScreenRect,
+    BarMessage, ErrorCode, ItemInfo, ItemSource, MenuTemplateItem, MouseButton, ScreenRect,
     MAX_ITEMS_PER_CLIENT,
 };
 use menu::{MenuClickError, MenuEntry};
@@ -36,6 +36,20 @@ pub struct StatusItemView {
     pub icon: Option<String>,
     pub label: Option<String>,
     pub tooltip: Option<String>,
+    /// `app` for items clients made, `tray` for icons from the Windows tray (v0.6).
+    pub source: ItemSource,
+}
+
+/// A Windows tray icon as the tray module hands it over. Its key in the UI is `tray/<key>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrayItem {
+    pub app_name: String,
+    pub pid: u32,
+    /// A `data:` URL.
+    pub icon: Option<String>,
+    pub tooltip: Option<String>,
+    /// Icons the app marked hidden are kept but not drawn.
+    pub visible: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -138,6 +152,8 @@ struct State {
     sessions: HashMap<SessionId, Session>,
     /// Arrival order. Drag ordering comes in v0.7.
     items: Vec<Item>,
+    /// Tray icons (no session, no menu yet), keyed without the `tray/` prefix, in arrival order.
+    tray: Vec<(String, TrayItem)>,
     /// Source of `menu_rev`s. Registry-wide, so a removed and re-created item never reuses one.
     last_rev: u64,
 }
@@ -324,10 +340,10 @@ impl Registry {
         Ok(())
     }
 
-    /// The visible items, in arrival order, as the UI draws them.
+    /// The visible items as the UI draws them: client items in arrival order, then tray icons.
     pub fn snapshot(&self) -> Vec<StatusItemView> {
         let state = self.lock();
-        state
+        let apps = state
             .items
             .iter()
             .filter(|i| i.visible)
@@ -339,14 +355,68 @@ impl Registry {
                     icon: i.icon.clone(),
                     label: i.label.clone(),
                     tooltip: i.tooltip.clone(),
+                    source: ItemSource::App,
                 })
-            })
-            .collect()
+            });
+        let tray = state
+            .tray
+            .iter()
+            .filter(|(_, t)| t.visible)
+            .map(|(key, t)| StatusItemView {
+                id: format!("tray/{key}"),
+                app_name: t.app_name.clone(),
+                icon: t.icon.clone(),
+                label: None,
+                tooltip: t.tooltip.clone(),
+                source: ItemSource::Tray,
+            });
+        apps.chain(tray).collect()
+    }
+
+    /// Adds or updates a tray icon. Only a real change wakes the UI: some apps re-send the same
+    /// tip every second.
+    pub fn tray_set(&self, key: &str, item: TrayItem) {
+        let mut state = self.lock();
+        match state.tray.iter_mut().find(|(k, _)| k == key) {
+            Some((_, existing)) => {
+                if *existing == item {
+                    return;
+                }
+                *existing = item;
+            }
+            None => state.tray.push((key.to_string(), item)),
+        }
+        drop(state);
+        self.changed.notify_one();
+    }
+
+    /// Removes a tray icon (the app quit or took it away).
+    pub fn tray_remove(&self, key: &str) {
+        let mut state = self.lock();
+        let before = state.tray.len();
+        state.tray.retain(|(k, _)| k != key);
+        let removed = state.tray.len() != before;
+        drop(state);
+        if removed {
+            self.changed.notify_one();
+        }
     }
 
     /// Every item including hidden ones, with its owner's pid. For `debug.listItems`.
     pub fn debug_items(&self) -> Vec<ItemInfo> {
         let state = self.lock();
+        let tray = state.tray.iter().map(|(key, t)| ItemInfo {
+            id: format!("tray/{key}"),
+            app_name: t.app_name.clone(),
+            pid: t.pid,
+            has_icon: t.icon.is_some(),
+            label: None,
+            tooltip: t.tooltip.clone(),
+            visible: t.visible,
+            has_menu: false,
+            has_popover: false,
+            source: ItemSource::Tray,
+        });
         state
             .items
             .iter()
@@ -362,8 +432,10 @@ impl Registry {
                     visible: i.visible,
                     has_menu: !i.menu.is_empty(),
                     has_popover: i.popover.is_some(),
+                    source: ItemSource::App,
                 })
             })
+            .chain(tray)
             .collect()
     }
 
@@ -815,6 +887,80 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+
+    fn tray(tip: &str, visible: bool) -> TrayItem {
+        TrayItem {
+            app_name: "Discord".into(),
+            pid: 42,
+            icon: Some("data:image/png;base64,AAAA".into()),
+            tooltip: Some(tip.into()),
+            visible,
+        }
+    }
+
+    async fn woke(reg: &Registry) -> bool {
+        tokio::time::timeout(std::time::Duration::from_millis(50), reg.wait_changed())
+            .await
+            .is_ok()
+    }
+
+    #[tokio::test]
+    async fn tray_icons_come_after_app_items_with_their_source() {
+        let reg = Registry::new();
+        reg.tray_set("a1-0", tray("Discord", true));
+        let (s, _rx) = session(&reg, "App");
+        reg.create(s, "x".into(), None, None, None).unwrap();
+        let view = reg.snapshot();
+        assert_eq!(view.len(), 2);
+        assert_eq!((view[0].id.as_str(), view[0].source), ("s1/x", ItemSource::App));
+        assert_eq!((view[1].id.as_str(), view[1].source), ("tray/a1-0", ItemSource::Tray));
+        assert_eq!(view[1].tooltip.as_deref(), Some("Discord"));
+        assert_eq!(view[1].app_name, "Discord");
+        let debug = reg.debug_items();
+        assert_eq!(debug.iter().filter(|i| i.source == ItemSource::Tray).count(), 1);
+        assert!(woke(&reg).await);
+    }
+
+    #[tokio::test]
+    async fn tray_icons_update_and_leave_live() {
+        let reg = Registry::new();
+        reg.tray_set("k", tray("one", true));
+        assert!(woke(&reg).await);
+        reg.tray_set("k", tray("two", true));
+        assert!(woke(&reg).await);
+        assert_eq!(reg.snapshot()[0].tooltip.as_deref(), Some("two"));
+        // The same values again are not a change (a monitor app re-sends its tip every second).
+        reg.tray_set("k", tray("two", true));
+        assert!(!woke(&reg).await);
+        reg.tray_remove("k");
+        assert!(woke(&reg).await);
+        assert!(reg.snapshot().is_empty());
+        // Removing what is not there is not a change either.
+        reg.tray_remove("k");
+        assert!(!woke(&reg).await);
+    }
+
+    #[test]
+    fn hidden_tray_icons_are_kept_but_not_drawn() {
+        let reg = Registry::new();
+        reg.tray_set("k", tray("x", false));
+        assert!(reg.snapshot().is_empty());
+        assert_eq!(reg.debug_items().len(), 1);
+        reg.tray_set("k", tray("x", true));
+        assert_eq!(reg.snapshot().len(), 1);
+    }
+
+    #[test]
+    fn clicking_a_tray_icon_does_nothing_yet() {
+        // v0.7 adds tray clicks; until then a `tray/...` key must be a safe no-op everywhere.
+        let reg = Registry::new();
+        reg.tray_set("k", tray("x", true));
+        assert_eq!(reg.click("tray/k", MouseButton::Left), Err(ClickError::NotFound));
+        assert!(reg.menu("tray/k").is_none());
+        assert!(!reg.has_popover("tray/k"));
+        assert!(reg.popover_target("tray/k").is_none());
+        assert_eq!(reg.menu_click("tray/k", "a"), Err(MenuItemClickError::NotFound));
     }
 
     fn menu_of(ids: &[&str]) -> Vec<MenuTemplateItem> {

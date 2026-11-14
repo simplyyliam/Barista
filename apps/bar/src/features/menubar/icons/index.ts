@@ -1,5 +1,6 @@
 export { BatteryIcon } from "./battery-icon";
 export { BrandLogo } from "./brand-logo";
+export { ChevronIcon } from "./chevron-icon";
 export { ControlCenterIcon } from "./control-center-icon";
 export { SearchIcon } from "./search-icon";
 export { VolumeIcon } from "./volume-icon";

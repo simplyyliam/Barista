@@ -25,8 +25,18 @@ Reasoning and sources: `docs/research/ux-motion-and-taste.md` (local, not tracke
   opens instantly after `SWAP_DELAY` (200 ms, `panel.rs`). Tested by Liam: it closes and opens without jitter. Shortening it to 110 ms with a show animation on the new panel made the close jitter, so it was reverted (the SDK popovers overlap smoothly because they are separate windows; one shared window cannot). A click in between wins. We tried sliding or
   fading the new content in the page first: the window is exactly the panel's size, so anything moving or
   blurring past its edge was cut off in a hard line (it looked like Figma's "clip content"). Liam's idea.
-- **Hover is instant in, 150 ms out** (CSS, not motion). The hover capsule is fully rounded
-  (`--menubar-pill-radius: 999px`, like macOS; set 8px for a softer rectangle).
+- **Hover is instant in, 150 ms out.** The hover capsule is fully rounded
+  (`--menubar-pill-radius: 999px`, like macOS; set 8px for a softer rectangle). Since v0.6 the tint
+  follows the pill's own pointer events instead of CSS `:hover`, and `resetHover()`
+  (`shared/stores/hover.ts`) clears it when a panel, menu or popover opens or closes: the bar's webview
+  is not told when the pointer leaves it for another of our windows.
+- **Waves (v0.6, the one startup exception).** Items that arrive together come in one after another,
+  35 ms apart, the whole wave capped at 280 ms: the tray icons unfolding out of their arrow, and apps'
+  items arriving at bar start. A wave slides a few px from its source while scaling up on one 0.55 s
+  no-bounce spring, with a separate quicker fade, and **no blur**: the bar renders in software
+  (`--disable-gpu`), where blur on a dozen items at once drops frames and reads as stiff (Liam: "it
+  should feel smooth like butter"). Leaving is all at once and quick. A tray icon's own picture changes
+  instantly, because apps flip it all day.
 - **Only transform, opacity and a small blur.** No loops. Idle = zero running animations.
 - **Reduced motion:** `<Motion>` (MotionConfig `reducedMotion="user"`) wraps the bar and the panel window.
 - **Anchors ignore transforms:** `useItemBounds` sends the settled rect, so a pressed or sliding

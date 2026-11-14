@@ -77,6 +77,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::get_notification_mode,
             commands::set_notification_mode,
             commands::run_action,
+            commands::get_tray_style,
+            commands::set_tray_style,
             commands::get_control_center_mode,
             commands::set_control_center_mode,
             commands::open_windows_control_center,
@@ -129,6 +131,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::ClockSettingsChanged,
             events::BatteryChanged,
             events::VolumeChanged,
+            events::TrayStyleChanged,
             events::ControlCenterModeChanged,
             events::BrightnessChanged,
             events::ThemeModeChanged,
@@ -239,6 +242,8 @@ pub fn run() {
             popover::init(app.handle(), registry.clone());
             panel::init(app.handle())?;
             system::init(app.handle());
+            #[cfg(windows)]
+            tray::init(registry.clone());
             events::forward_changes(app.handle().clone(), registry);
             Ok(())
         })
@@ -250,6 +255,9 @@ pub fn run() {
                 if let Some(c) = controller::get() {
                     c.shutdown();
                 }
+                // Let Explorer have the tray messages alone again.
+                #[cfg(windows)]
+                tray::shutdown();
                 // Tell every client we are going (they wait and reconnect when we are back).
                 ipc::shutdown(std::time::Duration::from_millis(300));
             }

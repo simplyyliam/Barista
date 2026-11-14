@@ -179,6 +179,16 @@ export const commands = {
 	 */
 	runAction: (action: Action, confirm: boolean) => typedError<null, ActionError>(__TAURI_INVOKE("run_action", { action, confirm })),
 	/**
+	 *  How the bar shows tray icons: `panel` (an arrow opens a grid under it) or `inline` (they unfold in
+	 *  the bar). Default `panel`.
+	 */
+	getTrayStyle: () => __TAURI_INVOKE<TrayStyle>("get_tray_style"),
+	/**
+	 *  Switches how tray icons are shown. Saved; `trayStyleChanged` follows. No UI until the v0.8
+	 *  settings window.
+	 */
+	setTrayStyle: (style: TrayStyle) => __TAURI_INVOKE<void>("set_tray_style", { style }),
+	/**
 	 *  Who draws the control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick
 	 *  Settings (the v0.8 settings window flips this).
 	 */
@@ -344,6 +354,7 @@ export const events = {
 	submenuPlaced: makeEvent<SubmenuPlaced, SubmenuPlaced>("submenu-placed"),
 	submenuShow: makeEvent<SubmenuShow_Serialize, SubmenuShow_Deserialize>("submenu-show"),
 	themeModeChanged: makeEvent<ThemeModeChanged, ThemeModeChanged>("theme-mode-changed"),
+	trayStyleChanged: makeEvent<TrayStyleChanged, TrayStyleChanged>("tray-style-changed"),
 	userChanged: makeEvent<UserChanged_Serialize, UserChanged_Deserialize>("user-changed"),
 	volumeChanged: makeEvent<VolumeChanged, VolumeChanged>("volume-changed"),
 	wifiChanged: makeEvent<WifiChanged_Serialize, WifiChanged_Deserialize>("wifi-changed"),
@@ -622,6 +633,13 @@ export type ItemBounds = {
 	width: number | null,
 	height: number | null,
 };
+
+/**  Who put an item in the bar. Clients never choose this: the bar sets it (since 0.6). */
+export type ItemSource = 
+/**  A client app made it through the SDK. */
+"app" | 
+/**  It is an icon from the Windows tray. */
+"tray";
 
 export type Item_Deserialize = {
 	/**  The toast id (what `dismissNotification` and `openNotification` take). */
@@ -1020,6 +1038,8 @@ export type StatusItemView_Deserialize = {
 	icon?: string | null,
 	label?: string | null,
 	tooltip?: string | null,
+	/**  `app` for items clients made, `tray` for icons from the Windows tray (v0.6). */
+	source: ItemSource,
 };
 
 /**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
@@ -1030,6 +1050,8 @@ export type StatusItemView_Serialize = {
 	icon: string | null,
 	label: string | null,
 	tooltip: string | null,
+	/**  `app` for items clients made, `tray` for icons from the Windows tray (v0.6). */
+	source: ItemSource,
 };
 
 /**  The submenu closed (the main menu draws nothing for it any more). */
@@ -1125,6 +1147,19 @@ export type ThemeModeChanged = ThemeMode;
 
 /**  How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round. */
 export type Tone = "light" | "dark";
+
+/**  How the tray icons are shown in the bar (a preference, not a Windows replacement switch). */
+export type TrayStyle = 
+/**  An arrow in the bar opens a panel under it with the icons in a grid. Nothing in the bar moves. */
+"panel" | 
+/**
+ *  The icons unfold inside the bar, next to the arrow. Needs room: it can push other items off a
+ *  narrow bar.
+ */
+"inline";
+
+/**  The tray icons are now shown in a panel or inline (a setting, see `setTrayStyle`). */
+export type TrayStyleChanged = TrayStyle;
 
 export type User = User_Serialize | User_Deserialize;
 

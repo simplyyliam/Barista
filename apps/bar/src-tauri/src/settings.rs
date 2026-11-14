@@ -24,6 +24,18 @@ pub enum Mode {
     Windows,
 }
 
+/// How the tray icons are shown in the bar (a preference, not a Windows replacement switch).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum TrayStyle {
+    /// An arrow in the bar opens a panel under it with the icons in a grid. Nothing in the bar moves.
+    #[default]
+    Panel,
+    /// The icons unfold inside the bar, next to the arrow. Needs room: it can push other items off a
+    /// narrow bar.
+    Inline,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -37,6 +49,10 @@ pub struct Settings {
     pub notifications_seen_at: u32,
     /// Control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick Settings.
     pub control_center_mode: Mode,
+    /// Tray icons: the bar draws them (it hosts the tray window) or Windows keeps them (ADR 0026).
+    pub tray_mode: Mode,
+    /// How tray icons are laid out in the bar: a dropdown panel or unfolded inline.
+    pub tray_style: TrayStyle,
 }
 
 impl Default for Settings {
@@ -47,6 +63,8 @@ impl Default for Settings {
             notifications_mode: Mode::Barista,
             notifications_seen_at: 0,
             control_center_mode: Mode::Barista,
+            tray_mode: Mode::Barista,
+            tray_style: TrayStyle::Panel,
         }
     }
 }
@@ -134,6 +152,8 @@ mod tests {
         assert_eq!(s.notifications_mode, Mode::Barista);
         assert_eq!(s.notifications_seen_at, 0);
         assert_eq!(s.control_center_mode, Mode::Barista);
+        assert_eq!(s.tray_mode, Mode::Barista);
+        assert_eq!(s.tray_style, TrayStyle::Panel);
         let _ = std::fs::remove_file(path);
     }
 
@@ -146,6 +166,8 @@ mod tests {
             notifications_mode: Mode::Windows,
             notifications_seen_at: 1234,
             control_center_mode: Mode::Windows,
+            tray_mode: Mode::Windows,
+            tray_style: TrayStyle::Inline,
         };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);

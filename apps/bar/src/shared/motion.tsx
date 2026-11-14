@@ -33,6 +33,34 @@ export const ITEM_SHOWN = { opacity: 1, scale: 1, filter: "blur(0px)" }
 export const ITEM_ENTER: Transition = { duration: 0.2, ease: EASE_OUT }
 export const ITEM_EXIT: Transition = { duration: 0.12, ease: EASE_OUT }
 
+/**
+ * Items that arrive together (the bar starting, the tray group opening) come in one after another:
+ * 30 ms apart, the whole wave never longer than 250 ms. Only enters stagger; leaving is all at once.
+ */
+export const STAGGER_STEP = 0.035
+export const STAGGER_MAX = 0.28
+export const staggerDelay = (index: number) => Math.min(index * STAGGER_STEP, STAGGER_MAX)
+
+/**
+ * A wave of items unfolding out of the thing that opened them (the tray icons out of their arrow):
+ * each one slides a few px from the arrow while it scales up, on one long no-bounce spring, and its
+ * fade runs separately and quicker so it never looks like it is waiting. No blur: the bar renders
+ * in software (--disable-gpu), where blur on a dozen items at once drops frames and reads as stiff.
+ * `x` is the slide towards the source (positive = from the right).
+ */
+export const WAVE_HIDDEN = { opacity: 0, scale: 0.6, x: 10 }
+export const WAVE_SHOWN = { opacity: 1, scale: 1, x: 0 }
+export const waveEnter = (delay: number): Transition => ({
+  default: { type: "spring", duration: 0.55, bounce: 0, delay },
+  opacity: { duration: 0.25, ease: EASE_OUT, delay },
+})
+export const WAVE_EXIT: Transition = { duration: 0.14, ease: EASE_OUT }
+
+/** The same wave for tiles in a grid inside a panel: they drop in from the arrow above them. */
+export const GRID_HIDDEN = { opacity: 0, scale: 0.6, y: -8 }
+export const GRID_SHOWN = { opacity: 1, scale: 1, y: 0 }
+export const gridEnter = waveEnter
+
 /** A neighbour sliding into the gap someone left: a no-bounce spring, interruptible. */
 export const SLIDE: Transition = { type: "spring", duration: 0.3, bounce: 0 }
 

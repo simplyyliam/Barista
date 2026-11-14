@@ -1,19 +1,17 @@
-import { commands, events, type StatusItemView } from "@/shared/bindings";
+import { commands } from "@/shared/bindings";
+import { useItems } from "@/shared/hooks/use-items";
 import { Icon } from "@barista/ui/icons";
 import { AnimatePresence } from "motion/react";
-import { useEffect, useState } from "react";
-import { ITEM_EXIT, ITEM_HIDDEN } from "@/shared/motion";
+import { ITEM_ENTER, ITEM_EXIT, ITEM_HIDDEN, ITEM_SHOWN } from "@/shared/motion";
+import { useArrivalDelays } from "./hooks/use-arrival-delays";
 import { useItemBounds } from "./hooks/use-item-bounds";
-import { ITEM_APPEAR, MenubarItem } from "./menubar-item";
+import { MenubarItem } from "./menubar-item";
 
+/** The items client apps made through the SDK. Windows tray icons are in `TrayItems`. */
 export function StatusItems() {
-  const [items, setItems] = useState<StatusItemView[]>([]);
-
-  useEffect(() => {
-    commands.getItems().then(setItems)
-    const off = events.itemsChanged.listen((e) => setItems(e.payload))
-    return () => { off.then((stop) => stop()) }
-  }, []);
+  const items = useItems().filter((item) => item.source === "app");
+  // Items that arrive together (every app reconnecting after a bar start) come in as a small wave.
+  const delayOf = useArrivalDelays(items.map((item) => item.id));
 
   // Menus open under their icon, so Rust needs to know where each one is drawn.
   useItemBounds(items.map((item) => `${item.id}:${item.label ?? ""}`).join("|"));
@@ -25,7 +23,8 @@ export function StatusItems() {
       {items.map((item) => (
         <MenubarItem className="gap-1.5 tabular-nums"
           key={item.id}
-          {...ITEM_APPEAR}
+          initial={ITEM_HIDDEN}
+          animate={{ ...ITEM_SHOWN, transition: { ...ITEM_ENTER, delay: delayOf(item.id) } }}
           exit={{ ...ITEM_HIDDEN, transition: ITEM_EXIT }}
           data-item-id={item.id}
           // With a menu open, moving onto another item switches menus without a click.

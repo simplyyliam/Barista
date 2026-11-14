@@ -671,6 +671,32 @@ pub fn set_brightness(id: String, level: f64) {
     crate::system::brightness::set(&id, level);
 }
 
+/// How the bar shows tray icons: `panel` (an arrow opens a grid under it) or `inline` (they unfold in
+/// the bar). Default `panel`.
+#[tauri::command]
+#[specta::specta]
+pub fn get_tray_style() -> crate::settings::TrayStyle {
+    crate::controller::get()
+        .map(|c| c.settings().tray_style)
+        .unwrap_or_default()
+}
+
+/// Switches how tray icons are shown. Saved; `trayStyleChanged` follows. No UI until the v0.8
+/// settings window.
+#[tauri::command]
+#[specta::specta]
+pub fn set_tray_style(app: tauri::AppHandle, style: crate::settings::TrayStyle) {
+    use tauri_specta::Event;
+    if style == get_tray_style() {
+        return;
+    }
+    crate::panel::close();
+    if let Some(c) = crate::controller::get() {
+        c.update_settings(|s| s.tray_style = style);
+    }
+    let _ = crate::events::TrayStyleChanged(style).emit(&app);
+}
+
 /// Who draws the control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick
 /// Settings (the v0.8 settings window flips this).
 #[tauri::command]

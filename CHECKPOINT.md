@@ -5,6 +5,17 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-14)
 
+- **v0.6 "Tray, read" built, PR open** (branch `feature/v0.6-tray-read`, Liam reviews and merges; `UI: rust-only` in the /goal, Liam allowed the UI for it).
+  Hidden `Shell_TrayWnd` host (`platform/windows/tray_host.rs`, ADR 0026) forwards every message to Explorer; `tray/` (`parse`, `state`,
+  `icons`, worker); registry `source: app | tray` through the same `items-changed`; settings `trayMode` (barista | windows, rule 11, no UI
+  until v0.8) and `trayStyle` (panel | inline, default panel). **New for the UI (wired already):** `StatusItemView.source`, commands
+  `getTrayStyle` / `setTrayStyle`, event `trayStyleChanged`. UI: an arrow in the bar opens a five-wide grid panel (`features/panel/tray-panel.tsx`)
+  or, with `inline`, unfolds the icons in the bar (`features/menubar/tray-items.tsx`); pills' hover is pointer-driven and reset when a
+  panel/menu/popover opens or closes. Bench in `docs/perf/0.6.md` (idle 0.07 %, 0.11 % with 15 tray icons, tooltip change median 22 ms /
+  worst 630 ms, killed app's icons gone in 385 ms, memory 148 MB like v0.5). Tools: `scripts/tray-icons.ps1` (fake tray app),
+  `scripts/tray-zorder.ps1`, `scripts/soak.ps1`, tray rows in `pnpm bench`, `[tray]` in `pnpm inspect`. A dev bar kills nothing but cannot run
+  next to the installed one (fixed pipe name); `tauri dev` restarts the bar on every `src-tauri` edit; `pnpm bench` needs nobody touching the bar.
+
 - **v0.5.0 shipped** (tag `v0.5.0` on the merge of PR #32, not pushed yet: Liam runs `pnpm release`). `sdk-v0.1.0` is pushed and the Action
   logged a publish; do `npm install @baristabar/sdk` in a fresh folder once to confirm it is on npm. Plan releases v0.0 to v0.5 are done;
   notes in `docs/release/history/` (local only, v0.5 in `v0.5-checkpoint.md`, with its dogfooding papercuts: `item.ready`, a
@@ -130,6 +141,28 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `pnpm --filter @barista/bar dev` when testing with inspect.
 
 ## Fix next
+
+- From v0.6 (tray, read), found by testing and by Liam's feedback:
+  - Soak (1 h, unattended, `scripts/soak.ps1`): bar alive throughout, CPU 0.004 to 0.28 %, memory 156 / 180 / 90 MB (no growth), Explorer never restarted; says nothing about daily feel, which is Liam's to judge.
+  - Not tested: Windows 10 (only Windows 11 here), no tray app clicks (v0.7).
+  - **`ExplorerHooks.dll` crash:** Windows named it as the faulting module of two `0xc0000409` aborts of `barista.exe` (once after a broadcast of
+    `TaskbarCreated`, once when Liam restarted Explorer). It belongs to the Store app "Transparent Taskbar for Windows" (2845PeroSoftware), which
+    injects it into other processes. Not confirmed whether our hidden `Shell_TrayWnd` makes it worse: the A/B (v0.5 bar, same broadcast) was
+    not run, and cannot be from here: the DLL is only in our process while that app runs, and it was not running later (checked: only
+    `windhawk.dll` is loaded in the bar). To settle it: start Transparent Taskbar, start the bar, then broadcast `TaskbarCreated` or restart
+    Explorer, once with `trayMode: windows` (no host) and once without. If it is ours: back off when that DLL is loaded in our process
+    (like `foreign_host`), or document the conflict. Checked 2026-11-14: with 14 real + 15 fake icons the default panel leaves the bar
+    exactly where it was (before/after capture), so the narrow-bar overflow is gone with the default style.
+  - Hover tint stuck after leaving the bar (Liam saw it on the bench's release bar). Could not reproduce with `SetCursorPos`, `mouse_event`,
+    panels opened and closed by Esc or a click outside; the page showed no hover and no tint when it happened to look lit. Needs a repro with
+    `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` and the DOM read at that moment (`data-hover`, `:hover`, `:focus-visible`).
+  - Windows' own icons (volume, network, Bluetooth, "Safely remove") arrive as tray icons next to the bar's own: probably hide the ones the bar draws.
+  - Full-colour icons next to monochrome ones look noisy (Liam): desaturate to the bar tone with colour on hover? Not decided.
+  - Owner names are exe names (`lghub_system_tray`, `WhatsApp.Root`, `IDMan`); a friendlier name from the file's product name.
+  - The inline style can push other items off a narrow bar (the reason `panel` is the default); cap it or drop it.
+  - Messages sent while the Start menu is open reach Explorer only (ADR 0026, known gap).
+  - `trayMode` and `tray::init` cannot be switched while running (`SINK` is set once): plan in `releases/v0.8.md`.
+  - `items-changed` carries every icon's data on each change (about 27 KB; 0.6 events/s with a real tray): diff it if it ever shows in a profile.
 
 - From dogfooding the v0.4 popovers: the open papercuts (Electron window helper, `closePopover()`, async `on("open")`,
   stale `popover.shown` token, `setPopover` resize while open) are in `docs/release/history/v0.4-checkpoint.md`.
