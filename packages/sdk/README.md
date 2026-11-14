@@ -9,40 +9,59 @@ const item = await BA.StatusItem.create({ id: "counter", label: "0" })
 item.on("click", ({ button }) => console.log("clicked with", button))
 ```
 
-Needs Node 22 or newer and the Barista bar running. Every name is also exported with a `BA`
-prefix (`import { BAStatusItem } from "@barista/sdk"`).
+Needs Node 22 or newer. Every name is also exported with a `BA` prefix
+(`import { BAStatusItem } from "@barista/sdk"`).
 
-## Quick start
+## Getting started
 
-```ts
-import { readFileSync } from "node:fs"
+Start from an empty folder:
+
+```sh
+npm init -y
+npm pkg set type=module
+npm install @barista/sdk
+```
+
+Save this as `index.js` and run `node index.js`:
+
+```js
 import * as BA from "@barista/sdk"
 
-// 1. Connect (optional: StatusItem.create does it for you, but this lets you name your app
-//    and react when the bar goes away).
-const bar = await BA.connect({ appName: "Clock" })
-bar.on("close", () => process.exit(0))
-
-// 2. Create an item. The icon is PNG or SVG bytes, the label is short text.
+// 1. Create an item. This connects to the bar for you.
 const item = await BA.StatusItem.create({
   id: "time",
-  icon: readFileSync("clock.svg"),
   label: "12:00",
   tooltip: "The time",
 })
 
-// 3. Change it whenever you like.
+// 2. Change it whenever you like.
 setInterval(() => item.setLabel(new Date().toLocaleTimeString()), 1000)
 
-// 4. React to clicks.
+// 3. React to clicks.
 item.on("click", ({ button }) => console.log(button)) // "left" | "right" | "middle"
 ```
+
+The item shows up in the bar. Stop the script and it disappears.
+
+**The bar does not have to be running first.** If it is not, your script waits quietly and the item
+appears when the bar starts. If the bar quits or restarts, your items come back by themselves, with
+their menu, popover and your callbacks. You write no reconnect code. See "The bar comes and goes".
+
+To name your app (the bar shows it in tooltips and debug tools) or to react when the bar comes and
+goes, connect yourself first:
+
+```js
+const bar = await BA.connect({ appName: "Clock" })
+```
+
+An icon is PNG or SVG bytes, an icon from Hugeicons or Lucide, or a `data:` URL (see "Icons").
 
 ## API
 
 | Call                            | What it does                                                          |
 | ------------------------------- | --------------------------------------------------------------------- |
 | `BA.connect(options?)`          | Connects once and shares the connection. Returns a `StatusBar`.       |
+| `BA.StatusBar.isAvailable()`    | `true` if the bar is running right now. Resolves to `false`, never throws. |
 | `BA.StatusItem.create(options)` | Adds an item. Options: `id`, `icon?`, `label?`, `tooltip?`.           |
 | `item.setIcon(icon)`            | New icon (PNG/SVG bytes or `data:` URL). `""` removes it.             |
 | `item.setLabel(text)`           | New label. `""` removes it.                                           |
@@ -51,16 +70,52 @@ item.on("click", ({ button }) => console.log(button)) // "left" | "right" | "mid
 | `item.remove()`                 | Takes the item out of the bar.                                        |
 | `item.setMenu(menu \| null)`    | Gives the item a menu (a `BA.Menu` or a template). `null` removes it. |
 | `BA.Menu.fromTemplate(t)`       | Builds and checks a menu. `menu.getItemById(id)` finds an entry.      |
-| `item.setPopover(opts \| null)`  | Gives the item a popover: your own window under the icon.             |
+| `item.setPopover(opts \| null)` | Gives the item a popover: your own window under the icon.             |
 | `item.on("click", fn)`          | `fn({ button, anchor? })` when the user clicks (middle click, or no menu or popover). |
 | `item.on("open" \| "close", fn)` | Right before a menu or popover shows, and when it closes.            |
 | `item.on("error", fn)`          | `fn(error)` when the bar refuses something about this item.           |
-| `bar.on("close", fn)`           | The bar went away. Item calls do nothing after this.                  |
+| `bar.available`                 | `true` while you are connected to the bar.                            |
+| `bar.on("available", fn)`       | The bar is there (the first time and after every restart).            |
+| `bar.on("unavailable", fn)`     | The bar went away. Your items return when it does.                    |
 | `bar.on("error", fn)`           | Errors that no item listener took (printed with `console.warn`).      |
-| `bar.close()`                   | Disconnects; the bar removes your items.                              |
+| `bar.on("close", fn)`           | The connection is over for good (you called `close()`, or the bar refused your app). |
 | `bar.on("quit", fn)`            | The user picked a `role: "quit"` entry (else the SDK exits).          |
+| `bar.close()`                   | Disconnects for good; the bar removes your items at once.             |
 
 Errors from the bar are `BA.BarError` objects with a `code` (`"invalid_icon"`, `"limit_reached"`, ...).
+
+## The bar comes and goes
+
+Items belong to your app, not to one connection. The SDK keeps what each item shows (icon, label,
+tooltip, visibility, menu with its checked entries, popover size) and says it all again whenever the
+bar is back:
+
+```ts
+const bar = await BA.connect({ appName: "Clock" })
+bar.on("unavailable", () => console.log("Barista went away, waiting for it"))
+bar.on("available", () => console.log("Barista is here"))
+```
+
+- **Bar not running yet:** `connect()` and `StatusItem.create()` still resolve. Nothing is logged or
+  thrown. The item appears when the bar starts.
+- **Bar quits, crashes or restarts:** your items return within about two seconds of it starting. A
+  menu or popover that was open is closed (your `close` listeners run).
+- **While the bar is away**, `setLabel` and the other setters do nothing visible and never throw. The
+  latest value is what gets shown when the bar is back; nothing piles up.
+- **Your app quits or crashes:** the bar removes its items. A frozen app (no answer for 15 s) loses
+  them too, and so does one that calls `bar.close()`.
+- **`close` means for good.** It fires after `bar.close()`, or if the bar refuses your app (for example
+  a protocol it does not speak). It does not fire when the bar just restarts: that is `unavailable`.
+
+Want a fallback when Barista is not installed or not running? Ask first:
+
+```ts
+if (await BA.StatusBar.isAvailable()) {
+  await BA.StatusItem.create({ id: "mail", label: "3" })
+} else {
+  showTrayIconInstead()
+}
+```
 
 ## Menus
 
@@ -143,6 +198,21 @@ item.setMenu([{ role: "quit" }]) // right click
   `placement` is in physical pixels, already placed and kept on screen.
 - If your window never confirms (the SDK confirms after `show` returns), the bar hides it after 1.5 s.
 - The SDK never imports Electron; `electronPopover` takes your window and `screen`.
+- If the bar goes away while your popover is open, the SDK hides your window and runs `close`.
+
+## Menu or popover?
+
+| You want                                              | Use                              |
+| ----------------------------------------------------- | -------------------------------- |
+| A short list of actions (start, pause, open, quit)    | `setMenu`: the bar draws it      |
+| Checkboxes or a radio group                           | `setMenu`                        |
+| Your own layout: a form, a chart, a player, a list    | `setPopover`: you draw it        |
+| Live content you update while it is open              | `setPopover`                     |
+| Both                                                  | Popover on left click, menu on right click |
+
+Start with a menu: it matches the rest of the bar, needs no window, and works in any Node app. Reach
+for a popover when a menu cannot show what you need. A popover needs a window framework such as
+Electron.
 
 ## Rules
 
@@ -152,9 +222,4 @@ item.setMenu([{ role: "quit" }]) // right click
 - A bad argument throws right at the call (nothing is sent). Anything the bar refuses later
   arrives through `on("error")`.
 - The bar draws everything. Your app never paints into it.
-
-## Not in yet
-
-Reconnecting after the bar restarts arrives in a later release. For now,
-if the bar is not running `connect()` rejects with "Could not reach the Barista bar", and if it
-quits your items disappear and the `close` event fires.
+- A client that sends invalid messages 10 times in a minute is disconnected (`bar.on("close")`).

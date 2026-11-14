@@ -3,6 +3,27 @@
   "version": "0.0.0",
   "description": "Put your app in the Barista menu bar for Windows.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simplyyliam/Barista.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/simplyyliam/Barista/tree/main/packages/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/simplyyliam/Barista/issues"
+  },
+  "keywords": [
+    "barista",
+    "windows",
+    "menu-bar",
+    "menubar",
+    "tray",
+    "status-item",
+    "popover"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -27,6 +48,7 @@
   ],
   "scripts": {
     "build": "tsc6 -p tsconfig.build.json",
+    "test": "vitest run --root ../.. packages/sdk",
     "typecheck": "tsc6 --noEmit"
   },
   "peerDependencies": {
