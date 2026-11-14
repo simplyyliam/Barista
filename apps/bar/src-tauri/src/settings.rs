@@ -37,6 +37,8 @@ pub struct Settings {
     pub notifications_seen_at: u32,
     /// Control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick Settings.
     pub control_center_mode: Mode,
+    /// Tray icons: the bar draws them (it hosts the tray window) or Windows keeps them (ADR 0026).
+    pub tray_mode: Mode,
 }
 
 impl Default for Settings {
@@ -47,6 +49,7 @@ impl Default for Settings {
             notifications_mode: Mode::Barista,
             notifications_seen_at: 0,
             control_center_mode: Mode::Barista,
+            tray_mode: Mode::Barista,
         }
     }
 }
@@ -134,6 +137,7 @@ mod tests {
         assert_eq!(s.notifications_mode, Mode::Barista);
         assert_eq!(s.notifications_seen_at, 0);
         assert_eq!(s.control_center_mode, Mode::Barista);
+        assert_eq!(s.tray_mode, Mode::Barista);
         let _ = std::fs::remove_file(path);
     }
 
@@ -146,6 +150,7 @@ mod tests {
             notifications_mode: Mode::Windows,
             notifications_seen_at: 1234,
             control_center_mode: Mode::Windows,
+            tray_mode: Mode::Windows,
         };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);

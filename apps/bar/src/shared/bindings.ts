@@ -623,6 +623,13 @@ export type ItemBounds = {
 	height: number | null,
 };
 
+/**  Who put an item in the bar. Clients never choose this: the bar sets it (since 0.6). */
+export type ItemSource = 
+/**  A client app made it through the SDK. */
+"app" | 
+/**  It is an icon from the Windows tray. */
+"tray";
+
 export type Item_Deserialize = {
 	/**  The toast id (what `dismissNotification` and `openNotification` take). */
 	id: number,
@@ -1020,6 +1027,8 @@ export type StatusItemView_Deserialize = {
 	icon?: string | null,
 	label?: string | null,
 	tooltip?: string | null,
+	/**  `app` for items clients made, `tray` for icons from the Windows tray (v0.6). */
+	source: ItemSource,
 };
 
 /**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
@@ -1030,6 +1039,8 @@ export type StatusItemView_Serialize = {
 	icon: string | null,
 	label: string | null,
 	tooltip: string | null,
+	/**  `app` for items clients made, `tray` for icons from the Windows tray (v0.6). */
+	source: ItemSource,
 };
 
 /**  The submenu closed (the main menu draws nothing for it any more). */

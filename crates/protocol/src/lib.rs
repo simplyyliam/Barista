@@ -11,7 +11,7 @@ use specta::Type;
 
 /// `major.minor`. The bar accepts any client with the same major version.
 /// New optional fields bump the minor; removing or renaming a field bumps the major.
-pub const PROTOCOL_VERSION: &str = "0.5";
+pub const PROTOCOL_VERSION: &str = "0.6";
 
 /// Largest frame (the JSON part) either side accepts.
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
@@ -158,6 +158,17 @@ pub enum Tone {
     Dark,
 }
 
+/// Who put an item in the bar. Clients never choose this: the bar sets it (since 0.6).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ItemSource {
+    /// A client app made it through the SDK.
+    #[default]
+    App,
+    /// It is an icon from the Windows tray.
+    Tray,
+}
+
 /// One item as the bar knows it. Used in `debug.items` replies.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -176,6 +187,9 @@ pub struct ItemInfo {
     /// Whether the item has a popover (since 0.4; older bars leave it out).
     #[serde(default)]
     pub has_popover: bool,
+    /// Where the item comes from (since 0.6; older bars leave it out, meaning `app`).
+    #[serde(default)]
+    pub source: ItemSource,
 }
 
 /// Client -> bar. Every request may carry a `requestId`; errors echo it.
@@ -720,6 +734,7 @@ mod tests {
                 visible: true,
                 has_menu: false,
                 has_popover: false,
+                source: ItemSource::App,
             }],
         };
         let text = serde_json::to_string(&items).unwrap();
