@@ -5,13 +5,15 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-14)
 
-- **v0.5 "Never stuck" built** (branch `feature/v0.5-never-stuck`, `UI: rust-only` with Liam's OK to touch the UI; no UI change was needed).
+- **v0.5 "Never stuck" built, PR #29 open** (branch `feature/v0.5-never-stuck`, `UI: rust-only` with Liam's OK to touch the UI; no UI change was needed).
   Protocol 0.5: `ping`/`pong`/`bye`/`shutdown` (ADR 0024). Bar: heartbeat (ping 5 s, no pong 15 s drops the session; 0.4 clients get no
   pings), a read task per session (a select on `read_frame` would cut frames), `shutdown { quit }` to every client on exit
   (`ipc::shutdown`), command `quit_bar`. SDK (ADR 0025): `StatusBar` reconnects with backoff (100 ms to 1 s), never fails because the bar is missing,
   replays every item (menu, popover, last state) on each welcome, `isAvailable()`, `available` / `unavailable`, `close()` sends `bye`.
   README rewritten, `sdk-release.yml` and `checks.yml` run `pnpm publish --dry-run`. `scripts/lifecycle.mjs` (`pnpm lifecycle`) checks the Done-when
-  with a real release bar. **New for the UI:** command `quitBar` (for a future "Quit Barista" entry, no design yet).
+  with a real release bar. Release checks done 2026-11-14: `/code-review medium` (fixed: handshake ignored a quit, session counter drop guard, item
+  state stored after send), `/security-review` (no findings), `pnpm lifecycle` all ok, `pnpm bench 0.5` (memory same as v0.4.1 on the same day,
+  `docs/perf/0.5.md`). Left for Liam: npm scope `@barista` and `NPM_TOKEN` before the `sdk-v0.1.0` tag. **New for the UI:** command `quitBar` (for a future "Quit Barista" entry, no design yet).
 
 - **Spec departures Liam confirmed (2026-11-13), do not "fix" them:** icon-only pills are 28px wide (3px padding, 2px gap, 30px pitch,
   not the 6-8px of the first spec); the battery is `examples/battery`'s drawing (no 27x12 construction or masks); the hover is a 999px
