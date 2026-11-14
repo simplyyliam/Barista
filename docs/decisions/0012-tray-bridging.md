@@ -1,13 +1,13 @@
 # 0012: Tray bridging with our own Shell_TrayWnd
 
-Status: **proposed** (2026-11-10, v0.3 spike). Liam approves before v0.6 starts.
+Status: **accepted** (2026-11-14, approved by Liam; proposed 2026-11-10 from the v0.3 spike).
 
 ## Context
 
 The bar replaces the tray, so it must see every app's tray icon on Windows 10 and 11, live, and click
 them. Full comparison: `docs/research/tray-bridging.md` (local only).
 
-## Decision (proposed)
+## Decision
 
 Run a hidden top-level window of class `Shell_TrayWnd` above Explorer's, so `Shell_NotifyIcon` messages
 (`WM_COPYDATA` with `NIM_*`) reach us first. Read and validate each one, forward it to Explorer's tray,

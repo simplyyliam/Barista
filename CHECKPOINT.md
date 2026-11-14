@@ -41,7 +41,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **v0.4b slice A done, PR #22 open** (branch `feature/v0.4b-system-panels-a`, Liam reviews and merges): panel window, clock
   settings, battery, volume (ADR 0016, `docs/perf/0.4b.md`). Next: slices B and C (`releases/v0.4b.md`, local only);
   re-measure panel latency once the UI uses `panelResized`.
-- ADR 0012 (tray) still needs Liam's approval before v0.6 starts.
+- ADR 0012 (tray) accepted by Liam 2026-11-14; v0.6 may start (`releases/v0.6.md`, first task: the z-order prototype).
 - **v0.4b slice C built, PR open** (branch `feature/v0.4b-notifications`, includes the spike of PR #23; ADR 0017 accepted, ADR 0018):
   notifications panel with the UI (`UI: full`): date in the bar + unread dot, notification card, shadcn calendar, Focus pills. The date sits inside the clock item (right side; anchor `system/clock`), 300 px wide cards; moving it (e.g. to the centre) is a v0.8 setting.
   Reader = `UserNotificationListener` + read-only `wpndatabase.db` (pictures) + folder watcher gated by a toast fingerprint
