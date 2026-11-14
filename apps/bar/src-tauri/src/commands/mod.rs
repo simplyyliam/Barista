@@ -199,6 +199,14 @@ fn clean_size(v: f64) -> f64 {
     }
 }
 
+/// Quits the bar: clients get `shutdown`, the reserved screen space is given back, the process
+/// ends. For a "Quit Barista" entry; the UI does not call it yet.
+#[tauri::command]
+#[specta::specta]
+pub fn quit_bar(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 /// Closes the open menu (Esc, or the UI decided). Does nothing if none is open.
 #[tauri::command]
 #[specta::specta]

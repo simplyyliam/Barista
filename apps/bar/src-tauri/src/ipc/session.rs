@@ -14,20 +14,22 @@ use crate::registry::{
     ClickError, ItemPatch, MenuItemClickError, Outbox, Registry, RegistryError, SessionId,
 };
 use barista_protocol::{
-    is_compatible, BarMessage, ClientMessage, ErrorCode, MAX_ITEMS_PER_CLIENT, MAX_LABEL_LEN,
-    MAX_TOOLTIP_LEN, PROTOCOL_VERSION,
+    is_compatible, minor_version, BarMessage, ClientMessage, ErrorCode, ShutdownReason,
+    MAX_ITEMS_PER_CLIENT, MAX_LABEL_LEN, MAX_TOOLTIP_LEN, PROTOCOL_VERSION,
 };
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::sync::mpsc;
-use tokio::time::timeout;
+use tokio::sync::{mpsc, watch};
+use tokio::time::{interval_at, timeout, Instant as TokioInstant, MissedTickBehavior};
 
 /// A client has this long to send `hello` after connecting.
 const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
 /// Replies waiting to be written. If a client lets this fill up, it is cut off.
 const OUTBOX_SIZE: usize = 64;
+/// Clients that say protocol 0.5 or newer get the heartbeat; older ones never answer `ping`.
+const HEARTBEAT_SINCE_MINOR: u32 = 5;
 /// 10 rejected messages within a minute and the client is disconnected.
 const STRIKE_LIMIT: usize = 10;
 const STRIKE_WINDOW: Duration = Duration::from_secs(60);
@@ -59,6 +61,33 @@ impl Strikes {
     }
 }
 
+/// How often the bar pings a client and how long it waits for any `pong`.
+#[derive(Clone, Copy)]
+pub struct Heartbeat {
+    pub every: Duration,
+    pub timeout: Duration,
+}
+
+impl Default for Heartbeat {
+    fn default() -> Self {
+        Self {
+            every: Duration::from_secs(5),
+            timeout: Duration::from_secs(15),
+        }
+    }
+}
+
+/// Everything a session needs besides its pipe. Tests shrink the heartbeat to milliseconds.
+pub struct SessionConfig {
+    pub bar_version: String,
+    pub heartbeat: Heartbeat,
+    /// Turns true when the bar quits: tell the client, then end the session.
+    pub shutdown: watch::Receiver<bool>,
+}
+
+/// What the read task hands over: one frame, or why reading ended.
+type Frame = Result<Vec<u8>, FrameError>;
+
 /// A message the bar refuses. It becomes `error { code, message }`.
 struct Reject {
     request_id: Option<String>,
@@ -69,6 +98,10 @@ struct Reject {
 /// What to do after handling one message.
 enum Step {
     Ok,
+    /// `pong`: the session loop owns the heartbeat state.
+    Pong(u32),
+    /// `bye`: the client is leaving on purpose.
+    Leave,
     Reject(Reject),
     /// The client cannot be written to any more (queue full or connection gone).
     Disconnect,
@@ -102,7 +135,7 @@ pub async fn run<S>(
     stream: S,
     client_pid: Option<u32>,
     registry: Arc<Registry>,
-    bar_version: String,
+    config: SessionConfig,
 ) where
     S: AsyncRead + AsyncWrite + Send + 'static,
 {
@@ -120,8 +153,25 @@ pub async fn run<S>(
         }
     });
 
-    serve(&mut reader, &tx, client_pid, &registry, &bar_version).await;
+    // Reading lives in its own task. `read_frame` is not cancel-safe (dropping it half-way
+    // loses bytes), and the session loop must also wake for the heartbeat and for shutdown.
+    // Receiving from a channel is cancel-safe, so the loop selects on that instead. The
+    // channel holds one frame: a client that floods us waits in the pipe, not in memory.
+    let (frames_tx, mut frames) = mpsc::channel::<Frame>(1);
+    let reader_task = tokio::spawn(async move {
+        loop {
+            let frame = read_frame(&mut reader).await;
+            let stop = frame.is_err();
+            if frames_tx.send(frame).await.is_err() || stop {
+                break;
+            }
+        }
+    });
 
+    serve(&mut frames, &tx, client_pid, &registry, config).await;
+
+    // A hung client may never finish a read: stop waiting for it.
+    reader_task.abort();
     // `serve` removed the session, so the registry no longer holds a sender. Dropping ours
     // lets the writer finish what is queued (like a last error message) and stop.
     drop(tx);
@@ -133,23 +183,75 @@ pub async fn run<S>(
     }
 }
 
-async fn serve<R: AsyncRead + Unpin>(
-    reader: &mut R,
+/// Why the loop woke up.
+enum Wake {
+    Frame(Option<Frame>),
+    Tick,
+    Shutdown,
+    WriterGone,
+}
+
+async fn serve(
+    frames: &mut mpsc::Receiver<Frame>,
     tx: &Outbox,
     client_pid: Option<u32>,
     registry: &Arc<Registry>,
-    bar_version: &str,
+    config: SessionConfig,
 ) {
-    let Some(session) = handshake(reader, tx, client_pid, registry, bar_version).await else {
+    let SessionConfig {
+        bar_version,
+        heartbeat,
+        mut shutdown,
+    } = config;
+    let Some(accepted) = handshake(frames, tx, client_pid, registry, &bar_version).await else {
         return;
     };
+    let session = accepted.session;
     let mut strikes = Strikes::default();
+    // Heartbeat state: `seq` is the last ping sent, `last_pong` the last proof of life.
+    let mut seq = 0u32;
+    let mut last_pong = TokioInstant::now();
+    let mut ticker = accepted.heartbeat.then(|| {
+        let mut t = interval_at(TokioInstant::now() + heartbeat.every, heartbeat.every);
+        t.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        t
+    });
     loop {
         // If the writer died (client stopped reading or left), end the session too, so its
-        // items don't stay in the bar. Dropping the read here is fine: we are leaving anyway.
-        let frame = tokio::select! {
-            frame = read_frame(reader) => frame,
-            () = tx.closed() => break,
+        // items don't stay in the bar.
+        let wake = tokio::select! {
+            frame = frames.recv() => Wake::Frame(frame),
+            () = async {
+                match ticker.as_mut() {
+                    Some(t) => { t.tick().await; }
+                    None => std::future::pending::<()>().await,
+                }
+            } => Wake::Tick,
+            quit = async { shutdown.wait_for(|quitting| *quitting).await.is_ok() } => {
+                // A dropped sender means nobody can ask us to quit any more: carry on.
+                if quit { Wake::Shutdown } else { std::future::pending().await }
+            }
+            () = tx.closed() => Wake::WriterGone,
+        };
+        let frame = match wake {
+            Wake::Frame(Some(frame)) => frame,
+            Wake::Frame(None) | Wake::WriterGone => break,
+            Wake::Shutdown => {
+                send(tx, BarMessage::Shutdown { reason: ShutdownReason::Quit });
+                break;
+            }
+            Wake::Tick => {
+                if last_pong.elapsed() >= heartbeat.timeout {
+                    // Probably nobody reads this, but a client that is only slow learns why.
+                    send(tx, BarMessage::Shutdown { reason: ShutdownReason::Unresponsive });
+                    break;
+                }
+                seq = seq.wrapping_add(1);
+                if !send(tx, BarMessage::Ping { seq }) {
+                    break;
+                }
+                continue;
+            }
         };
         let bytes = match frame {
             Ok(bytes) => bytes,
@@ -172,9 +274,22 @@ async fn serve<R: AsyncRead + Unpin>(
                 message: e.message,
             }),
         };
+        let step = match step {
+            // Only a seq we really sent proves the client read our ping.
+            Step::Pong(n) if n == 0 || n > seq => reject(
+                &None,
+                ErrorCode::InvalidMessage,
+                "pong for a ping the bar never sent",
+            ),
+            Step::Pong(_) => {
+                last_pong = TokioInstant::now();
+                Step::Ok
+            }
+            other => other,
+        };
         match step {
-            Step::Ok => {}
-            Step::Disconnect => break,
+            Step::Ok | Step::Pong(_) => {}
+            Step::Disconnect | Step::Leave => break,
             Step::Reject(r) => {
                 if !send_error(tx, r.request_id, r.code, r.message) {
                     break;
@@ -186,6 +301,7 @@ async fn serve<R: AsyncRead + Unpin>(
                         ErrorCode::TooManyErrors,
                         "too many invalid messages, disconnecting",
                     );
+                    send(tx, BarMessage::Shutdown { reason: ShutdownReason::TooManyErrors });
                     break;
                 }
             }
@@ -194,22 +310,29 @@ async fn serve<R: AsyncRead + Unpin>(
     registry.remove_session(session);
 }
 
+/// A client that passed `hello`.
+struct Accepted {
+    session: SessionId,
+    /// It speaks 0.5 or newer, so it answers `ping`.
+    heartbeat: bool,
+}
+
 /// First message must be a valid `hello`. Returns the new session, or None after telling the
 /// client why it was refused.
-async fn handshake<R: AsyncRead + Unpin>(
-    reader: &mut R,
+async fn handshake(
+    frames: &mut mpsc::Receiver<Frame>,
     tx: &Outbox,
     client_pid: Option<u32>,
     registry: &Arc<Registry>,
     bar_version: &str,
-) -> Option<SessionId> {
+) -> Option<Accepted> {
     let refuse = |request_id, code, message: &str| {
         send_error(tx, request_id, code, message);
         None
     };
-    let bytes = match timeout(HELLO_TIMEOUT, read_frame(reader)).await {
-        Ok(Ok(bytes)) => bytes,
-        Ok(Err(FrameError::BadLength(n))) => {
+    let bytes = match timeout(HELLO_TIMEOUT, frames.recv()).await {
+        Ok(Some(Ok(bytes))) => bytes,
+        Ok(Some(Err(FrameError::BadLength(n)))) => {
             return refuse(
                 None,
                 ErrorCode::InvalidMessage,
@@ -252,6 +375,7 @@ async fn handshake<R: AsyncRead + Unpin>(
             "pid does not match the connection",
         );
     }
+    let heartbeat = minor_version(&protocol_version).is_some_and(|m| m >= HEARTBEAT_SINCE_MINOR);
     let session = registry.add_session(app_name, pid, tx.clone());
     let welcome = BarMessage::Welcome {
         session_id: format!("s{session}"),
@@ -262,7 +386,7 @@ async fn handshake<R: AsyncRead + Unpin>(
         registry.remove_session(session);
         return None;
     }
-    Some(session)
+    Some(Accepted { session, heartbeat })
 }
 
 fn reject(request_id: &Option<String>, code: ErrorCode, message: impl Into<String>) -> Step {
@@ -388,6 +512,8 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
             popover::closed(&format!("s{session}/{id}"));
             Ok(())
         })(),
+        ClientMessage::Pong { seq, .. } => Err(Step::Pong(seq)),
+        ClientMessage::Bye { .. } => Err(Step::Leave),
         ClientMessage::DebugListItems { .. }
         | ClientMessage::DebugClick { .. }
         | ClientMessage::DebugMenuClick { .. }
@@ -516,20 +642,53 @@ mod tests {
     struct Client {
         stream: DuplexStream,
         registry: Arc<Registry>,
+        /// Flip it to true to make the bar "quit".
+        quit: watch::Sender<bool>,
     }
 
+    /// A heartbeat so slow that ordinary tests never see a ping.
+    const QUIET: Heartbeat = Heartbeat {
+        every: Duration::from_secs(60),
+        timeout: Duration::from_secs(180),
+    };
+
     /// Starts a session on an in-memory pipe. `duplex_size` is small in the slow-client test.
-    fn connect_with(registry: &Arc<Registry>, pid: Option<u32>, duplex_size: usize) -> Client {
+    fn connect_full(
+        registry: &Arc<Registry>,
+        pid: Option<u32>,
+        duplex_size: usize,
+        heartbeat: Heartbeat,
+    ) -> Client {
         let (ours, theirs) = tokio::io::duplex(duplex_size);
-        tokio::spawn(run(theirs, pid, registry.clone(), "9.9.9".into()));
+        let (quit, shutdown) = watch::channel(false);
+        let config = SessionConfig {
+            bar_version: "9.9.9".into(),
+            heartbeat,
+            shutdown,
+        };
+        tokio::spawn(run(theirs, pid, registry.clone(), config));
         Client {
             stream: ours,
             registry: registry.clone(),
+            quit,
         }
+    }
+
+    fn connect_with(registry: &Arc<Registry>, pid: Option<u32>, duplex_size: usize) -> Client {
+        connect_full(registry, pid, duplex_size, QUIET)
     }
 
     fn connect(registry: &Arc<Registry>) -> Client {
         connect_with(registry, Some(4242), 1 << 20)
+    }
+
+    /// Fast heartbeat for the tests of the heartbeat itself.
+    fn connect_beating(registry: &Arc<Registry>, every_ms: u64, timeout_ms: u64) -> Client {
+        let heartbeat = Heartbeat {
+            every: Duration::from_millis(every_ms),
+            timeout: Duration::from_millis(timeout_ms),
+        };
+        connect_full(registry, Some(4242), 1 << 20, heartbeat)
     }
 
     impl Client {
@@ -792,6 +951,7 @@ mod tests {
             assert_eq!(bad.expect_error().await.0, ErrorCode::InvalidMessage);
         }
         assert_eq!(bad.expect_error().await.0, ErrorCode::TooManyErrors);
+        assert!(matches!(bad.recv().await, BarMessage::Shutdown { .. }));
         bad.expect_closed().await;
 
         assert_eq!(good.items().await.len(), 1);
@@ -974,5 +1134,142 @@ mod tests {
             .await;
         assert_eq!(c.expect_error().await.0, ErrorCode::NotFound);
         assert!(!c.items().await[0].has_menu);
+    }
+
+    #[tokio::test]
+    async fn pings_arrive_and_pongs_keep_the_session() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect_beating(&registry, 30, 120);
+        c.hello().await;
+        c.send(json!({"type":"item.create","id":"a"})).await;
+        // Answer eight pings (about 240 ms, twice the timeout): the item must survive.
+        for expected in 1..=8u32 {
+            assert_eq!(c.recv().await, BarMessage::Ping { seq: expected });
+            c.send(json!({"type":"pong","seq":expected})).await;
+        }
+        assert_eq!(c.items().await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn no_pong_removes_the_items_and_says_why() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect_beating(&registry, 30, 100);
+        c.hello().await;
+        c.send(json!({"type":"item.create","id":"a"})).await;
+        c.items().await;
+        // Never answer. The bar pings, then gives up.
+        let mut last = c.recv().await;
+        while matches!(last, BarMessage::Ping { .. }) {
+            last = c.recv().await;
+        }
+        assert_eq!(
+            last,
+            BarMessage::Shutdown {
+                reason: ShutdownReason::Unresponsive
+            }
+        );
+        eventually(|| registry.snapshot().is_empty() && registry.session_count() == 0).await;
+    }
+
+    #[tokio::test]
+    async fn a_0_4_client_gets_no_pings_and_is_kept() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect_beating(&registry, 20, 60);
+        c.send(hello_json(4242, "0.4")).await;
+        assert!(matches!(c.recv().await, BarMessage::Welcome { .. }));
+        c.send(json!({"type":"item.create","id":"a"})).await;
+        // Four timeouts of silence: an old client never answers pings, so it gets none.
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        assert_eq!(c.items().await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_pong_for_a_ping_never_sent_is_a_strike() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.hello().await;
+        c.send(json!({"type":"pong","seq":5})).await;
+        assert_eq!(c.expect_error().await.0, ErrorCode::InvalidMessage);
+        c.send(json!({"type":"pong","seq":0})).await;
+        assert_eq!(c.expect_error().await.0, ErrorCode::InvalidMessage);
+    }
+
+    #[tokio::test]
+    async fn bye_removes_the_items_at_once_without_an_error() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.hello().await;
+        c.send(json!({"type":"item.create","id":"a"})).await;
+        c.items().await;
+        c.send(json!({"type":"bye"})).await;
+        c.expect_closed().await;
+        assert!(registry.snapshot().is_empty());
+        assert_eq!(registry.session_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn quitting_tells_every_client_and_ends_the_sessions() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.hello().await;
+        c.send(json!({"type":"item.create","id":"a"})).await;
+        c.items().await;
+        c.quit.send(true).unwrap();
+        assert_eq!(
+            c.recv().await,
+            BarMessage::Shutdown {
+                reason: ShutdownReason::Quit
+            }
+        );
+        c.expect_closed().await;
+        assert!(registry.snapshot().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_noisy_client_is_told_why_it_was_cut_off() {
+        let registry = Arc::new(Registry::new());
+        let mut bad = connect(&registry);
+        bad.hello().await;
+        for _ in 0..STRIKE_LIMIT {
+            bad.send_raw(b"nope").await;
+        }
+        for _ in 0..STRIKE_LIMIT {
+            bad.expect_error().await;
+        }
+        assert_eq!(bad.expect_error().await.0, ErrorCode::TooManyErrors);
+        assert_eq!(
+            bad.recv().await,
+            BarMessage::Shutdown {
+                reason: ShutdownReason::TooManyErrors
+            }
+        );
+    }
+
+    /// The read task keeps half a frame safe while the heartbeat ticks (a select on
+    /// `read_frame` itself would drop the bytes it had already read).
+    #[tokio::test]
+    async fn a_frame_split_across_heartbeat_ticks_still_parses() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect_beating(&registry, 20, 5_000);
+        c.hello().await;
+        let body = json!({"type":"item.create","id":"slow"}).to_string();
+        let mut frame = (body.len() as u32).to_le_bytes().to_vec();
+        frame.extend_from_slice(body.as_bytes());
+        let (head, tail) = frame.split_at(6);
+        c.stream.write_all(head).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await; // several ticks pass
+        c.stream.write_all(tail).await.unwrap();
+        // Pings were queued meanwhile; skip them to reach the reply to our request.
+        c.send(json!({"type": "debug.listItems"})).await;
+        loop {
+            match c.recv().await {
+                BarMessage::Ping { .. } => {}
+                BarMessage::DebugItems { items, .. } => {
+                    assert_eq!(items.len(), 1);
+                    break;
+                }
+                other => panic!("unexpected {other:?}"),
+            }
+        }
     }
 }

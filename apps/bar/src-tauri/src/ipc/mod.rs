@@ -8,13 +8,24 @@ mod validate;
 
 use crate::platform::windows::pipe;
 use crate::registry::Registry;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Semaphore;
+use session::{Heartbeat, SessionConfig};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
+use tokio::sync::{watch, Semaphore};
 
 /// Most clients connected at once. Each one costs a task and a few buffers, so this bounds
 /// what a misbehaving program can use up.
 const MAX_CONNECTIONS: usize = 64;
+
+/// Turns true when the bar quits. Every session watches it and tells its client.
+fn quit_signal() -> &'static watch::Sender<bool> {
+    static SIGNAL: OnceLock<watch::Sender<bool>> = OnceLock::new();
+    SIGNAL.get_or_init(|| watch::channel(false).0)
+}
+
+/// Sessions still running (including the moment they flush their last message).
+static LIVE_SESSIONS: AtomicUsize = AtomicUsize::new(0);
 
 /// Starts listening in the background. A failure is logged and never stops the bar: it just
 /// runs without clients (for example when another bar already owns the pipe).
@@ -26,13 +37,30 @@ pub fn start(registry: Arc<Registry>) {
     });
 }
 
+/// The bar is quitting: stop accepting, tell every client (`shutdown { quit }`) and give the
+/// messages a moment to leave. Blocks at most `wait`; the process is about to end anyway.
+pub fn shutdown(wait: Duration) {
+    quit_signal().send_replace(true);
+    let deadline = Instant::now() + wait;
+    while LIVE_SESSIONS.load(Ordering::SeqCst) > 0 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 async fn serve(registry: Arc<Registry>) -> std::io::Result<()> {
     let bar_version = env!("CARGO_PKG_VERSION").to_string();
     let permits = Arc::new(Semaphore::new(MAX_CONNECTIONS));
+    let mut quit = quit_signal().subscribe();
     // The first instance claims the name; a second bar fails here instead of sharing it.
     let mut server = pipe::create_server(true)?;
     loop {
-        if let Err(error) = server.connect().await {
+        let connecting = tokio::select! {
+            result = server.connect() => result,
+            // Quitting: drop the pipe so that clients retrying meanwhile do not get a welcome
+            // from a bar that is going away.
+            _ = quit.wait_for(|quitting| *quitting) => return Ok(()),
+        };
+        if let Err(error) = connecting {
             // One broken connection attempt (for example a client that died while
             // connecting) must not stop the bar from accepting others: use a fresh instance.
             eprintln!("barista: a client failed to connect: {error}");
@@ -53,9 +81,15 @@ async fn serve(registry: Arc<Registry>) -> std::io::Result<()> {
             continue;
         };
         let registry = registry.clone();
-        let bar_version = bar_version.clone();
+        let config = SessionConfig {
+            bar_version: bar_version.clone(),
+            heartbeat: Heartbeat::default(),
+            shutdown: quit_signal().subscribe(),
+        };
+        LIVE_SESSIONS.fetch_add(1, Ordering::SeqCst);
         tauri::async_runtime::spawn(async move {
-            session::run(connected, Some(pid), registry, bar_version).await;
+            session::run(connected, Some(pid), registry, config).await;
+            LIVE_SESSIONS.fetch_sub(1, Ordering::SeqCst);
             drop(permit);
         });
     }

@@ -51,6 +51,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::set_submenu_highlight,
             commands::menu_hover,
             commands::close_menu,
+            commands::quit_bar,
             commands::get_open_menu,
             commands::set_item_bounds,
             commands::get_open_popover,
@@ -245,6 +246,8 @@ pub fn run() {
                 if let Some(c) = controller::get() {
                     c.shutdown();
                 }
+                // Tell every client we are going (they wait and reconnect when we are back).
+                ipc::shutdown(std::time::Duration::from_millis(300));
             }
         });
 }
