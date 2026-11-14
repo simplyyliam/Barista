@@ -5,9 +5,11 @@
 // it also times menus: setMenu, a pick reaching the app, and click -> menu window visible.
 // Since v0.4 it times the bar side of popovers: click -> popover.show and click -> popover.hide.
 // (Window visible and focused needs a real window and real input: scripts/popover-latency.ps1.)
+// Since v0.6 it runs scripts/tray-icons.ps1 (15 fake tray icons, one tooltip changing every 2 s) and
+// measures CPU and memory with them, how fast a change shows up, and how fast a killed app's icons go.
 // BENCH_SECONDS changes the sampling time of each CPU measurement (default 60).
 import { execFileSync, spawn } from "node:child_process"
-import { existsSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import net from "node:net"
 import os from "node:os"
 import { createInterface } from "node:readline"
@@ -298,6 +300,65 @@ async function measureMenus() {
 console.log(`Sampling idle CPU ${seconds}s...`)
 const idle = await sampleCpu()
 
+/** 15 fake tray icons, one tooltip changing every 2 s: CPU, memory, change latency, cleanup. */
+async function measureTray() {
+  const log = `${os.tmpdir()}/barista-tray-${Date.now()}.log`
+  const ps = spawn(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", `${root}scripts/tray-icons.ps1`,
+      "-Count", "15", "-Tip", "-Blink", "-Log", log],
+    { stdio: "ignore" },
+  )
+  const client = pipeClient()
+  await client.ready
+  const welcome = await client.ask({
+    type: "hello", protocolVersion: "0.6", appName: "bench-tray", pid: process.pid,
+    sdk: { name: "bench", version: "0" },
+  })
+  if (welcome.type !== "welcome") throw new Error(`bench hello failed: ${JSON.stringify(welcome)}`)
+  const mine = (items) => items.filter((i) => i.source === "tray" && /^(powershell|pwsh)$/i.test(i.appName))
+  const waitFor = async (done, ms) => {
+    const until = Date.now() + ms
+    for (;;) {
+      const { items } = await client.ask({ type: "debug.listItems" })
+      if (done(mine(items))) return true
+      if (Date.now() > until) return false
+      await sleep(25)
+    }
+  }
+  if (!(await waitFor((i) => i.length === 15, 20000))) {
+    ps.kill()
+    client.close()
+    return null
+  }
+  // CPU and memory with 15 icons, one of them changing every 2 s.
+  const cpu = await sampleCpu()
+  const memory = cpu.last.private / 1024 / 1024
+  // Tooltip changes: the app logs the moment it sends each one; we log when the registry shows it.
+  const seen = new Map()
+  const until = Date.now() + 22000
+  while (Date.now() < until) {
+    const { items } = await client.ask({ type: "debug.listItems" })
+    const now = Date.now()
+    for (const item of mine(items)) {
+      const m = /Barista test 1 #(\d+)/.exec(item.tooltip ?? "")
+      if (m && !seen.has(m[1])) seen.set(m[1], now)
+    }
+    await sleep(20)
+  }
+  const sent = new Map(
+    readFileSync(log, "utf8").split(/\r?\n/).map((l) => /^(\d+) tip (\d+)/.exec(l)).filter(Boolean).map((m) => [m[2], Number(m[1])]),
+  )
+  const changes = [...seen].filter(([n]) => sent.has(n)).map(([n, at]) => at - sent.get(n))
+  // A killed app (no clean shutdown): its icons must go with its window.
+  const killedAt = Date.now()
+  execFileSync("taskkill", ["/PID", String(ps.pid), "/F", "/T"], { stdio: "ignore" })
+  const gone = await waitFor((i) => i.length === 0, 10000)
+  const cleanup = gone ? Date.now() - killedAt : null
+  client.close()
+  return { cpu: cpu.percent, memory, changes, cleanup }
+}
+
 console.log("Measuring item latency (30 rounds)...")
 const latency = await measureLatency()
 
@@ -306,6 +367,9 @@ const menus = await measureMenus()
 
 console.log("Measuring popovers (30 opens, 30 closes)...")
 const popovers = await measurePopovers()
+
+console.log("Measuring with 15 fake tray icons (CPU, change latency, cleanup)...")
+const tray = await measureTray()
 
 console.log(
   `Starting the test client, sampling CPU ${seconds}s with a label ticking every second...`,
@@ -388,6 +452,36 @@ const rows = [
         "< 50 ms",
         Math.max(...menus.shown) < 50,
       ],
+  ...(tray
+    ? [
+        [
+          "CPU with 15 tray icons (one tooltip changing every 2 s)",
+          `${tray.cpu.toFixed(2)}%`,
+          "< 0.5%",
+          tray.cpu < 0.5,
+        ],
+        tray.changes.length === 0
+          ? ["Tray tooltip change until it is in the registry", "not measured", "< 1000 ms", false]
+          : [
+              `Tray tooltip change until it is in the registry (median / worst of ${tray.changes.length})`,
+              `${median(tray.changes).toFixed(0)} / ${Math.max(...tray.changes).toFixed(0)} ms`,
+              "< 1000 ms",
+              Math.max(...tray.changes) < 1000,
+            ],
+        [
+          "A killed tray app's icons gone from the registry",
+          tray.cleanup === null ? "not gone after 10 s" : `${tray.cleanup} ms`,
+          "< 1000 ms",
+          tray.cleanup !== null && tray.cleanup < 1000,
+        ],
+        [
+          "Memory, private with 15 tray icons",
+          `${tray.memory.toFixed(0)} MB`,
+          "< 120 MB",
+          tray.memory < 120,
+        ],
+      ]
+    : [["Tray icons", "not measured (the fake tray icons never showed up)", "", false]]),
   ["Memory, private (bar + WebView2)", `${privateMb.toFixed(0)} MB`, "< 120 MB", privateMb < 120],
   ["Memory, working set sum (reference)", `${memoryMb.toFixed(0)} MB`, "counts shared pages", true],
 ]

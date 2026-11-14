@@ -57,14 +57,17 @@ function open(onMessage: (m: BarMessage, send: (m: ClientMessage) => void) => vo
 function print(items: ItemInfo[]): void {
   if (items.length === 0) return console.log("(no items)")
   for (const item of items) {
+    // Tray icons have no label: the tooltip (first line) tells them apart.
+    const tray = item.source === "tray"
     const parts = [
       item.id.padEnd(22),
+      tray ? "[tray]" : "      ",
       item.appName.padEnd(14),
       `pid ${item.pid}`.padEnd(10),
       item.hasIcon ? "icon" : "    ",
       item.hasMenu ? "menu" : "    ",
       item.hasPopover ? "popover" : "       ",
-      JSON.stringify(item.label ?? ""),
+      JSON.stringify(tray ? (item.tooltip ?? "").split("\n")[0]?.slice(0, 40) : (item.label ?? "")),
       item.visible ? "" : "(hidden)",
     ]
     console.log(parts.join("  "))
