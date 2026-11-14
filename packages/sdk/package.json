@@ -22,7 +22,7 @@
     "popover"
   ],
   "engines": {
-    "node": ">=22.18"
+    "node": ">=22"
   },
   "type": "module",
   "main": "./dist/index.js",
