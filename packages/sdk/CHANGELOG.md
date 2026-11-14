@@ -3,6 +3,28 @@
 All notable changes to `@baristabar/sdk` are listed here. The SDK is versioned separately from the
 Barista app (tags `sdk-vX.Y.Z`). The format follows [Keep a Changelog](https://keepachangelog.com).
 
+## [0.1.1] - 2026-11-14
+
+A small fix release: a clearer hint when the bar isn't running, and a better README quick start. Speaks protocol 0.5.
+
+### Changed
+
+- **One waiting hint:** if the bar isn't running, a script prints a single line on stderr after about 10 seconds,
+  so it doesn't look stuck. The hint is skipped when the bar answers first or after `close()`, and its timer
+  never keeps your process alive.
+
+### Fixed
+
+- The README quick start now connects with `appName` first (`BA.connect({ appName: "Clock" })`), so the bar's
+  tooltips show your app's name instead of "index".
+
+### Known issues
+
+- Needs Node 22 or newer.
+- Windows only, and the Barista bar must be installed and running for items to show (the SDK waits if it isn't).
+- Icon objects need `@resvg/resvg-js` installed; without it, use a PNG instead.
+- The package is pre-1.0: names and protocol fields may still change in a minor release.
+
 ## [0.1.0] - 2026-11-14
 
 First public release: put your app in the Barista menu bar with a status item, a menu or your own popover window.
