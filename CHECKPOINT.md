@@ -5,6 +5,14 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-14)
 
+- **v0.6 "Tray, read" in progress** (branch `feature/v0.6-tray-read`, `UI: rust-only` in the /goal but Liam allowed the UI for it).
+  Built: hidden `Shell_TrayWnd` host (`platform/windows/tray_host.rs`), `tray/` (`parse`, `state`, `icons`, worker), registry
+  `source: app | tray` + `trayMode` setting, collapsed tray group in the bar (`features/menubar/tray-items.tsx`), ADR 0026 (proposed),
+  `scripts/tray-icons.ps1` (fake tray app), `scripts/tray-zorder.ps1`, tray rows in `pnpm bench`. Left: bench numbers in
+  `docs/perf/0.6.md`, dogfooding, `/code-review`, `/security-review`, end-to-end, PR. **New for the UI:** `StatusItemView.source`
+  (`"app" | "tray"`), wired already (`useItems`, `TrayItems`). Liam's feedback so far is in `ux-taste-feedback` memory and the research file.
+  Start of a dev bar kills the installed one (fixed pipe name): quit it first; `tauri dev` restarts the bar on every `src-tauri` edit.
+
 - **v0.5.0 shipped** (tag `v0.5.0` on the merge of PR #32, not pushed yet: Liam runs `pnpm release`). `sdk-v0.1.0` is pushed and the Action
   logged a publish; do `npm install @baristabar/sdk` in a fresh folder once to confirm it is on npm. Plan releases v0.0 to v0.5 are done;
   notes in `docs/release/history/` (local only, v0.5 in `v0.5-checkpoint.md`, with its dogfooding papercuts: `item.ready`, a
