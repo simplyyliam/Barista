@@ -1,76 +1,13 @@
 // Talks to a fake bar on a real named pipe, so the whole SDK path (connect, hello, frames) runs.
-import net from "node:net"
 import { randomUUID } from "node:crypto"
 import { afterEach, describe, expect, it } from "vitest"
-import { FrameDecoder, encodeFrame } from "./frame.js"
-import { PROTOCOL_VERSION, type BarMessage, type ClientMessage } from "./protocol.js"
+import { FakeBar } from "../test/fake-bar.js"
+import { encodeFrame } from "./frame.js"
+import { PROTOCOL_VERSION } from "./protocol.js"
 import { BarError, StatusBar } from "./status-bar.js"
 import { StatusItem } from "./status-item.js"
 
 const SVG = Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'/>")
-
-/** A bar that records what clients send and lets the test answer. */
-class FakeBar {
-  readonly pipeName = `\\\\.\\pipe\\barista-test-${randomUUID()}`
-  readonly received: ClientMessage[] = []
-  readonly #server: net.Server
-  #socket?: net.Socket
-  #waiters: Array<() => void> = []
-  /** What to answer to `hello`. */
-  onHello: (hello: ClientMessage) => BarMessage | null = () => ({
-    type: "welcome",
-    sessionId: "s1",
-    barVersion: "9.9.9",
-    protocolVersion: PROTOCOL_VERSION,
-  })
-
-  constructor() {
-    this.#server = net.createServer((socket) => {
-      this.#socket = socket
-      const decoder = new FrameDecoder()
-      socket.on("data", (chunk) => {
-        for (const message of decoder.push(chunk) as ClientMessage[]) {
-          this.received.push(message)
-          if (message.type === "hello") {
-            const reply = this.onHello(message)
-            if (reply) socket.write(encodeFrame(reply))
-          }
-        }
-        this.#waiters.splice(0).forEach((wake) => wake())
-      })
-      socket.on("error", () => {})
-    })
-  }
-
-  listen(): Promise<void> {
-    return new Promise((resolve) => this.#server.listen(this.pipeName, resolve))
-  }
-
-  send(message: BarMessage): void {
-    this.#socket?.write(encodeFrame(message))
-  }
-
-  sendRaw(bytes: Buffer): void {
-    this.#socket?.write(bytes)
-  }
-
-  closeClient(): void {
-    this.#socket?.destroy()
-  }
-
-  /** Resolves when `count` messages have arrived. */
-  async messages(count: number): Promise<ClientMessage[]> {
-    while (this.received.length < count) {
-      await new Promise<void>((resolve) => this.#waiters.push(resolve))
-    }
-    return this.received
-  }
-
-  close(): void {
-    this.#socket?.destroy()
-    this.#server.close()
-  }
-}
 
 let fake: FakeBar | undefined
 const bars: StatusBar[] = []
@@ -109,9 +46,13 @@ describe("connecting", () => {
     })
   })
 
-  it("rejects with a clear message when the bar is not running", async () => {
+  it("waits quietly when the bar is not running instead of failing", async () => {
     const pipeName = `\\\\.\\pipe\\barista-test-${randomUUID()}`
-    await expect(StatusBar.connect({ pipeName })).rejects.toThrow(/Is it running/)
+    const bar = await StatusBar.connect({ pipeName })
+    bars.push(bar)
+    expect(bar.available).toBe(false)
+    expect(bar.closed).toBe(false)
+    expect(bar.sessionId).toBeUndefined()
   })
 
   it("rejects with the bar's error when it refuses hello", async () => {
@@ -128,13 +69,15 @@ describe("connecting", () => {
     expect(failure).toMatchObject({ code: "version_mismatch", message: "too new" })
   })
 
-  it("rejects when the bar never answers", async () => {
+  it("keeps trying when the bar never answers hello", async () => {
     fake = new FakeBar()
     fake.onHello = () => null // stays silent
     await fake.listen()
-    await expect(StatusBar.connect({ pipeName: fake.pipeName, timeoutMs: 100 })).rejects.toThrow(
-      /in time|closed/,
-    )
+    const bar = await StatusBar.connect({ pipeName: fake.pipeName, timeoutMs: 100 })
+    bars.push(bar)
+    expect(bar.available).toBe(false)
+    // It gave up on that connection and asked again.
+    await until(() => (fake?.connections ?? 0) >= 2)
   })
 })
 
@@ -238,13 +181,13 @@ describe("StatusItem", () => {
   })
 
   it("does nothing, without throwing, after the connection closed", async () => {
-    const { fake, bar } = await setup()
+    const { bar } = await setup()
     const item = await StatusItem.create({ id: "a", bar })
     let closed = 0
     bar.on("close", () => closed++)
-    fake.closeClient()
-    await until(() => bar.closed)
-    expect(closed).toBe(1)
+    bar.close()
+    await until(() => closed === 1)
+    expect(bar.closed).toBe(true)
     expect(() => item.setLabel("late")).not.toThrow()
   })
 
