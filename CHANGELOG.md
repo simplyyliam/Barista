@@ -6,6 +6,49 @@ All notable changes to the Barista app are listed here. The SDK has its own chan
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-14
+
+Apps that add items to the bar no longer leave dead icons behind, and they find their way back after the bar restarts.
+
+### Added
+
+- **Icons go away when their app does.** Close an app, or let it crash, and its icon leaves the bar right away. An app that
+  freezes without closing is removed after about 15 seconds.
+- **Icons come back after a restart.** If the bar restarts, apps put their items back on their own, with the same label,
+  icon, menu and popover. This takes about a second after the bar is up.
+- **Start apps in any order.** An app that starts before the bar waits quietly and its icon appears as soon as the bar is ready.
+- **Barista says goodbye.** When the bar quits, it tells every app first, so they wait for it to return instead of failing.
+
+### Changed
+
+- The bar starts listening to apps earlier while it opens, so apps reconnect sooner after a restart.
+
+### Known issues
+
+- Windows SmartScreen may warn that the installer is from an unknown publisher, because it isn't
+  code-signed yet. Click "More info", then "Run anyway".
+- No automatic updates yet. To get a newer version, download its installer from the GitHub
+  Releases page and run it.
+- Some bar items are still missing: the search item doesn't do anything yet, and there's no "Quit Barista" entry.
+- Windows still shows its own notification pop-ups; the panel lists them but doesn't replace them.
+- Keyboard shortcut hints in menus are only text. Showing "Ctrl+Enter" next to an entry doesn't
+  create a real shortcut.
+- The usual Windows tray icons stay in the taskbar for now; they move into the bar in a later version.
+- The bar shows on one screen only, and there's no way yet to pick which screen from the app.
+- Menus take about 50 ms to appear and Barista uses about 150 MB of memory, because the panel
+  and menu windows are ready in the background.
+
+### Privacy
+
+- Barista sends nothing over the internet. It doesn't check for updates yet.
+- Your notifications, Wi-Fi networks, battery and volume are read on this computer only and never
+  sent anywhere.
+- Apps that add items, menus or popovers talk to the bar only on this computer; nothing leaves the
+  machine. The "are you still there" checks between the bar and apps stay on this computer too.
+- The bar looks at the wallpaper behind it only to pick light or dark text. This happens on your
+  computer, and the wallpaper is never sent anywhere.
+- Tray icons aren't read yet. When they are, they'll be read locally and never sent anywhere.
+
 ## [0.4.1] - 2026-11-13
 
 The bar now shows your real clock, battery, volume and Wi-Fi, and each one opens a panel.
