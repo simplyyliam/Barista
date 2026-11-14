@@ -140,25 +140,50 @@ function startBar() {
   return bar
 }
 
-/** Quits the bar the way the UI would: the `quit_bar` command, called in the bar's main page. */
+/**
+ * Quits the bar the way the UI would: the `quit_bar` command, called from a page of the bar. Every
+ * window of the bar loads the same page and may call it, so the pages are tried one after the
+ * other until the debug port goes away with the bar.
+ */
 async function quitBarPolitely() {
-  const pages = await (await fetch("http://127.0.0.1:9222/json")).json()
-  const page = pages.find((p) => p.type === "page" && !/panel|menu|debug/.test(p.url + p.title))
-  if (!page) throw new Error("no page on the debug port")
-  const ws = new WebSocket(page.webSocketDebuggerUrl)
-  await new Promise((resolve, reject) => {
-    ws.onopen = resolve
-    ws.onerror = reject
-  })
-  ws.send(
-    JSON.stringify({
-      id: 1,
-      method: "Runtime.evaluate",
-      params: { expression: "window.__TAURI_INTERNALS__.invoke('quit_bar')", awaitPromise: false },
-    }),
+  const pages = (await (await fetch("http://127.0.0.1:9222/json")).json()).filter(
+    (p) => p.type === "page" && p.webSocketDebuggerUrl,
   )
-  await sleep(200)
-  ws.close()
+  if (pages.length === 0) throw new Error("no page on the debug port")
+  for (const page of pages) {
+    const ws = new WebSocket(page.webSocketDebuggerUrl)
+    try {
+      await new Promise((resolve, reject) => {
+        ws.onopen = resolve
+        ws.onerror = reject
+      })
+      const answer = new Promise((resolve) => {
+        ws.onmessage = (event) => resolve(JSON.parse(event.data))
+        ws.onclose = () => resolve(null)
+      })
+      ws.send(
+        JSON.stringify({
+          id: 1,
+          method: "Runtime.evaluate",
+          params: { expression: "window.__TAURI_INTERNALS__.invoke('quit_bar')" },
+        }),
+      )
+      const reply = await Promise.race([answer, sleep(1000).then(() => null)])
+      if (reply?.result?.exceptionDetails) {
+        console.error(`   quit_bar failed in ${page.url}: ${reply.result.exceptionDetails.text}`)
+      }
+    } catch {
+      // this page is gone (the bar is already quitting): done
+    } finally {
+      ws.close()
+    }
+    await sleep(300)
+    const alive = await fetch("http://127.0.0.1:9222/json").then(
+      () => true,
+      () => false,
+    )
+    if (!alive) return
+  }
 }
 
 function killBar() {

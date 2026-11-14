@@ -48,6 +48,13 @@ the main thread waits at most 300 ms for the writers to flush (a live-session co
 `app.exit(0)`; the new command `quit_bar` exists for a future "Quit Barista" entry (no UI yet). A bar that
 is killed (taskkill, crash) sends nothing: clients see the pipe break, which they handle the same way.
 
+**The pipe opens first.** `ipc::start` runs right after the registry is created, before the menu, popover and
+panel windows and the system services are set up (together over a second). Clients retry while the bar is not
+there, so an early pipe brings their items back sooner after a bar restart (from launch: median 2.2 s before,
+1.2 s after). It is safe because everything a session touches outside the registry (`popover`, `menu_window`,
+`panel`) is an `Option` that is empty until its `init`, and the registry's change signal keeps one permit, so items
+that arrive early reach the UI when `forward_changes` starts and with the UI's first `getItems`.
+
 **Timings are a config, not constants in the loop.** `SessionConfig { bar_version, heartbeat, shutdown }`
 lets the tests run the heartbeat in milliseconds.
 
