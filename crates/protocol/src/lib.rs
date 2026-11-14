@@ -540,7 +540,7 @@ mod tests {
             app_name: "Test".into(),
             pid: 42,
             sdk: SdkInfo {
-                name: "@barista/sdk".into(),
+                name: "@baristabar/sdk".into(),
                 version: "0.0.0".into(),
             },
         };
@@ -552,7 +552,7 @@ mod tests {
                 "protocolVersion": PROTOCOL_VERSION,
                 "appName": "Test",
                 "pid": 42,
-                "sdk": { "name": "@barista/sdk", "version": "0.0.0" }
+                "sdk": { "name": "@baristabar/sdk", "version": "0.0.0" }
             })
         );
         assert_eq!(

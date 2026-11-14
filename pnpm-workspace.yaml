@@ -1,5 +1,5 @@
 # Every folder matched here is a workspace package: pnpm links them together,
-# so `@barista/sdk` resolves to packages/sdk instead of the npm registry.
+# so `@baristabar/sdk` resolves to packages/sdk instead of the npm registry.
 packages:
   - apps/*
   - packages/*

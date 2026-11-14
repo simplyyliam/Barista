@@ -4,7 +4,7 @@ Status: accepted (2026-11-09, v0.2 First item)
 
 ## Context
 
-`@barista/sdk` is the public face of the protocol. v0.2 needs connect, `hello` and `StatusItem`.
+`@baristabar/sdk` is the public face of the protocol. v0.2 needs connect, `hello` and `StatusItem`.
 Questions: does the developer manage a connection, and how do refusals from the bar reach them,
 given that the bar only answers with errors (successes have no reply)?
 

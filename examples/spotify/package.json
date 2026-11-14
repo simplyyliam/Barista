@@ -9,7 +9,7 @@
     "typecheck": "tsc6 --noEmit"
   },
   "dependencies": {
-    "@barista/sdk": "workspace:*"
+    "@baristabar/sdk": "workspace:*"
   },
   "devDependencies": {
     "@hugeicons/core-free-icons": "^4.4.0",

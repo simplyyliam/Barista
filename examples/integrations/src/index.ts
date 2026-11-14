@@ -1,6 +1,6 @@
 // GitHub in the menu bar: the latest commit of one repository, as a menu (no popover needed).
 // Spotify moved to its own Electron example, `examples/spotify`, because it has a window.
-import * as BA from "@barista/sdk"
+import * as BA from "@baristabar/sdk"
 import { GitBranch } from "lucide"
 import { fetchLatestCommit, type GitHubCommit } from "./github.ts"
 import { openExternalUrl } from "./open-url.ts"

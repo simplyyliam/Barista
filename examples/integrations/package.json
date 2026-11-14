@@ -8,7 +8,7 @@
     "typecheck": "tsc6 --noEmit"
   },
   "dependencies": {
-    "@barista/sdk": "workspace:*"
+    "@baristabar/sdk": "workspace:*"
   },
   "devDependencies": {
     "lucide": "^1.71.0",

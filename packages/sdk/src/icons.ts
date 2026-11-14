@@ -153,7 +153,7 @@ function canvas(tag: string): { width: number; height: number } {
  *
  * @example
  * ```ts
- * import { fitToGlyph, ICON_SIZE } from "@barista/sdk/icons"
+ * import { fitToGlyph, ICON_SIZE } from "@baristabar/sdk/icons"
  * item.setIcon(fitToGlyph(fs.readFileSync("clock.svg", "utf8"), ICON_SIZE))
  * ```
  */

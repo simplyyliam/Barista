@@ -21,7 +21,7 @@ height (a battery about 24 x 12). Apps also had to hand-write SVG strings, becau
 - **Fit in the SDK, not in the bar.** `fitToGlyph(svg, height)` measures the real bounds of the drawing (stroke included)
   with resvg, makes them the `viewBox`, and sets `height` and an aspect-correct `width`. Icon objects go through it
   automatically at 16 px (`ICON_SIZE`); wide icons use `WIDE_ICON_HEIGHT` (12). The size constants live in
-  `@barista/sdk/icons` (one place to tune); `ICON_AREA` (22) caps anything taller.
+  `@baristabar/sdk/icons` (one place to tune); `ICON_AREA` (22) caps anything taller.
 - **resvg is an optional peer dependency**, loaded lazily. Apps that never import an icon object need nothing. Without
   it, icon objects still work but keep their border (and a warning says how to fix that, once). The core SDK stays
   light; the native module is only for apps that opt in.

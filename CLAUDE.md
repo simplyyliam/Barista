@@ -2,7 +2,7 @@
 
 A macOS-style menu bar (and later a dock) for Windows, built with Tauri. It replaces the system
 tray: tray icons live in the bar, and apps can add real menu bar items through a public SDK
-(`@barista/sdk`, prefix `BA`). The bar reserves screen space like macOS.
+(`@baristabar/sdk`, prefix `BA`). The bar reserves screen space like macOS.
 
 ## Who does what
 
@@ -94,11 +94,11 @@ apps/bar/                 Tauri app
     src/platform/windows/ AppBar, tray bridging, monitors, DPI
 apps/web/                 website and SDK docs (Next.js + Fumadocs, static export); the user owns the landing page UI
 crates/protocol/          message types shared by bar and SDK (source of protocol.ts)
-packages/sdk/             @barista/sdk (BA.StatusItem etc.)
+packages/sdk/             @baristabar/sdk (BA.StatusItem etc.)
   src/protocol.ts         generated from crates/protocol (never edit)
 packages/ui/              @barista/ui: shared shadcn/ui (preset base-mira); apps import its styles.css
   src/styles.css          shadcn's generated theme (:root, @theme, dark); leave it as generated
-packages/react/           @barista/react (later)
+packages/react/           @baristabar/react (later)
 examples/test-client/     tiny app that registers items, used in tests and demos
 examples/scripts/         example script items (system monitor, ...), dropped into %APPDATA%\Barista\scripts
 docs/                     release plan, ADRs (decisions/), design, research, perf
@@ -108,7 +108,7 @@ Nothing imports from `apps/`. The SDK never imports Tauri.
 
 ## SDK naming
 
-- Main style: `import * as BA from '@barista/sdk'` then `BA.StatusItem`, `BA.Menu`, `BA.Popover`.
+- Main style: `import * as BA from '@baristabar/sdk'` then `BA.StatusItem`, `BA.Menu`, `BA.Popover`.
   Also export prefixed names (`BAStatusItem`, `BAMenu`, ...).
 - Names: `StatusBar` (host), `StatusItem`, `Menu`, `MenuItem`, `Popover`; later `Dock`, `DockItem`.
 - `create` / `remove` for lifecycle, `set...` for changes (`setLabel`, `setIcon`, `setMenu`,

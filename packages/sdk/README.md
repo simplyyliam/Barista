@@ -1,16 +1,16 @@
-# @barista/sdk
+# @baristabar/sdk
 
 Put your app in the Barista menu bar for Windows.
 
 ```ts
-import * as BA from "@barista/sdk"
+import * as BA from "@baristabar/sdk"
 
 const item = await BA.StatusItem.create({ id: "counter", label: "0" })
 item.on("click", ({ button }) => console.log("clicked with", button))
 ```
 
 Needs Node 22 or newer. Every name is also exported with a `BA` prefix
-(`import { BAStatusItem } from "@barista/sdk"`).
+(`import { BAStatusItem } from "@baristabar/sdk"`).
 
 ## Getting started
 
@@ -19,13 +19,13 @@ Start from an empty folder:
 ```sh
 npm init -y
 npm pkg set type=module
-npm install @barista/sdk
+npm install @baristabar/sdk
 ```
 
 Save this as `index.js` and run `node index.js`:
 
 ```js
-import * as BA from "@barista/sdk"
+import * as BA from "@baristabar/sdk"
 
 // 1. Create an item. This connects to the bar for you.
 const item = await BA.StatusItem.create({
@@ -169,7 +169,7 @@ item.setIcon({ icon: Clock01Icon, color: "#8b95a5", strokeWidth: 1.75 })
 - Icon sets draw with an empty border, so a plain 16 px icon looks small. Icon objects are cropped to their real
   glyph and sized by height (16 px square, `height: BA.WIDE_ICON_HEIGHT` for wide shapes) when you install
   `@resvg/resvg-js` (`npm install @resvg/resvg-js`). Without it they still work, just smaller.
-- For your own SVG: `import { fitToGlyph } from "@barista/sdk/icons"`, then `item.setIcon(fitToGlyph(svg, 16))`.
+- For your own SVG: `import { fitToGlyph } from "@baristabar/sdk/icons"`, then `item.setIcon(fitToGlyph(svg, 16))`.
   `toPng(svg, { height, scale })` makes a PNG at `height * scale` pixels. The sizes (`ICON_SIZE`, `WIDE_ICON_HEIGHT`,
   `ICON_AREA`) are exported from the same place.
 
@@ -179,8 +179,8 @@ A popover is your own window, shown right under the icon. The bar decides when (
 where (it sends the final rect); your app only moves and shows its window.
 
 ```ts
-import * as BA from "@barista/sdk"
-import { electronPopover } from "@barista/sdk/electron"
+import * as BA from "@baristabar/sdk"
+import { electronPopover } from "@baristabar/sdk/electron"
 import { BrowserWindow, screen } from "electron"
 
 const win = new BrowserWindow({ show: false, frame: false, skipTaskbar: true, alwaysOnTop: true })

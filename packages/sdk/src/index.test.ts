@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import * as BA from "./index.js"
 
-describe("@barista/sdk", () => {
+describe("@baristabar/sdk", () => {
   it("exports the protocol version generated from Rust", () => {
     expect(BA.PROTOCOL_VERSION).toMatch(/^\d+\.\d+$/)
   })

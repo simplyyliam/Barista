@@ -3,8 +3,8 @@
 // // Under plain Node there is no window to show, so a fake PopoverWindow only logs where the bar
 // // asked for it (used by automated checks). Under Electron (`pnpm test-client:electron`) it is a
 // // real small window with a text box, so you can see it appear under the icon with keyboard focus.
-// import * as BA from "@barista/sdk"
-// import { electronPopover } from "@barista/sdk/electron"
+// import * as BA from "@baristabar/sdk"
+// import { electronPopover } from "@baristabar/sdk/electron"
 
 // const PAGE = `<!doctype html><meta charset="utf-8"><title>Note</title>
 // <style>

@@ -20,7 +20,7 @@ export interface Placement {
 
 /**
  * A window the bar can show as a popover. The SDK knows nothing about window frameworks: you
- * hand it anything that can do these three things. `@barista/sdk/electron` has a ready-made one
+ * hand it anything that can do these three things. `@baristabar/sdk/electron` has a ready-made one
  * for Electron.
  *
  * Esc and window-close handling belong to you: when your window closes itself, call the
