@@ -5,8 +5,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { app, BrowserWindow, ipcMain, screen } from "electron"
-import * as BA from "@barista/sdk"
-import { electronPopover } from "@barista/sdk/electron"
+import * as BA from "@baristabar/sdk"
+import { electronPopover } from "@baristabar/sdk/electron"
 import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
 
 // const ICON =

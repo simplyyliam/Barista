@@ -10,7 +10,7 @@
 // It speaks the protocol by hand (about 20 lines) because `debug.*` messages are not part of
 // the public SDK.
 import net from "node:net"
-import { PROTOCOL_VERSION, type BarMessage, type ClientMessage, type ItemInfo } from "@barista/sdk"
+import { PROTOCOL_VERSION, type BarMessage, type ClientMessage, type ItemInfo } from "@baristabar/sdk"
 
 const PIPE = "\\\\.\\pipe\\barista"
 

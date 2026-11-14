@@ -1,10 +1,10 @@
 /**
- * @barista/sdk: put your app in the Barista menu bar.
+ * @baristabar/sdk: put your app in the Barista menu bar.
  *
  * Use it as a namespace:
  *
  * ```ts
- * import * as BA from "@barista/sdk"
+ * import * as BA from "@baristabar/sdk"
  *
  * const item = await BA.StatusItem.create({ id: "counter", label: "0" })
  * item.on("click", () => console.log("clicked"))
@@ -14,7 +14,7 @@
  * named imports.
  *
  * Popovers: `item.setPopover({ window, width, height })` shows your own window under the icon.
- * Electron apps use `electronPopover` from `@barista/sdk/electron`.
+ * Electron apps use `electronPopover` from `@baristabar/sdk/electron`.
  */
 
 import { connect, StatusBar } from "./status-bar.js"
@@ -36,7 +36,7 @@ export type { IconInput, IconNode, IconSpec } from "./icons.js"
 export { Menu, MenuItem } from "./menu.js"
 export type { MenuClickEvent, MenuItemOptions } from "./menu.js"
 
-// Prefixed names, same things: `import { BAStatusItem } from "@barista/sdk"`.
+// Prefixed names, same things: `import { BAStatusItem } from "@baristabar/sdk"`.
 export const BAStatusBar = StatusBar
 export type BAStatusBar = StatusBar
 export const BAStatusItem = StatusItem

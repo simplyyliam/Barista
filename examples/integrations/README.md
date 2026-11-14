@@ -1,6 +1,6 @@
 # Barista integrations example
 
-A Node.js client built with `@barista/sdk` that puts **GitHub** in the menu bar: the latest commit
+A Node.js client built with `@baristabar/sdk` that puts **GitHub** in the menu bar: the latest commit
 of a configured repository, with menu entries to refresh and to open the repository or the commit.
 It is a plain menu, so it needs no window.
 
@@ -28,7 +28,7 @@ The example checks for a new commit about once a minute, and again each time the
 From the repository root, build the local SDK and start the example:
 
 ```powershell
-pnpm --filter @barista/sdk build
+pnpm --filter @baristabar/sdk build
 pnpm --filter @barista/integrations-demo start
 ```
 

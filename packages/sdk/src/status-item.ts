@@ -69,7 +69,7 @@ function callSafely(call: () => void): void {
  *
  * @example
  * ```ts
- * import * as BA from "@barista/sdk"
+ * import * as BA from "@baristabar/sdk"
  *
  * const item = await BA.StatusItem.create({ id: "counter", label: "0" })
  * item.on("click", ({ button }) => console.log("clicked with", button))
@@ -255,7 +255,7 @@ export class StatusItem {
    *
    * @example
    * ```ts
-   * import { electronPopover } from "@barista/sdk/electron"
+   * import { electronPopover } from "@baristabar/sdk/electron"
    * item.setPopover({ window: electronPopover(win, { screen }), width: 320, height: 380 })
    * ```
    */

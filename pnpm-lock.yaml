@@ -306,7 +306,7 @@ importers:
 
   examples/clock:
     dependencies:
-      '@barista/sdk':
+      '@baristabar/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
@@ -319,7 +319,7 @@ importers:
 
   examples/inspect:
     dependencies:
-      '@barista/sdk':
+      '@baristabar/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
@@ -329,7 +329,7 @@ importers:
 
   examples/integrations:
     dependencies:
-      '@barista/sdk':
+      '@baristabar/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
@@ -342,7 +342,7 @@ importers:
 
   examples/quick-note:
     dependencies:
-      '@barista/sdk':
+      '@baristabar/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
@@ -358,7 +358,7 @@ importers:
 
   examples/spotify:
     dependencies:
-      '@barista/sdk':
+      '@baristabar/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
@@ -374,7 +374,7 @@ importers:
 
   examples/test-client:
     dependencies:
-      '@barista/sdk':
+      '@baristabar/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:

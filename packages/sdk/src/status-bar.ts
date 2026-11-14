@@ -147,7 +147,7 @@ export class StatusBar {
    *
    * @example
    * ```ts
-   * import * as BA from "@barista/sdk"
+   * import * as BA from "@baristabar/sdk"
    * const bar = await BA.StatusBar.connect({ appName: "Clock" })
    * ```
    */
@@ -574,7 +574,7 @@ let defaultBar: Promise<StatusBar> | undefined
  *
  * @example
  * ```ts
- * import * as BA from "@barista/sdk"
+ * import * as BA from "@baristabar/sdk"
  * await BA.connect({ appName: "Clock" })
  * const item = await BA.StatusItem.create({ id: "time", label: "12:00" })
  * ```

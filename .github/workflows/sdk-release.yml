@@ -1,4 +1,4 @@
-# Publishes @barista/sdk to npm when an SDK tag (sdk-v0.1.0, ...) is pushed by `pnpm release`,
+# Publishes @baristabar/sdk to npm when an SDK tag (sdk-v0.1.0, ...) is pushed by `pnpm release`,
 # and makes a GitHub release (not a draft) with that version's notes from packages/sdk/CHANGELOG.md.
 # Needs the NPM_TOKEN repo secret (an npm automation token).
 # It only runs when an sdk-v* tag is pushed. A dry run goes first, so a broken package never reaches npm.
@@ -36,8 +36,8 @@ jobs:
             echo "Tag says $want but packages/sdk/package.json says $have"; exit 1
           fi
 
-      - run: pnpm --filter @barista/sdk test
-      - run: pnpm --filter @barista/sdk build
+      - run: pnpm --filter @baristabar/sdk test
+      - run: pnpm --filter @baristabar/sdk build
 
       # Lists exactly what would be published (and fails on a broken package) before the real thing.
       - run: pnpm publish --dry-run --access public --no-git-checks
@@ -54,4 +54,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node scripts/changelog-section.mjs packages/sdk/CHANGELOG.md "${GITHUB_REF_NAME}" > notes.md
-          gh release create "${GITHUB_REF_NAME}" --title "@barista/sdk ${GITHUB_REF_NAME#sdk-v}" --notes-file notes.md
+          gh release create "${GITHUB_REF_NAME}" --title "@baristabar/sdk ${GITHUB_REF_NAME#sdk-v}" --notes-file notes.md

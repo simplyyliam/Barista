@@ -38,7 +38,7 @@ jobs:
       - run: pnpm test
 
       # The SDK must pack for npm: catches a broken "files", "exports" or missing build output.
-      - run: pnpm --filter @barista/sdk build
+      - run: pnpm --filter @baristabar/sdk build
       - run: pnpm publish --dry-run --no-git-checks
         working-directory: packages/sdk
 

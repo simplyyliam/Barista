@@ -11,8 +11,8 @@
 // @barista/spotify-demo start`, or `start:demo` for a pretend player.
 import { fileURLToPath } from "node:url"
 import { app, BrowserWindow, ipcMain, screen } from "electron"
-import * as BA from "@barista/sdk"
-import { electronPopover } from "@barista/sdk/electron"
+import * as BA from "@baristabar/sdk"
+import { electronPopover } from "@baristabar/sdk/electron"
 import { DemoPlayer } from "./demo.ts"
 import { openExternalUrl } from "./open-url.ts"
 import { SpotifyClient, type SpotifyTrack } from "./spotify.ts"

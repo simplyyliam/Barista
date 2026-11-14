@@ -29,7 +29,7 @@ if (running.toLowerCase().includes("barista.exe")) {
   console.error("A bar is already running. Close it first: this script starts its own.")
   process.exit(1)
 }
-execSync("pnpm --filter @barista/sdk build", { stdio: "ignore" })
+execSync("pnpm --filter @baristabar/sdk build", { stdio: "ignore" })
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const stats = (list) => {

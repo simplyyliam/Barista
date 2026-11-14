@@ -69,7 +69,7 @@ result is the same for the user and the bar is told with `closed`.)
 (an app can refresh a label right before its menu shows).
 
 **The SDK stays framework-free.** `PopoverWindow { show(placement), hide(), onClose(listener) }` is a
-structural interface. `@barista/sdk/electron` takes a `BrowserWindow` and `screen` as arguments and imports nothing
+structural interface. `@baristabar/sdk/electron` takes a `BrowserWindow` and `screen` as arguments and imports nothing
 from Electron; lint forbids importing `electron` anywhere in `packages/`. Electron is a dev dependency of the
 Electron examples only. A Tauri adapter moves to the v1.2 Rust crate and plugin: the SDK is Node-only and
 cannot run in a webview.

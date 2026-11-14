@@ -24,8 +24,10 @@ function npmDependencies(dir: string): string[] {
   if (!existsSync(file)) return []
   const pkg = JSON.parse(readFileSync(file, "utf8"))
   const all = { ...pkg.dependencies, ...pkg.devDependencies }
-  // Our own workspace packages (@barista/*) don't need a credit.
-  return Object.keys(all).filter((name) => !name.startsWith("@barista/"))
+  // Our own workspace packages (@barista/* private ones, @baristabar/* the published ones) don't need a credit.
+  return Object.keys(all).filter(
+    (name) => !name.startsWith("@barista/") && !name.startsWith("@baristabar/"),
+  )
 }
 
 function cargoDependencies(dir: string): string[] {

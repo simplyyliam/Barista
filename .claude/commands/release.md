@@ -156,7 +156,7 @@ Show the version, the changelog section and the PR link, then tell the user:
 
 - Annotated, on the merge commit:
   - App: `git tag -a vX.Y.Z -m "Barista X.Y.Z: <the changelog sentence, shortened>"`
-  - SDK: `git tag -a sdk-vX.Y.Z -m "@barista/sdk X.Y.Z: <the changelog sentence, shortened>"`
+  - SDK: `git tag -a sdk-vX.Y.Z -m "@baristabar/sdk X.Y.Z: <the changelog sentence, shortened>"`
 - Never push the tag.
 - Delete the local release branch (`git branch -d release/...`).
 

@@ -1,6 +1,6 @@
 // Dogfooding client: written from the SDK README only (no source reading).
 // A clock in the bar. Left click switches 12h/24h, right click hides the seconds.
-import * as BA from "@barista/sdk"
+import * as BA from "@baristabar/sdk"
 import { Clock01Icon } from "@hugeicons/core-free-icons"
 
 

@@ -50,8 +50,8 @@ export interface ElectronPopoverOptions {
  * @example
  * ```ts
  * import { BrowserWindow, screen } from "electron"
- * import * as BA from "@barista/sdk"
- * import { electronPopover } from "@barista/sdk/electron"
+ * import * as BA from "@baristabar/sdk"
+ * import { electronPopover } from "@baristabar/sdk/electron"
  *
  * const win = new BrowserWindow({ show: false, frame: false, skipTaskbar: true, alwaysOnTop: true })
  * const item = await BA.StatusItem.create({ id: "note", label: "Note" })

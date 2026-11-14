@@ -1,7 +1,7 @@
 # Spotify mini player (Electron popover)
 
 Left click the icon: a small player window opens right under it. Right click: a menu (open the
-track, quit). Built with `@barista/sdk` and its Electron adapter (`@barista/sdk/electron`).
+track, quit). Built with `@baristabar/sdk` and its Electron adapter (`@baristabar/sdk/electron`).
 Electron is a dev dependency of this example only; the SDK never imports it.
 
 - **Main process** (`src/main.ts`): the bar connection, the Spotify tokens and every network
@@ -13,7 +13,7 @@ Electron is a dev dependency of this example only; the SDK never imports it.
 ## Try it without Spotify
 
 ```powershell
-pnpm --filter @barista/sdk build
+pnpm --filter @baristabar/sdk build
 pnpm --filter @barista/spotify-demo start:demo
 ```
 

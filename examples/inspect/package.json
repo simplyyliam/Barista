@@ -8,7 +8,7 @@
     "typecheck": "tsc6 --noEmit"
   },
   "dependencies": {
-    "@barista/sdk": "workspace:*"
+    "@baristabar/sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "npm:@typescript/typescript6@~6.0.2"

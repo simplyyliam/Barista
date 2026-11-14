@@ -42,7 +42,7 @@ describe("connecting", () => {
       protocolVersion: PROTOCOL_VERSION,
       appName: "Test app",
       pid: process.pid,
-      sdk: { name: "@barista/sdk" },
+      sdk: { name: "@baristabar/sdk" },
     })
   })
 

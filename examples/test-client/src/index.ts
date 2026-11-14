@@ -2,7 +2,7 @@
 // preset. Run it with `pnpm test-client`. Start the bar before or after it, restart the bar while it
 // runs: the item comes back by itself.
 // Clicks and menu picks are logged here.
-import * as BA from "@barista/sdk"
+import * as BA from "@baristabar/sdk"
 import { Clock01Icon } from "@hugeicons/core-free-icons"
 
 const started = performance.now()

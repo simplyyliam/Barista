@@ -1,5 +1,5 @@
 {
-  "name": "@barista/sdk",
+  "name": "@baristabar/sdk",
   "version": "0.0.0",
   "description": "Put your app in the Barista menu bar for Windows.",
   "license": "MIT",
