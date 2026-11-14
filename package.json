@@ -21,6 +21,7 @@
     "test-client:electron": "pnpm --filter @barista/sdk build && pnpm --filter @barista/test-client start:electron",
     "inspect": "pnpm --filter @barista/sdk build && node examples/inspect/src/index.ts ",
     "bench": "node scripts/bench.mjs",
+    "lifecycle": "node scripts/lifecycle.mjs",
     "release": "node scripts/release.mjs",
     "updater:keygen": "node scripts/updater-keygen.mjs",
     "helper:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/helper/uninstall.ps1"

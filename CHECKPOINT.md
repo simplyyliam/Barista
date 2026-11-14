@@ -3,7 +3,15 @@
 Keep this file short: where we are, the next step, and facts a new session needs.
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
-## Where we are (2026-11-13)
+## Where we are (2026-11-14)
+
+- **v0.5 "Never stuck" built** (branch `feature/v0.5-never-stuck`, `UI: rust-only` with Liam's OK to touch the UI; no UI change was needed).
+  Protocol 0.5: `ping`/`pong`/`bye`/`shutdown` (ADR 0024). Bar: heartbeat (ping 5 s, no pong 15 s drops the session; 0.4 clients get no
+  pings), a read task per session (a select on `read_frame` would cut frames), `shutdown { quit }` to every client on exit
+  (`ipc::shutdown`), command `quit_bar`. SDK (ADR 0025): `StatusBar` reconnects with backoff (100 ms to 1 s), never fails because the bar is missing,
+  replays every item (menu, popover, last state) on each welcome, `isAvailable()`, `available` / `unavailable`, `close()` sends `bye`.
+  README rewritten, `sdk-release.yml` and `checks.yml` run `pnpm publish --dry-run`. `scripts/lifecycle.mjs` (`pnpm lifecycle`) checks the Done-when
+  with a real release bar. **New for the UI:** command `quitBar` (for a future "Quit Barista" entry, no design yet).
 
 - **Spec departures Liam confirmed (2026-11-13), do not "fix" them:** icon-only pills are 28px wide (3px padding, 2px gap, 30px pitch,
   not the 6-8px of the first spec); the battery is `examples/battery`'s drawing (no 27x12 construction or masks); the hover is a 999px
@@ -141,10 +149,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - Accelerators are text only; "CmdOrCtrl+Enter" next to Start suggests a hotkey that doesn't exist. Say so in docs.
   - Fixed while dogfooding: role entries default their id to the role (`quit`), separators don't use up ids.
 
-- Silent client (sends `hello`, then nothing) holds a connection slot until it disconnects: fixed by the v0.5 heartbeat.
 - SDK papercuts from dogfooding `examples/clock`:
   - Accept raw SVG markup (`<svg...`) as `icon`, maybe a file-path helper.
-  - No bar running = `connect()` rejects; needs wait/retry (v0.5), README should show try/catch until then.
   - `create()` resolves on send, not on accept (`limit_reached` arrives later as `error`); consider `await item.ready`.
   - README: say a label over 128 chars throws `TypeError`; mention `appName` in the quick start.
   - Done in v0.4: `item.on("click")` gives `anchor`; `item.on("open" | "close")` exists (menus and popovers).
