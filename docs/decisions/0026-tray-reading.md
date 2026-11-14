@@ -36,7 +36,8 @@ app ─Shell_NotifyIcon─► shell32 ─FindWindow("Shell_TrayWnd")─► OUR h
 - **Registry.** `StatusItemView` gets `source: "app" | "tray"`. Tray items live beside client items and
   reach the UI through the same `items-changed`. A click on a tray key is a safe no-op until v0.7.
 - **Cleanup.** A window that owns icons is watched with an `EVENT_OBJECT_DESTROY` hook (an event, not a
-  poll): when it goes (quit or crash) its icons are removed.
+  poll): when it goes (quit or crash) its icons are removed. (The plan said "wait on the process handle"; the
+  hook also covers an app that destroys its window but keeps running.)
 - **Limits (rule 3).** 64 icons per process, 256 in total, payloads cut at 4 KB, tips at 128 characters,
   the worker queue holds 1024 events and drops the rest (counted). Dropping never stops forwarding.
 - **Back off, don't fight.** If a `Shell_TrayWnd` that belongs to another program than Explorer already
@@ -44,11 +45,26 @@ app ─Shell_NotifyIcon─► shell32 ─FindWindow("Shell_TrayWnd")─► OUR h
 - **Switch (rule 11).** `trayMode: barista | windows` in settings, default `barista`. `windows` starts no
   host: Explorer keeps the tray and the bar shows no tray items. No UI until v0.8.
 
-## Open: keeping the top place
+## Keeping the top place (measured)
 
 `FindWindow` returns the first match in z-order, and Explorer raises its taskbar now and then. The host
-re-raises its own window on `EVENT_SYSTEM_FOREGROUND` and `EVENT_OBJECT_REORDER` (no timer). Results of
-the measurement are in `docs/perf/0.6.md`.
+re-raises its own window on `EVENT_SYSTEM_FOREGROUND` and `EVENT_OBJECT_REORDER`, and when Explorer
+restarts (`TaskbarCreated`). No timer. `scripts/tray-zorder.ps1` samples `FindWindow` every 50 ms while
+it does the things that make Explorer raise the taskbar (3 rounds each), on Windows 11 build 26300:
+
+| Trigger | Explorer first | Result |
+|---|---|---|
+| Win+D, Win+B, Win+T, Alt+Tab | 0 of ~58 samples each | the events keep us on top |
+| Start menu open | ~55 of ~58 (the whole time it is open) | cannot be won; back on top once Start closes |
+
+A 100 ms retry timer while we were not first made no difference during Start (the taskbar seems to sit in
+a higher z-band while Start is up), so it was removed again: rule 9, and the data did not justify it.
+
+**Known gap:** a tray message sent while Start is open reaches Explorer only. A new icon added in that
+moment is not shown until its app adds it again; a removed icon whose window survives stays as a ghost
+until it is re-added or its window is destroyed. Apps launched from Start add their icon after Start has
+closed, so the common case is covered. If dogfooding shows ghosts, the fix is a `TaskbarCreated`
+re-broadcast when we get back on top after a loss (it makes every app re-add, so only worth it if needed).
 
 ## Consequences
 

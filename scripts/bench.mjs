@@ -311,8 +311,9 @@ async function measureTray() {
   )
   const client = pipeClient()
   await client.ready
+  // Claims 0.4 like the other probes: a newer client would be pinged and has to pong.
   const welcome = await client.ask({
-    type: "hello", protocolVersion: "0.6", appName: "bench-tray", pid: process.pid,
+    type: "hello", protocolVersion: "0.4", appName: "bench-tray", pid: process.pid,
     sdk: { name: "bench", version: "0" },
   })
   if (welcome.type !== "welcome") throw new Error(`bench hello failed: ${JSON.stringify(welcome)}`)
