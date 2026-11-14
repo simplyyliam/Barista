@@ -1,11 +1,16 @@
 //! An app's icon and starting it, both by its app user model id (AUMID, the id toasts carry).
 //! Works for packaged and unpackaged apps: both show up in the `shell:AppsFolder` virtual folder.
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use windows::core::HSTRING;
 use windows::Win32::Foundation::SIZE;
-use windows::Win32::Graphics::Gdi::{DeleteObject, HGDIOBJ};
+use windows::Win32::Graphics::Gdi::{
+    DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO, BITMAPINFOHEADER,
+    DIB_RGB_COLORS, HBITMAP, HGDIOBJ,
+};
 use windows::Win32::Graphics::Imaging::{
-    CLSID_WICImagingFactory, GUID_ContainerFormatPng, GUID_WICPixelFormat32bppBGRA,
+    CLSID_WICImagingFactory, GUID_ContainerFormatPng, GUID_WICPixelFormat32bppBGRA, IWICBitmap,
     IWICImagingFactory, WICBitmapEncoderNoCache, WICBitmapUseAlpha,
 };
 use windows::Win32::System::Com::{
@@ -17,7 +22,7 @@ use windows::Win32::System::Com::IStream;
 use windows::Win32::UI::Shell::{
     IShellItemImageFactory, SHCreateItemFromParsingName, ShellExecuteW, SIIGBF_ICONONLY,
 };
-use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+use windows::Win32::UI::WindowsAndMessaging::{GetIconInfo, HICON, ICONINFO, SW_SHOWNORMAL};
 
 /// Icons are drawn at 16 px in the panel; 32 stays sharp on a high-DPI screen.
 const SIZE_PX: i32 = 32;
@@ -87,6 +92,10 @@ unsafe fn encode_png(hbitmap: windows::Win32::Graphics::Gdi::HBITMAP) -> Option<
     let bitmap = wic
         .CreateBitmapFromHBITMAP(hbitmap, Default::default(), WICBitmapUseAlpha)
         .ok()?;
+    encode_bitmap(&wic, &bitmap)
+}
+
+unsafe fn encode_bitmap(wic: &IWICImagingFactory, bitmap: &IWICBitmap) -> Option<Vec<u8>> {
     let (mut w, mut h) = (0u32, 0u32);
     bitmap.GetSize(&mut w, &mut h).ok()?;
     let stream: IStream = CreateStreamOnHGlobal(Default::default(), true).ok()?;
@@ -99,7 +108,7 @@ unsafe fn encode_png(hbitmap: windows::Win32::Graphics::Gdi::HBITMAP) -> Option<
     frame.SetSize(w, h).ok()?;
     let mut format = GUID_WICPixelFormat32bppBGRA;
     frame.SetPixelFormat(&mut format).ok()?;
-    frame.WriteSource(&bitmap, std::ptr::null()).ok()?;
+    frame.WriteSource(bitmap, std::ptr::null()).ok()?;
     frame.Commit().ok()?;
     encoder.Commit().ok()?;
 
@@ -134,6 +143,81 @@ pub fn launch(app_id: &str) {
             SW_SHOWNORMAL,
         );
     }
+}
+
+/// A tray icon (an `HICON`) as PNG bytes, at the size Windows gives it (usually 32 px).
+pub fn icon_png_from_hicon(icon: HICON) -> Option<Vec<u8>> {
+    ensure_com();
+    // SAFETY: COM calls on this thread; the icon is a copy the caller keeps alive for the call.
+    unsafe {
+        let wic: IWICImagingFactory = CoCreateInstance(&CLSID_WICImagingFactory, None, CLSCTX_ALL).ok()?;
+        let bitmap = wic.CreateBitmapFromHICON(icon).ok()?;
+        encode_bitmap(&wic, &bitmap)
+    }
+}
+
+/// A hash of an icon's pixels (colour and mask). Apps flip between a few pictures all day (an
+/// unread badge on and off), so the same hash means "converted this one before".
+pub fn icon_fingerprint(icon: HICON) -> Option<u64> {
+    // SAFETY: GetIconInfo hands us two bitmaps we own and must delete; both are deleted below
+    // whatever happens in between.
+    unsafe {
+        let mut info = ICONINFO::default();
+        GetIconInfo(icon, &mut info).ok()?;
+        let mut hasher = DefaultHasher::new();
+        let mut ok = true;
+        // A black-and-white icon has no colour bitmap.
+        for bitmap in [info.hbmColor, info.hbmMask] {
+            if !bitmap.is_invalid() {
+                ok &= hash_bitmap(bitmap, &mut hasher).is_some();
+                let _ = DeleteObject(HGDIOBJ(bitmap.0));
+            }
+        }
+        ok.then(|| hasher.finish())
+    }
+}
+
+unsafe fn hash_bitmap(bitmap: HBITMAP, hasher: &mut DefaultHasher) -> Option<()> {
+    let mut bm = BITMAP::default();
+    let got = GetObjectW(
+        HGDIOBJ(bitmap.0),
+        std::mem::size_of::<BITMAP>() as i32,
+        Some(std::ptr::from_mut(&mut bm).cast()),
+    );
+    let (w, h) = (bm.bmWidth, bm.bmHeight);
+    // Icons are small; refuse anything odd before allocating for it.
+    if got == 0 || w <= 0 || h <= 0 || w > 512 || h > 1024 {
+        return None;
+    }
+    let mut info = BITMAPINFO {
+        bmiHeader: BITMAPINFOHEADER {
+            biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: w,
+            biHeight: -h, // top-down
+            biPlanes: 1,
+            biBitCount: 32,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut pixels = vec![0u8; (w * h * 4) as usize];
+    let dc = GetDC(None);
+    let lines = GetDIBits(
+        dc,
+        bitmap,
+        0,
+        h as u32,
+        Some(pixels.as_mut_ptr().cast()),
+        &mut info,
+        DIB_RGB_COLORS,
+    );
+    ReleaseDC(None, dc);
+    if lines == 0 {
+        return None;
+    }
+    (w, h).hash(hasher);
+    pixels.hash(hasher);
+    Some(())
 }
 
 #[cfg(test)]

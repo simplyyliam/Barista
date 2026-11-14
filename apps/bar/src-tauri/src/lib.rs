@@ -239,6 +239,8 @@ pub fn run() {
             popover::init(app.handle(), registry.clone());
             panel::init(app.handle())?;
             system::init(app.handle());
+            #[cfg(windows)]
+            tray::init(registry.clone());
             events::forward_changes(app.handle().clone(), registry);
             Ok(())
         })
@@ -250,6 +252,9 @@ pub fn run() {
                 if let Some(c) = controller::get() {
                     c.shutdown();
                 }
+                // Let Explorer have the tray messages alone again.
+                #[cfg(windows)]
+                tray::shutdown();
                 // Tell every client we are going (they wait and reconnect when we are back).
                 ipc::shutdown(std::time::Duration::from_millis(300));
             }
