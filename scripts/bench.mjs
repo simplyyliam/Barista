@@ -199,8 +199,9 @@ async function measurePopovers() {
   }
   const key = `${welcome.sessionId}/probe`
   client.write({ type: "item.create", id: "probe", label: "p" })
-  client.write({ type: "item.setPopover", id: "probe", width: 320, height: 380 })
-  await timeUntil(client, { type: "debug.listItems" }, (i) =>
+  // The change itself is the popover: passing `debug.listItems` here would ask twice and leave one
+  // reply behind, which a later `ask` could mistake for its own answer.
+  await timeUntil(client, { type: "item.setPopover", id: "probe", width: 320, height: 380 }, (i) =>
     i.some((x) => x.id === key && x.hasPopover),
   )
   const show = []

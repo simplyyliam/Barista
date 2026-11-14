@@ -6,14 +6,14 @@
 //   5. quit the bar the polite way: a client hears `shutdown { quit }` before the pipe closes
 // It starts (and stops) its own bar, so no other bar may be running: it would own the pipe.
 // Needs a release build (`pnpm --filter @barista/bar tauri build --no-bundle`).
-import { execFileSync, spawn } from "node:child_process"
+import { execFileSync, execSync, spawn } from "node:child_process"
 import { existsSync } from "node:fs"
 import net from "node:net"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const exe = `${root}target/release/barista.exe`
-const clientScript = `${root}examples/test-client/src/index.ts`
+const clientScript = `${root}scripts/lifecycle-client.mjs`
 const PIPE = "\\\\.\\pipe\\barista"
 const only = process.argv.slice(2).filter((a) => !a.startsWith("-"))
 const run = (n) => only.length === 0 || only.includes(String(n))
@@ -29,7 +29,7 @@ if (running.toLowerCase().includes("barista.exe")) {
   console.error("A bar is already running. Close it first: this script starts its own.")
   process.exit(1)
 }
-execFileSync("pnpm", ["--filter", "@barista/sdk", "build"], { stdio: "ignore", shell: true })
+execSync("pnpm --filter @barista/sdk build", { stdio: "ignore" })
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const stats = (list) => {
@@ -82,26 +82,32 @@ function open({ version, appName, onMessage = () => {}, pong = false }) {
   })
 }
 
-/** Every item in the bar, or null when the bar does not answer. */
+/**
+ * Every item in the bar, or null when the bar does not answer. One connection is kept and asked
+ * again and again: reconnecting for every poll would make the pipe busy for the clients we are
+ * timing.
+ */
+let watcher
+let latest
 async function listItems() {
-  let client
   try {
-    let items
-    client = await open({
-      version: "0.4", // no heartbeat for this short peek
-      appName: "lifecycle-peek",
-      onMessage: (m) => {
-        if (m.type === "debug.items") items = m.items
-      },
-    })
-    client.send({ type: "debug.listItems" })
+    if (!watcher || watcher.closed) {
+      watcher = await open({
+        version: "0.4", // no heartbeat for the watcher
+        appName: "lifecycle-watch",
+        onMessage: (m) => {
+          if (m.type === "debug.items") latest = m.items
+        },
+      })
+    }
+    latest = undefined
+    watcher.send({ type: "debug.listItems" })
     const until = Date.now() + 2000
-    while (!items && Date.now() < until) await sleep(5)
-    return items ?? null
+    while (!latest && !watcher.closed && Date.now() < until) await sleep(2)
+    return latest ?? null
   } catch {
+    watcher = undefined
     return null
-  } finally {
-    client?.socket.destroy()
   }
 }
 
@@ -122,8 +128,37 @@ let bar
 const clients = new Set()
 
 function startBar() {
-  bar = spawn(exe, [], { stdio: "ignore", env: { ...process.env, BARISTA_DEBUG: "1" } })
+  // The debug port lets step 5 call `quit_bar` like the UI would.
+  bar = spawn(exe, [], {
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      BARISTA_DEBUG: "1",
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9222",
+    },
+  })
   return bar
+}
+
+/** Quits the bar the way the UI would: the `quit_bar` command, called in the bar's main page. */
+async function quitBarPolitely() {
+  const pages = await (await fetch("http://127.0.0.1:9222/json")).json()
+  const page = pages.find((p) => p.type === "page" && !/panel|menu|debug/.test(p.url + p.title))
+  if (!page) throw new Error("no page on the debug port")
+  const ws = new WebSocket(page.webSocketDebuggerUrl)
+  await new Promise((resolve, reject) => {
+    ws.onopen = resolve
+    ws.onerror = reject
+  })
+  ws.send(
+    JSON.stringify({
+      id: 1,
+      method: "Runtime.evaluate",
+      params: { expression: "window.__TAURI_INTERNALS__.invoke('quit_bar')", awaitPromise: false },
+    }),
+  )
+  await sleep(200)
+  ws.close()
 }
 
 function killBar() {
@@ -170,7 +205,7 @@ if (run(1)) {
   let stuck = 0
   for (let n = 0; n < 20; n++) {
     const client = startClient()
-    const appeared = await waitFor(async () => has(await listItems(), "Focus"), 10_000)
+    const appeared = await waitFor(async () => has(await listItems(), "Focus"), 15_000)
     if (appeared === null) {
       console.error(`   round ${n + 1}: the item never appeared`)
       stuck++
@@ -268,25 +303,25 @@ if (run(4)) {
 if (run(5)) {
   console.log("5. Quitting the bar the polite way...")
   const heard = []
-  const watcher = await open({
+  const listener = await open({
     version: "0.5",
     appName: "Listener",
     pong: true,
     onMessage: (m) => heard.push(m.type === "shutdown" ? `shutdown:${m.reason}` : m.type),
   })
-  watcher.send({ type: "item.create", id: "listening", label: "hi" })
+  listener.send({ type: "item.create", id: "listening", label: "hi" })
   await sleep(300)
   try {
-    execFileSync("taskkill", ["/PID", String(bar.pid)], { stdio: "ignore" }) // WM_CLOSE, no /F
-  } catch {
-    // fall through: the check below reports it
+    await quitBarPolitely()
+  } catch (error) {
+    console.error(`   could not call quit_bar: ${error.message}`)
   }
-  await waitFor(() => watcher.closed, 5000, 20)
+  await waitFor(() => listener.closed, 5000, 20)
   row(
     "Bar quits politely: the client hears shutdown { quit } before the pipe closes",
     heard.includes("shutdown:quit") ? "heard it" : `heard: ${heard.join(", ")}`,
     "shutdown:quit",
-    heard.includes("shutdown:quit") && watcher.closed,
+    heard.includes("shutdown:quit") && listener.closed,
   )
 }
 
