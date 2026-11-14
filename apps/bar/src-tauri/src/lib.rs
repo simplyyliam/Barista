@@ -51,6 +51,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::set_submenu_highlight,
             commands::menu_hover,
             commands::close_menu,
+            commands::quit_bar,
             commands::get_open_menu,
             commands::set_item_bounds,
             commands::get_open_popover,
@@ -229,11 +230,15 @@ pub fn run() {
             }
             let registry = Arc::new(registry::Registry::new());
             app.manage(registry.clone());
+            // Open the pipe before the windows and services are set up (they take well over a
+            // second): clients that retry meanwhile reconnect that much sooner after a bar restart.
+            // Items that arrive early wait in the registry; the UI reads them with its first
+            // `getItems`, and `forward_changes` below picks up the change that was already signalled.
+            ipc::start(registry.clone());
             menu_window::init(app.handle(), registry.clone())?;
             popover::init(app.handle(), registry.clone());
             panel::init(app.handle())?;
             system::init(app.handle());
-            ipc::start(registry.clone());
             events::forward_changes(app.handle().clone(), registry);
             Ok(())
         })
@@ -245,6 +250,8 @@ pub fn run() {
                 if let Some(c) = controller::get() {
                     c.shutdown();
                 }
+                // Tell every client we are going (they wait and reconnect when we are back).
+                ipc::shutdown(std::time::Duration::from_millis(300));
             }
         });
 }

@@ -82,6 +82,11 @@ export const commands = {
 	/**  Closes the open menu (Esc, or the UI decided). Does nothing if none is open. */
 	closeMenu: () => __TAURI_INVOKE<void>("close_menu"),
 	/**
+	 *  Quits the bar: clients get `shutdown`, the reserved screen space is given back, the process
+	 *  ends. For a "Quit Barista" entry; the UI does not call it yet.
+	 */
+	quitBar: () => __TAURI_INVOKE<void>("quit_bar"),
+	/**
 	 *  The menu showing right now, if any. The menu window calls this once when it loads, then
 	 *  follows `menuOpen` / `menuChanged` / `menuClose`.
 	 */

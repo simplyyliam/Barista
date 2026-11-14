@@ -11,7 +11,7 @@ use specta::Type;
 
 /// `major.minor`. The bar accepts any client with the same major version.
 /// New optional fields bump the minor; removing or renaming a field bumps the major.
-pub const PROTOCOL_VERSION: &str = "0.4";
+pub const PROTOCOL_VERSION: &str = "0.5";
 
 /// Largest frame (the JSON part) either side accepts.
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
@@ -38,7 +38,7 @@ pub const MAX_POPOVER_SIZE: u32 = 1024;
 
 /// Every `type` a client may send. The bar uses it to tell `unknown_type` (a newer client)
 /// from `invalid_message` (a known type with wrong fields). A test keeps it in sync.
-pub const CLIENT_MESSAGE_TYPES: [&str; 14] = [
+pub const CLIENT_MESSAGE_TYPES: [&str; 16] = [
     "hello",
     "item.create",
     "item.update",
@@ -47,6 +47,8 @@ pub const CLIENT_MESSAGE_TYPES: [&str; 14] = [
     "item.setPopover",
     "popover.shown",
     "popover.closed",
+    "pong",
+    "bye",
     "debug.listItems",
     "debug.click",
     "debug.menuClick",
@@ -259,6 +261,19 @@ pub enum ClientMessage {
         request_id: Option<String>,
         id: String,
     },
+    /// Answer to `ping`: echoes its `seq`. Since 0.5.
+    #[serde(rename = "pong")]
+    Pong {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        seq: u32,
+    },
+    /// The client is leaving on purpose: the bar removes its items at once. Since 0.5.
+    #[serde(rename = "bye")]
+    Bye {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
     /// Asks for every item in the bar (used by `examples/inspect` and the bench). Debug builds,
     /// or a bar started with `BARISTA_DEBUG` set; otherwise `unknown_type`.
     #[serde(rename = "debug.listItems")]
@@ -321,6 +336,8 @@ impl ClientMessage {
             | Self::ItemSetPopover { request_id, .. }
             | Self::PopoverShown { request_id, .. }
             | Self::PopoverClosed { request_id, .. }
+            | Self::Pong { request_id, .. }
+            | Self::Bye { request_id }
             | Self::DebugListItems { request_id }
             | Self::DebugClick { request_id, .. }
             | Self::DebugMenuClick { request_id, .. }
@@ -389,6 +406,14 @@ pub enum BarMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         checked: Option<bool>,
     },
+    /// Heartbeat: answer with `pong` and the same `seq`. Sent every 5 s to clients that
+    /// speak 0.5 or newer; 15 s without a `pong` and the bar drops the client. Since 0.5.
+    #[serde(rename = "ping")]
+    Ping { seq: u32 },
+    /// The bar is closing this connection, with the reason. Sent just before it hangs up
+    /// (best effort). Since 0.5.
+    #[serde(rename = "shutdown")]
+    Shutdown { reason: ShutdownReason },
     /// Reply to `debug.listItems`.
     #[serde(rename = "debug.items")]
     DebugItems {
@@ -402,6 +427,20 @@ pub enum BarMessage {
         request_id: Option<String>,
         snapshot: String,
     },
+}
+
+/// Why the bar closes a connection (`shutdown`). Whether to reconnect depends on it: after
+/// `quit` and `unresponsive` it makes sense (the bar comes back), after `too_many_errors` the
+/// same messages would be refused again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ShutdownReason {
+    /// The bar is quitting.
+    Quit,
+    /// No `pong` came back in time.
+    Unresponsive,
+    /// Too many invalid messages in a short time.
+    TooManyErrors,
 }
 
 /// Machine-readable reason in an `error` message.
@@ -443,6 +482,14 @@ pub fn is_compatible(client: &str) -> bool {
         (Some((a, _)), Some((b, _))) => a == b,
         _ => false,
     }
+}
+
+/// The minor number of a `major.minor` version (`"0.5"` -> 5), or `None` if it is malformed.
+/// The bar uses it to give newer features (the heartbeat) only to clients that know them.
+pub fn minor_version(version: &str) -> Option<u32> {
+    let (major, minor) = version.split_once('.')?;
+    major.parse::<u32>().ok()?;
+    minor.parse().ok()
 }
 
 #[cfg(test)]
@@ -700,6 +747,8 @@ mod tests {
             r#"{"type":"item.setPopover","id":"a","width":320,"height":380}"#,
             r#"{"type":"popover.shown","id":"a"}"#,
             r#"{"type":"popover.closed","id":"a"}"#,
+            r#"{"type":"pong","seq":1}"#,
+            r#"{"type":"bye"}"#,
             r#"{"type":"debug.system"}"#,
             r#"{"type":"debug.openPanel","name":"a","anchor":"s1/a","width":1,"height":1}"#,
             r#"{"type":"debug.closePanel"}"#,
@@ -797,6 +846,39 @@ mod tests {
         })
         .unwrap();
         assert!(plain.get("checked").is_none());
+    }
+
+    #[test]
+    fn heartbeat_and_shutdown_have_the_documented_shape() {
+        let v = round_trip_client(ClientMessage::Pong {
+            request_id: None,
+            seq: 7,
+        });
+        assert_eq!(v, json!({"type":"pong","seq":7}));
+        let v = round_trip_client(ClientMessage::Bye { request_id: None });
+        assert_eq!(v, json!({"type":"bye"}));
+        let ping = serde_json::to_value(BarMessage::Ping { seq: 3 }).unwrap();
+        assert_eq!(ping, json!({"type":"ping","seq":3}));
+        for (reason, text) in [
+            (ShutdownReason::Quit, "quit"),
+            (ShutdownReason::Unresponsive, "unresponsive"),
+            (ShutdownReason::TooManyErrors, "too_many_errors"),
+        ] {
+            let msg = BarMessage::Shutdown { reason };
+            let v = serde_json::to_value(&msg).unwrap();
+            assert_eq!(v, json!({"type":"shutdown","reason":text}));
+            assert_eq!(serde_json::from_value::<BarMessage>(v).unwrap(), msg);
+        }
+    }
+
+    #[test]
+    fn minor_version_reads_major_dot_minor_only() {
+        assert_eq!(minor_version("0.5"), Some(5));
+        assert_eq!(minor_version("0.12"), Some(12));
+        assert_eq!(minor_version("0.x"), None);
+        assert_eq!(minor_version("0"), None);
+        assert_eq!(minor_version("x.1"), None);
+        assert_eq!(minor_version(""), None);
     }
 
     #[test]

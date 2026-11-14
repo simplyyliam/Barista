@@ -1,21 +1,17 @@
 // A focus timer in the menu bar: the label counts down, the menu starts, pauses and picks a
-// preset. Run it with the bar running (`pnpm dev`): `pnpm test-client`.
+// preset. Run it with `pnpm test-client`. Start the bar before or after it, restart the bar while it
+// runs: the item comes back by itself.
 // Clicks and menu picks are logged here.
 import * as BA from "@barista/sdk"
 import { Clock01Icon } from "@hugeicons/core-free-icons"
 
 const started = performance.now()
-let bar: BA.StatusBar
-try {
-  bar = await BA.connect({ appName: "Focus" })
-} catch (error) {
-  console.error((error as Error).message)
-  process.exit(1)
-}
-bar.on("close", () => {
-  console.log("the bar closed the connection")
-  process.exit(0)
-})
+// Resolves even when the bar is not running: the items appear when it starts.
+const bar = await BA.connect({ appName: "Focus" })
+const connected = () => console.log(`connected as ${bar.sessionId} (bar ${bar.barVersion})`)
+if (bar.available) connected() // `available` already fired while we connected
+bar.on("available", connected)
+bar.on("unavailable", () => console.log("the bar went away, waiting for it"))
 
 const item = await BA.StatusItem.create({
   id: "timer",
@@ -23,9 +19,7 @@ const item = await BA.StatusItem.create({
   label: "25:00",
   tooltip: "Focus timer",
 })
-console.log(
-  `connected as ${bar.sessionId} (bar ${bar.barVersion}), item "${item.id}" created after ${Math.round(performance.now() - started)} ms`,
-)
+console.log(`item "${item.id}" created after ${Math.round(performance.now() - started)} ms`)
 
 let minutes = 25
 let left = minutes * 60

@@ -3,7 +3,17 @@
 Keep this file short: where we are, the next step, and facts a new session needs.
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
-## Where we are (2026-11-13)
+## Where we are (2026-11-14)
+
+- **v0.5 "Never stuck" built, PR #29 open** (branch `feature/v0.5-never-stuck`, `UI: rust-only` with Liam's OK to touch the UI; no UI change was needed).
+  Protocol 0.5: `ping`/`pong`/`bye`/`shutdown` (ADR 0024). Bar: heartbeat (ping 5 s, no pong 15 s drops the session; 0.4 clients get no
+  pings), a read task per session (a select on `read_frame` would cut frames), `shutdown { quit }` to every client on exit
+  (`ipc::shutdown`), command `quit_bar`. SDK (ADR 0025): `StatusBar` reconnects with backoff (100 ms to 1 s), never fails because the bar is missing,
+  replays every item (menu, popover, last state) on each welcome, `isAvailable()`, `available` / `unavailable`, `close()` sends `bye`.
+  README rewritten, `sdk-release.yml` and `checks.yml` run `pnpm publish --dry-run`. `scripts/lifecycle.mjs` (`pnpm lifecycle`) checks the Done-when
+  with a real release bar. Release checks done 2026-11-14: `/code-review medium` (fixed: handshake ignored a quit, session counter drop guard, item
+  state stored after send), `/security-review` (no findings), `pnpm lifecycle` all ok, `pnpm bench 0.5` (memory same as v0.4.1 on the same day,
+  `docs/perf/0.5.md`). Left for Liam: npm scope `@barista` and `NPM_TOKEN` before the `sdk-v0.1.0` tag. **New for the UI:** command `quitBar` (for a future "Quit Barista" entry, no design yet).
 
 - **Spec departures Liam confirmed (2026-11-13), do not "fix" them:** icon-only pills are 28px wide (3px padding, 2px gap, 30px pitch,
   not the 6-8px of the first spec); the battery is `examples/battery`'s drawing (no 27x12 construction or masks); the hover is a 999px
@@ -126,6 +136,21 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Fix next
 
+- From dogfooding v0.5 (a fresh Node project, only the README, `npm install @barista/sdk` by name from a throwaway local registry serving the
+  `npm pack` tarball, since nothing may be published): it works as written. The item
+  appeared once the bar started, `close()` removed it at once, killing the process removed it. Awkward:
+  - A script started with no bar running prints nothing and looks hung. A one-time hint after about 10 s ("waiting for Barista...")
+    would help, maybe `BA.connect({ onWaiting })` or a `BARISTA_DEBUG` log.
+  - `create()` resolves when the item is sent (or queued while the bar is away), not when the bar accepted it: still no `item.ready`.
+  - `appName` defaults to the script name (`index`), so the quick start shows "index" in tooltips. Show `BA.connect({ appName })` first.
+  - The first `available` fires before `connect()` returns, so `bar.on("available")` never hears it (documented; `if (bar.available)`).
+    An `await bar.whenAvailable()` or an `onAvailable` option on `connect` would read better.
+  - `bar.barVersion` is the Cargo version (`0.4.1`), not a protocol or release name; fine for now.
+  - `@barista/sdk` is not on npm until the `sdk-v0.1.0` tag is pushed: the install was tried by name against a local stand-in registry, not npmjs.
+    Do `npm install @barista/sdk` in a fresh folder once after the first real publish.
+  - A bar restart takes about 1.25 s from launching the bar to items back (worst 1.28 s in the last run); the pipe opens at the very start of
+    setup (`lib.rs`) and the SDK retries every 0.5 s at most while the bar is away.
+
 - From dogfooding the v0.4 popovers: the open papercuts (Electron window helper, `closePopover()`, async `on("open")`,
   stale `popover.shown` token, `setPopover` resize while open) are in `docs/release/history/v0.4-checkpoint.md`.
   Menu latency sits at 42-46 ms against the 50 ms budget (WebView2 drift, see `docs/perf/0.4.md`).
@@ -141,10 +166,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - Accelerators are text only; "CmdOrCtrl+Enter" next to Start suggests a hotkey that doesn't exist. Say so in docs.
   - Fixed while dogfooding: role entries default their id to the role (`quit`), separators don't use up ids.
 
-- Silent client (sends `hello`, then nothing) holds a connection slot until it disconnects: fixed by the v0.5 heartbeat.
 - SDK papercuts from dogfooding `examples/clock`:
   - Accept raw SVG markup (`<svg...`) as `icon`, maybe a file-path helper.
-  - No bar running = `connect()` rejects; needs wait/retry (v0.5), README should show try/catch until then.
   - `create()` resolves on send, not on accept (`limit_reached` arrives later as `error`); consider `await item.ready`.
   - README: say a label over 128 chars throws `TypeError`; mention `appName` in the quick start.
   - Done in v0.4: `item.on("click")` gives `anchor`; `item.on("open" | "close")` exists (menus and popovers).

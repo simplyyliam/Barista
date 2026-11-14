@@ -1,7 +1,7 @@
 import { Menu, type MenuItemOptions } from "./menu.js"
 import { resolveIcon, type IconInput } from "./icons.js"
 import { assertPopoverSize, type Placement, type PopoverOptions } from "./popover.js"
-import type { MouseButton, ScreenRect } from "./protocol.js"
+import type { ClientMessage, MouseButton, ScreenRect } from "./protocol.js"
 import { BarError, connect, type StatusBar } from "./status-bar.js"
 import { assertItemId, assertLabel, assertTooltip, toIconDataUrl } from "./validate.js"
 
@@ -37,6 +37,14 @@ export interface StatusItemOptions {
 }
 
 type Listener<T> = (event: T) => void
+
+/** What the bar shows for an item. Kept so a reconnect can say it all again. */
+interface ItemState {
+  icon?: string
+  label?: string
+  tooltip?: string
+  visible: boolean
+}
 
 /**
  * Runs a listener of the app. If it throws, the error is raised afterwards (so the app still
@@ -79,26 +87,31 @@ export class StatusItem {
   readonly #openListeners = new Set<Listener<void>>()
   readonly #closeListeners = new Set<Listener<void>>()
   #removed = false
+  readonly #state: ItemState
   #menu: Menu | undefined
+  /** The bar opened our menu and has not closed it yet. */
+  #menuOpen = false
   #popover: PopoverOptions | undefined
   /** The popover window is up (or being shown) because the bar asked for it. */
   #popoverOpen = false
   /** Windows we already listen to, so `setPopover` with the same window twice adds one listener. */
   readonly #watchedWindows = new WeakSet<object>()
 
-  /** @internal The request id of the `item.create`, to recognise a refused create. */
-  readonly createRequestId: string
+  /** @internal The request id of the latest `item.create`, to recognise a refused create. */
+  createRequestId: string
 
-  private constructor(id: string, bar: StatusBar, createRequestId: string) {
+  private constructor(id: string, bar: StatusBar, state: ItemState, createRequestId: string) {
     this.id = id
     this.#bar = bar
+    this.#state = state
     this.createRequestId = createRequestId
   }
 
   /**
-   * Puts a new item in the bar. Connects to the bar first if you have not yet. Rejects if
-   * the bar is not running, or (without sending anything) if an argument breaks a rule
-   * such as a bad id or an icon over 256 KB.
+   * Puts a new item in the bar. Connects to the bar first if you have not yet. If the bar is
+   * not running the item still exists: it appears when the bar starts, and it comes back by
+   * itself after a bar restart, with its menu, popover and your callbacks. Rejects (without
+   * sending anything) if an argument breaks a rule such as a bad id or an icon over 256 KB.
    *
    * It resolves once the request is sent, not when the bar accepted it. If the bar refuses
    * the create (for example `"limit_reached"`), the error goes to `item.on("error")` (or the
@@ -123,19 +136,30 @@ export class StatusItem {
     if (bar.items.has(options.id)) {
       throw new Error(`This app already has an item with the id ${JSON.stringify(options.id)}`)
     }
-    const requestId = bar.requestIdFor(options.id)
+    const state: ItemState = {
+      visible: true,
+      ...(icon !== undefined && icon !== "" && { icon }),
+      ...(options.label !== undefined && options.label !== "" && { label: options.label }),
+      ...(options.tooltip !== undefined && options.tooltip !== "" && { tooltip: options.tooltip }),
+    }
+    const item = new StatusItem(options.id, bar, state, bar.requestIdFor(options.id))
     // Send first: if the message is invalid (too big) this throws before the item is registered.
-    bar.send({
-      type: "item.create",
-      requestId,
-      id: options.id,
-      ...(icon !== undefined && { icon }),
-      ...(options.label !== undefined && { label: options.label }),
-      ...(options.tooltip !== undefined && { tooltip: options.tooltip }),
-    })
-    const item = new StatusItem(options.id, bar, requestId)
+    // Without a bar this sends nothing; the item is sent when the bar is there.
+    bar.send(item.#createMessage())
     bar.items.set(options.id, item)
     return item
+  }
+
+  #createMessage(): ClientMessage {
+    const { icon, label, tooltip } = this.#state
+    return {
+      type: "item.create",
+      requestId: this.createRequestId,
+      id: this.id,
+      ...(icon !== undefined && { icon }),
+      ...(label !== undefined && { label }),
+      ...(tooltip !== undefined && { tooltip }),
+    }
   }
 
   /**
@@ -355,6 +379,53 @@ export class StatusItem {
     return sets[event] as Set<Listener<never>>
   }
 
+  /**
+   * @internal The connection is up again (the bar restarted, or started after us): say it all
+   * again, in the order the bar needs. The item's callbacks never left, so clicks keep working.
+   */
+  replay(): void {
+    if (this.#removed) return
+    this.createRequestId = this.#bar.requestIdFor(this.id)
+    this.#bar.send(this.#createMessage())
+    if (!this.#state.visible) {
+      this.#bar.send({
+        type: "item.update",
+        requestId: this.#bar.requestIdFor(this.id),
+        id: this.id,
+        visible: false,
+      })
+    }
+    if (this.#menu) {
+      this.#bar.send({
+        type: "item.setMenu",
+        requestId: this.#bar.requestIdFor(this.id),
+        id: this.id,
+        menu: this.#menu.toCheckedWire(),
+      })
+    }
+    if (this.#popover) {
+      this.#bar.send({
+        type: "item.setPopover",
+        requestId: this.#bar.requestIdFor(this.id),
+        id: this.id,
+        width: this.#popover.width,
+        height: this.#popover.height,
+      })
+    }
+  }
+
+  /**
+   * @internal The bar is gone: whatever it had open of ours is closed for good. The popover
+   * window is hidden and `close` listeners run, as if the user had dismissed it.
+   */
+  suspend(): void {
+    this.#closeOpenPopover()
+    if (this.#menuOpen) {
+      this.#menuOpen = false
+      for (const listener of this.#closeListeners) callSafely(() => listener())
+    }
+  }
+
   /** @internal The bar refused to create this item, so it does not exist there. */
   markGone(): void {
     this.#removed = true
@@ -368,11 +439,13 @@ export class StatusItem {
 
   /** @internal The bar opened this item's menu. */
   emitMenuOpened(): void {
+    this.#menuOpen = true
     for (const listener of this.#openListeners) callSafely(() => listener())
   }
 
   /** @internal The bar closed this item's menu. */
   emitMenuClosed(): void {
+    this.#menuOpen = false
     for (const listener of this.#closeListeners) callSafely(() => listener())
   }
 
@@ -458,11 +531,20 @@ export class StatusItem {
 
   #update(fields: { icon?: string; label?: string; tooltip?: string; visible?: boolean }): void {
     if (this.#removed) throw new Error(`Item ${JSON.stringify(this.id)} was removed`)
+    // Send first: if the message cannot be sent (too big) the stored state must not change,
+    // or the bad value would be replayed after every bar restart.
     this.#bar.send({
       type: "item.update",
       requestId: this.#bar.requestIdFor(this.id),
       id: this.id,
       ...fields,
     })
+    for (const key of ["icon", "label", "tooltip"] as const) {
+      const value = fields[key]
+      if (value === undefined) continue
+      if (value === "") delete this.#state[key]
+      else this.#state[key] = value
+    }
+    if (fields.visible !== undefined) this.#state.visible = fields.visible
   }
 }

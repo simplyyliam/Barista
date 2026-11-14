@@ -1,7 +1,7 @@
 # Publishes @barista/sdk to npm when an SDK tag (sdk-v0.1.0, ...) is pushed by `pnpm release`,
 # and makes a GitHub release (not a draft) with that version's notes from packages/sdk/CHANGELOG.md.
 # Needs the NPM_TOKEN repo secret (an npm automation token).
-# Stays idle until the SDK ships (v0.5): it only runs when an sdk-v* tag is pushed.
+# It only runs when an sdk-v* tag is pushed. A dry run goes first, so a broken package never reaches npm.
 name: SDK release
 
 on:
@@ -38,6 +38,10 @@ jobs:
 
       - run: pnpm --filter @barista/sdk test
       - run: pnpm --filter @barista/sdk build
+
+      # Lists exactly what would be published (and fails on a broken package) before the real thing.
+      - run: pnpm publish --dry-run --access public --no-git-checks
+        working-directory: packages/sdk
 
       - run: pnpm publish --access public --no-git-checks --provenance
         working-directory: packages/sdk

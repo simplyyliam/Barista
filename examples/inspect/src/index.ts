@@ -42,6 +42,8 @@ function open(onMessage: (m: BarMessage, send: (m: ClientMessage) => void) => vo
       const length = buffer.readUInt32LE(0)
       const message = JSON.parse(buffer.subarray(4, 4 + length).toString()) as BarMessage
       buffer = buffer.subarray(4 + length)
+      // We claim protocol 0.5, so the bar pings us; without a pong it drops us after 15 s.
+      if (message.type === "ping") send({ type: "pong", seq: message.seq })
       onMessage(message, send)
     }
   })
