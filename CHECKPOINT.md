@@ -143,6 +143,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 ## Fix next
 
 - From v0.6 (tray, read), found by testing and by Liam's feedback:
+  - Soak (1 h, unattended, `scripts/soak.ps1`): bar alive throughout, CPU 0.004 to 0.28 %, memory 156 / 180 / 90 MB (no growth), Explorer never restarted; says nothing about daily feel, which is Liam's to judge.
   - Not tested: Windows 10 (only Windows 11 here), no tray app clicks (v0.7).
   - **`ExplorerHooks.dll` crash:** Windows named it as the faulting module of two `0xc0000409` aborts of `barista.exe` (once after a broadcast of
     `TaskbarCreated`, once when Liam restarted Explorer). It belongs to the Store app "Transparent Taskbar for Windows" (2845PeroSoftware), which
