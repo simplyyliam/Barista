@@ -7,14 +7,17 @@ import {
   MenubarItemGroup,
   Search,
   StatusItems,
+  TrayItems,
   Volume,
   Wifi,
 } from "@/features/menubar"
 import { useBarHeight } from "@/features/menubar/hooks/use-bar-height"
+import { useResetHover } from "@/features/menubar/hooks/use-reset-hover"
 import { Motion } from "@/shared/motion"
 
 export default function Menubar() {
   useBarHeight()
+  useResetHover()
 
   // Fills the bar's height and centres the pills vertically. Sizes: --menubar-* in tokens.css.
   return (
@@ -27,6 +30,7 @@ export default function Menubar() {
       </MenubarItemGroup>
       <MenubarItemGroup className="justify-self-center"></MenubarItemGroup>
       <MenubarItemGroup className="justify-self-end gap-menubar-status-gap">
+        <TrayItems />
         <StatusItems />
         <Battery />
         <Wifi />

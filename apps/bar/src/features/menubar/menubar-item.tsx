@@ -1,7 +1,8 @@
 import { cn } from "cn";
 import { motion, type HTMLMotionProps } from "motion/react";
-import { type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useState, type HTMLAttributes, type ReactNode } from "react";
 import { ITEM_ENTER, ITEM_HIDDEN, ITEM_SHOWN, PRESS, PRESS_TRANSITION, SLIDE } from "@/shared/motion";
+import { useHoverEpoch } from "@/shared/stores/hover";
 
 /** What a pill does when it first appears (the battery, Wi-Fi and volume arrive once their data does). */
 export const ITEM_APPEAR = {
@@ -21,7 +22,8 @@ type MenubarItemProps = HTMLMotionProps<"div"> & {
  *
  * Feel (ADR 0023): the tint comes in at once on hover (macOS does, and the bar is used hundreds of
  * times a day) and fades out in 150ms; a press dips the pill to 0.96 and springs back; when a
- * neighbour appears or leaves, the pills glide instead of jumping. The hit area reaches the top and
+ * neighbour appears or leaves, the pills glide instead of jumping. Hover comes from pointer events
+ * (not `:hover`) so it can be cleared when the pointer left for another window (shared/stores/hover.ts). The hit area reaches the top and
  * bottom edge of the bar, so slamming the mouse to the top of the screen still hits the item.
  * Sizes come from the --menubar-* tokens (styles/tokens.css).
  */
@@ -31,8 +33,16 @@ export function MenubarItem({
   variant = "status",
   open = false,
   transition,
+  onPointerEnter,
+  onPointerMove,
+  onPointerLeave,
   ...props
 }: MenubarItemProps) {
+  const [hovered, setHovered] = useState(false);
+  const epoch = useHoverEpoch();
+  // A window opened or closed: the pointer may be elsewhere now, so forget the hover.
+  useEffect(() => setHovered(false), [epoch]);
+
   return (
     <motion.div
       layout="position"
@@ -45,13 +55,26 @@ export function MenubarItem({
         variant === "app" ? "px-menubar-app-x" : variant === "icon" ? "px-menubar-icon-x" : "px-menubar-status-x",
         className
       )}
+      data-hover={hovered || undefined}
+      onPointerEnter={(e) => {
+        setHovered(true);
+        onPointerEnter?.(e);
+      }}
+      onPointerMove={(e) => {
+        if (!hovered) setHovered(true);
+        onPointerMove?.(e);
+      }}
+      onPointerLeave={(e) => {
+        setHovered(false);
+        onPointerLeave?.(e);
+      }}
       {...props}
     >
       <span
         aria-hidden="true"
         className={cn(
           "pointer-events-none absolute inset-0 -z-10 rounded-menubar-pill bg-bar-hover opacity-0 transition-opacity duration-150 ease-out",
-          "group-hover:opacity-100 group-hover:duration-0",
+          "group-data-[hover=true]:opacity-100 group-data-[hover=true]:duration-0",
           open && "opacity-100 duration-0"
         )}
       />

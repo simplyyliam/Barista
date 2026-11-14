@@ -9,4 +9,5 @@ export { ControlCenter } from "./control-center";
 export { Volume, VolumeView } from "./volume";
 export { Wifi, WifiView } from "./wifi";
 export { Search } from "./search";
-export { StatusItems } from "./status-items" 
+export { StatusItems } from "./status-items"
+export { TrayItems } from "./tray-items"
