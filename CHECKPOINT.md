@@ -136,7 +136,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Fix next
 
-- From dogfooding v0.5 (a fresh Node project, only the README, SDK installed from `npm pack`): it works as written. The item
+- From dogfooding v0.5 (a fresh Node project, only the README, `npm install @barista/sdk` by name from a throwaway local registry serving the
+  `npm pack` tarball, since nothing may be published): it works as written. The item
   appeared once the bar started, `close()` removed it at once, killing the process removed it. Awkward:
   - A script started with no bar running prints nothing and looks hung. A one-time hint after about 10 s ("waiting for Barista...")
     would help, maybe `BA.connect({ onWaiting })` or a `BARISTA_DEBUG` log.
@@ -145,7 +146,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - The first `available` fires before `connect()` returns, so `bar.on("available")` never hears it (documented; `if (bar.available)`).
     An `await bar.whenAvailable()` or an `onAvailable` option on `connect` would read better.
   - `bar.barVersion` is the Cargo version (`0.4.1`), not a protocol or release name; fine for now.
-  - `@barista/sdk` is not on npm until the `sdk-v0.1.0` tag is pushed: the README's `npm install @barista/sdk` could not be tried against the registry.
+  - `@barista/sdk` is not on npm until the `sdk-v0.1.0` tag is pushed: the install was tried by name against a local stand-in registry, not npmjs.
+    Do `npm install @barista/sdk` in a fresh folder once after the first real publish.
+  - A bar restart takes about 2.2 s from launch to items back (about 1.7 s is the bar starting, the SDK adds under 1 s).
 
 - From dogfooding the v0.4 popovers: the open papercuts (Electron window helper, `closePopover()`, async `on("open")`,
   stale `popover.shown` token, `setPopover` resize while open) are in `docs/release/history/v0.4-checkpoint.md`.

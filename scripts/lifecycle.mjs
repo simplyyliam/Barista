@@ -251,10 +251,12 @@ if (run(3)) {
   const kids = [startClient(), startClient(), startClient()]
   await waitFor(async () => count(await listItems(), "Focus") === 3, 15_000)
   const times = []
+  const fromLaunch = []
   let failed = 0
   for (let n = 0; n < 5; n++) {
     killBar()
     await sleep(500)
+    const launchedAt = performance.now()
     startBar()
     // The clock starts when the bar answers on its pipe: its own startup is not the SDK's doing.
     const pipeUp = await waitFor(async () => (await listItems()) !== null, 30_000, 5)
@@ -265,14 +267,24 @@ if (run(3)) {
     const t0 = performance.now()
     const back = await waitFor(async () => count(await listItems(), "Focus") === 3, 5000, 10)
     if (back === null) failed++
-    else times.push(performance.now() - t0)
+    else {
+      times.push(performance.now() - t0)
+      fromLaunch.push(performance.now() - launchedAt)
+    }
   }
   const s = stats(times.length ? times : [0])
+  const l = stats(fromLaunch.length ? fromLaunch : [0])
   row(
-    "Restart the bar: all 3 clients' items are back (median / worst of 5)",
+    "Restart the bar: all 3 clients' items are back (median / worst of 5), counted from the pipe answering",
     `${fmt(s.median)} / ${fmt(s.worst)}, ${failed} failed`,
     "< 2000 ms",
     failed === 0 && s.worst < 2000,
+  )
+  row(
+    "Same restart, counted from launching the bar.exe (its own startup included)",
+    `${fmt(l.median)} / ${fmt(l.worst)}`,
+    "info",
+    true,
   )
   kids.forEach((k) => k.kill("SIGKILL"))
   await waitFor(async () => !has(await listItems(), "Focus"), 5000)
