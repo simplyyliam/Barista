@@ -6,6 +6,56 @@ All notable changes to the Barista app are listed here. The SDK has its own chan
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-14
+
+The icons from the Windows tray (Discord, Steam, OneDrive and the rest) now show up in the bar.
+
+### Added
+
+- **Your tray icons in the bar.** Every icon the Windows tray has shows up behind a small arrow in the bar.
+  Click the arrow and they open in a panel, five icons per row, like the Windows flyout.
+- **Icons stay up to date.** When an app changes its icon or tooltip (a Discord unread count, say), the bar
+  follows within a second. When an app closes or crashes, its icon leaves the bar right away.
+- **A smooth unfold.** The tray icons slide in one after another when the panel opens.
+- **Hand it back to Windows.** Tray icons can be left to Windows' own tray instead of the bar
+  (there's no setting for it yet).
+- **A choice of style.** The icons can also unfold inside the bar instead of a panel (there's no setting for it
+  yet; the panel is the default because a narrow bar can run out of room).
+
+### Changed
+
+- The tray icons are read on this computer only. To see them, Barista quietly stands in as a second taskbar tray
+  and passes everything on to Windows, so the taskbar's own tray keeps working as before.
+
+### Known issues
+
+- Windows SmartScreen may warn that the installer is from an unknown publisher, because it isn't
+  code-signed yet. Click "More info", then "Run anyway".
+- No automatic updates yet. To get a newer version, download its installer from the GitHub
+  Releases page and run it.
+- Tray icons can't be clicked yet, so no menus and no pinning (coming in a later version). They also still show in
+  the Windows taskbar, and Windows' own icons (volume, network, Bluetooth) appear next to the bar's own.
+- If an app changes its tray icon while the Windows Start menu is open, the bar may not follow until the
+  next change.
+- Tested on Windows 11 only. In testing, restarting Explorer while an app that tweaks the taskbar was running
+  closed Barista; start it again if that happens.
+- Some bar items are still missing: the search item doesn't do anything yet, there's no "Quit Barista" entry,
+  and the bar shows on one screen only.
+- Windows still shows its own notification pop-ups, and keyboard shortcut hints in menus are only text.
+- Menus take about 70 ms to appear and Barista uses about 150 MB of memory, because the panel and menu
+  windows are ready in the background. A release for speed and memory is planned.
+
+### Privacy
+
+- Barista sends nothing over the internet. It doesn't check for updates yet.
+- Your notifications, Wi-Fi networks, battery and volume are read on this computer only and never
+  sent anywhere.
+- Apps that add items, menus or popovers talk to the bar only on this computer; nothing leaves the
+  machine. The "are you still there" checks between the bar and apps stay on this computer too.
+- The bar looks at the wallpaper behind it only to pick light or dark text. This happens on your
+  computer, and the wallpaper is never sent anywhere.
+- Tray icons (their picture and tooltip) are read on this computer only and never sent anywhere.
+
 ## [0.5.0] - 2026-11-14
 
 Apps that add items to the bar no longer leave dead icons behind, and they find their way back after the bar restarts.
