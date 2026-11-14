@@ -148,7 +148,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   - **`ExplorerHooks.dll` crash:** Windows named it as the faulting module of two `0xc0000409` aborts of `barista.exe` (once after a broadcast of
     `TaskbarCreated`, once when Liam restarted Explorer). It belongs to the Store app "Transparent Taskbar for Windows" (2845PeroSoftware), which
     injects it into other processes. Not confirmed whether our hidden `Shell_TrayWnd` makes it worse: the A/B (v0.5 bar, same broadcast) was
-    not run. If it is ours: back off when that DLL is loaded in our process (like `foreign_host`), or document the conflict.
+    not run, and cannot be from here: the DLL is only in our process while that app runs, and it was not running later (checked: only
+    `windhawk.dll` is loaded in the bar). To settle it: start Transparent Taskbar, start the bar, then broadcast `TaskbarCreated` or restart
+    Explorer, once with `trayMode: windows` (no host) and once without. If it is ours: back off when that DLL is loaded in our process
+    (like `foreign_host`), or document the conflict. Checked 2026-11-14: with 14 real + 15 fake icons the default panel leaves the bar
+    exactly where it was (before/after capture), so the narrow-bar overflow is gone with the default style.
   - Hover tint stuck after leaving the bar (Liam saw it on the bench's release bar). Could not reproduce with `SetCursorPos`, `mouse_event`,
     panels opened and closed by Esc or a click outside; the page showed no hover and no tint when it happened to look lit. Needs a repro with
     `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` and the DOM read at that moment (`data-hover`, `:hover`, `:focus-visible`).
