@@ -14,7 +14,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   client items pinned, tray icons not (Liam's choice). Tools: `scripts/tray-probe.ps1` (fake app that logs the callback messages, optional
   menu), `scripts/tray-click.ps1` (real click on the bar, then `inspect --click`, reports windows/menus that opened), `inspect --click <id> double`.
   Bench in `docs/perf/0.7.md`. Verified live with the probe (sequences, anchor, menu opens at the pointer) and over CDP (pin, order, restart keeps them).
-  **Not verified:** the click runs were built from Microsoft's docs and Wine, not recorded from Explorer (UIA cannot reach the Windows 11 tray
+  **Reviews done:** `/code-review medium` (9 findings: fixed width updates from overflow, snapshot cost of `note_widths`, pins dropped at the cap, save race, failed click leaving a double pending, reorder refused for a vanished id; the rest are in Fix next), `/security-review` (no findings), end-to-end (test client item and menu, gone after kill, pin / order / restart). **Not verified:** the click runs were built from Microsoft's docs and Wine, not recorded from Explorer (UIA cannot reach the Windows 11 tray
   buttons): Liam, click the probe's two icons in Explorer's tray once and compare the log (`scripts/tray-probe.ps1 -Log probe.log`).
 
 - **v0.6 "Tray, read" built, PR open** (branch `feature/v0.6-tray-read`, Liam reviews and merges; `UI: rust-only` in the /goal, Liam allowed the UI for it).
@@ -153,6 +153,23 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `pnpm --filter @barista/bar dev` when testing with inspect.
 
 ## Fix next
+
+- From v0.7 (tray, live), found by testing (a real afternoon with the UI is Liam's, the UI is not wired yet):
+  - Clicks were checked on 11 real tray icons through `scripts/tray-click.ps1`: most open their window or menu under the pointer
+    (Medal, Twinkle Tray, G HUB, SteelSeries GG, AMD, ISLC, Windhawk, Explorer's own icons), but results vary run to run and some icons
+    show nothing (Raycast on a second run, SteelSeries left click): not compared with Explorer. Debug clicks are not real input, so a
+    menu sometimes stays open until Escape / `WM_CANCELMODE`; the real check is once the UI calls `itemClicked`.
+  - A double click on a version 4 icon sends only `WM_LBUTTONDBLCLK` + `WM_LBUTTONUP` (no `NIN_SELECT`): unknown what Explorer does; settle it with the probe.
+  - Stable ids: some programs use a changing number as icon id (G HUB's was `532175291`), so their saved place is lost at the next start.
+    Needs a friendlier id (executable path + icon id?).
+  - Explorer's own icons (Safely Remove, Bluetooth, Sonar) are listed and clickable like any other: still undecided which to hide (v0.6 note).
+  - Stale item bounds: an item that moved to overflow keeps its old entry in `placement::bounds()`, so a click from the overflow panel may anchor
+    at the old bar position (only matters for apps that use the version 4 anchor). Drop bounds when the placement changes.
+  - The width guesses (28 px icon, 14 + 7 per character label) live in `registry/mod.rs`; the UI could send the real ones once.
+  - `tray_set` compares the owner fields too, so a callback change wakes the UI with an identical list (rare).
+  - Bench: worst tooltip latency 1804 ms in one run (median 19 ms), disturbed by the reviews running; re-run on a quiet machine.
+  - Once the dev bar died at startup with `0xc0000409` right after "appbar registration failed, will retry" (the known `ExplorerHooks.dll`
+    crash, see the v0.6 notes); the next four starts were fine. Not reproduced.
 
 - From v0.6 (tray, read), found by testing and by Liam's feedback:
   - Soak (1 h, unattended, `scripts/soak.ps1`): bar alive throughout, CPU 0.004 to 0.28 %, memory 156 / 180 / 90 MB (no growth), Explorer never restarted; says nothing about daily feel, which is Liam's to judge.
