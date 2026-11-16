@@ -171,21 +171,24 @@ export function SliderRow({
   const first = (v: number | readonly number[]) => (Array.isArray(v) ? (v[0] ?? value) : (v as number))
   return (
     <Row label={label} hint={hint} disabled={disabled}>
-      <Slider
-        aria-label={label}
-        // A thicker track and a round thumb you can actually grab.
-        className="w-72 [&_[data-slot=slider-thumb]]:size-5 [&_[data-slot=slider-thumb]]:rounded-full [&_[data-slot=slider-thumb]]:border-0 [&_[data-slot=slider-thumb]]:shadow-md [&_[data-slot=slider-track]]:h-2 [&_[data-slot=slider-track]]:rounded-full"
-        min={min}
-        max={max}
-        step={step}
-        value={[shown]}
-        disabled={disabled}
-        onValueChange={(v) => setDraft(first(v))}
-        onValueCommitted={(v) => {
-          setDraft(null)
-          onChange(first(v))
-        }}
-      />
+      {/* The slider fills its parent (`w-full` is built in), so the parent sets the length. */}
+      <div className="w-80">
+        <Slider
+          aria-label={label}
+          // A thick track and a big round thumb you can grab. `!` because the shared slider sets its own sizes.
+          className="[&_[data-slot=slider-thumb]]:size-6! [&_[data-slot=slider-thumb]]:rounded-full! [&_[data-slot=slider-thumb]]:border-0! [&_[data-slot=slider-thumb]]:shadow-lg [&_[data-slot=slider-track]]:h-2.5! [&_[data-slot=slider-track]]:rounded-full!"
+          min={min}
+          max={max}
+          step={step}
+          value={[shown]}
+          disabled={disabled}
+          onValueChange={(v) => setDraft(first(v))}
+          onValueCommitted={(v) => {
+            setDraft(null)
+            onChange(first(v))
+          }}
+        />
+      </div>
       <span className="w-16 text-right text-sm whitespace-nowrap tabular-nums text-muted-foreground">
         {shown}
         {unit}
