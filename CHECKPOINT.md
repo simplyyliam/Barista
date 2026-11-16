@@ -159,6 +159,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
     (Medal, Twinkle Tray, G HUB, SteelSeries GG, AMD, ISLC, Windhawk, Explorer's own icons), but results vary run to run and some icons
     show nothing (Raycast on a second run, SteelSeries left click): not compared with Explorer. Debug clicks are not real input, so a
     menu sometimes stays open until Escape / `WM_CANCELMODE`; the real check is once the UI calls `itemClicked`.
+  - Two more rounds of the sweep (fresh bar, left / right / double each, `tray-click.ps1`): the same in both rounds: AMD Software (right = menu, double = window),
+    Medal (left and double = window), ISLC (right = its menu, double stays quiet), SteelSeries GG (right = menu, double = window), Windhawk (right = menu),
+    Explorer's own icons (menus). Nothing visible in either round: Twinkle Tray and Raycast (both reacted in the earlier sweep, so the detector or the app's
+    toggle state is involved), left on most apps (many open on double click or only toggle an existing window). "Like the real tray for 10 apps" is
+    therefore **not proven**: it needs the same clicks done in Explorer's tray, side by side, by a person.
   - A double click on a version 4 icon sends only `WM_LBUTTONDBLCLK` + `WM_LBUTTONUP` (no `NIN_SELECT`): unknown what Explorer does; settle it with the probe.
   - Stable ids: some programs use a changing number as icon id (G HUB's was `532175291`), so their saved place is lost at the next start.
     Needs a friendlier id (executable path + icon id?).
