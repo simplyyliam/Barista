@@ -3,7 +3,19 @@
 Keep this file short: where we are, the next step, and facts a new session needs.
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
-## Where we are (2026-11-14)
+## Where we are (2026-11-16)
+
+- **v0.7 "Tray, live" built, PR open** (branch `feature/v0.7-tray-live`, `UI: rust-only`, Liam reviews and merges; ADRs 0027 clicks, 0028 layout).
+  Tray clicks: `tray/click.rs` (message runs per button and version, wParam/lParam encoding, DPI conversion of the anchor, double-click
+  tracker) + `platform/windows/tray_input.rs`; `route_click` sends `tray/...` ids to the owner after `AllowSetForegroundWindow`. Layout:
+  `registry/layout.rs` (pure), settings `itemLayout { order, pinned, collapsed }`, stable ids (`app:<app>/<item>`, `tray:<guid>` or
+  `tray:<exe>/<id>`). **New for the UI (not wired):** `StatusItemView.pinned` and `.placement` (`bar` | `overflow`, list in display order),
+  commands `setPinned`, `setOrder`, `setCollapsed`, `getCollapsed`, `setItemSpace(width, gap)`, event `collapsedChanged`. Defaults: collapsed,
+  client items pinned, tray icons not (Liam's choice). Tools: `scripts/tray-probe.ps1` (fake app that logs the callback messages, optional
+  menu), `scripts/tray-click.ps1` (real click on the bar, then `inspect --click`, reports windows/menus that opened), `inspect --click <id> double`.
+  Bench in `docs/perf/0.7.md`. Verified live with the probe (sequences, anchor, menu opens at the pointer) and over CDP (pin, order, restart keeps them).
+  **Not verified:** the click runs were built from Microsoft's docs and Wine, not recorded from Explorer (UIA cannot reach the Windows 11 tray
+  buttons): Liam, click the probe's two icons in Explorer's tray once and compare the log (`scripts/tray-probe.ps1 -Log probe.log`).
 
 - **v0.6 "Tray, read" built, PR open** (branch `feature/v0.6-tray-read`, Liam reviews and merges; `UI: rust-only` in the /goal, Liam allowed the UI for it).
   Hidden `Shell_TrayWnd` host (`platform/windows/tray_host.rs`, ADR 0026) forwards every message to Explorer; `tray/` (`parse`, `state`,
