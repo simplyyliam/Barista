@@ -45,3 +45,18 @@ icons alike, and survive a restart. Rule 5 says Rust holds the logic and the UI 
 - A drag in the UI is one `setOrder` call with the full visible list.
 - The layout file grows slowly with apps that come and go (capped at 512 ids; the oldest at the end drop).
 - Moving where the date or other first-party items sit is a v0.8 setting, built on the same ids.
+
+## The UI (built after the Rust, same release)
+
+No designs exist for pin, overflow or drag, so these are interactions on screens that already exist (the tray
+panel and the bar), in their visual style:
+
+- **Bar:** client items with `placement: "bar"`, pinned tray icons as pills (same clicks as the Windows tray),
+  then the arrow. The arrow opens the panel and is there while any tray icon exists or anything is in overflow.
+- **Panel (the overflow list):** every tray icon and any other item in overflow, in saved order. A tile does
+  what the icon does in the Windows tray (left, right, middle go through `itemClicked`; the double click is
+  found in Rust). A pin in the tile's corner (shown on hover, always shown when pinned) calls `setPinned`. A
+  press and drag reorders live and calls `setOrder` on release (`useTileReorder`); a drag never counts as a
+  click. A button at the bottom calls `setCollapsed` ("Show all in the bar" / "Collapse to pinned").
+- **Room:** `useItemSpace` reports the right-hand column of the bar minus its fixed parts (`setItemSpace`).
+- Not done: dragging pinned pills in the bar itself (reorder happens in the panel).

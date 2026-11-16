@@ -12,12 +12,16 @@ import {
   Wifi,
 } from "@/features/menubar"
 import { useBarHeight } from "@/features/menubar/hooks/use-bar-height"
+import { useItemSpace } from "@/features/menubar/hooks/use-item-space"
 import { useResetHover } from "@/features/menubar/hooks/use-reset-hover"
+import { useItems } from "@/shared/hooks/use-items"
 import { Motion } from "@/shared/motion"
 
 export default function Menubar() {
   useBarHeight()
   useResetHover()
+  // Rust splits the items into bar and overflow by the room the bar has.
+  useItemSpace(useItems().map((item) => item.id))
 
   // Fills the bar's height and centres the pills vertically. Sizes: --menubar-* in tokens.css.
   return (
@@ -28,8 +32,8 @@ export default function Menubar() {
         <BrandItem />
         <AppName />
       </MenubarItemGroup>
-      <MenubarItemGroup className="justify-self-center"></MenubarItemGroup>
-      <MenubarItemGroup className="justify-self-end gap-menubar-status-gap">
+      <MenubarItemGroup className="justify-self-center" data-bar-center></MenubarItemGroup>
+      <MenubarItemGroup className="justify-self-end gap-menubar-status-gap" data-bar-right>
         <TrayItems />
         <StatusItems />
         <Battery />

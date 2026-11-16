@@ -5,11 +5,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-16)
 
-- **v0.7 "Tray, live" built, PR open** (branch `feature/v0.7-tray-live`, `UI: rust-only`, Liam reviews and merges; ADRs 0027 clicks, 0028 layout).
+- **v0.7 "Tray, live" built, PR open** (branch `feature/v0.7-tray-live`, `UI: rust-only` in the /goal, then Liam pointed at the `CLAUDE (UI)` heading and the UI was built too; Liam reviews and merges; ADRs 0027 clicks, 0028 layout).
   Tray clicks: `tray/click.rs` (message runs per button and version, wParam/lParam encoding, DPI conversion of the anchor, double-click
   tracker) + `platform/windows/tray_input.rs`; `route_click` sends `tray/...` ids to the owner after `AllowSetForegroundWindow`. Layout:
   `registry/layout.rs` (pure), settings `itemLayout { order, pinned, collapsed }`, stable ids (`app:<app>/<item>`, `tray:<guid>` or
-  `tray:<exe>/<id>`). **New for the UI (not wired):** `StatusItemView.pinned` and `.placement` (`bar` | `overflow`, list in display order),
+  `tray:<exe>/<id>`). **UI (wired, real mouse tested):** `features/panel/tray-panel.tsx` (tile clicks, pin, drag to reorder, collapse button), `features/menubar/tray-items.tsx` (pinned tray pills in the bar, same clicks), `use-item-space.ts` (`setItemSpace`), `shared/lib/item-click.ts`, `shared/hooks/use-collapsed.ts`. Uses `StatusItemView.pinned` and `.placement` (`bar` | `overflow`, list in display order),
   commands `setPinned`, `setOrder`, `setCollapsed`, `getCollapsed`, `setItemSpace(width, gap)`, event `collapsedChanged`. Defaults: collapsed,
   client items pinned, tray icons not (Liam's choice). Tools: `scripts/tray-probe.ps1` (fake app that logs the callback messages, optional
   menu), `scripts/tray-click.ps1` (real click on the bar, then `inspect --click`, reports windows/menus that opened), `inspect --click <id> double`.
@@ -155,6 +155,14 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Fix next
 
+- From wiring the v0.7 UI (real mouse, dev bar): pin (hover shows the pin), right-click on a pinned icon in the bar opens the app's own menu under the
+  icon (AMD: "Open AMD Software / Video Profile / Hide System Tray"), drag a tile to the first place and it stayed after the event, "Show all in the bar"
+  moved all 16 icons into the bar, a tile click opened Medal and closed the panel. Not done / to look at:
+  - Pinned pills in the bar cannot be dragged (reorder is in the panel only); no way to unpin from the bar itself (open the panel).
+  - The pin only shows on hover when unpinned: not obvious. Needs Liam's eye (no design exists).
+  - With the bar expanded, 16 icons fill the right side; `setItemSpace` sends the room but it was not tested on a narrow bar.
+  - In one screenshot an editor window sat in front of the open panel (the panel is not always on top?): not investigated, may be my test setup.
+  - The panel route has no keyboard path for pin or reorder.
 - From v0.7 (tray, live), found by testing (a real afternoon with the UI is Liam's, the UI is not wired yet):
   - Clicks were checked on 11 real tray icons through `scripts/tray-click.ps1`: most open their window or menu under the pointer
     (Medal, Twinkle Tray, G HUB, SteelSeries GG, AMD, ISLC, Windhawk, Explorer's own icons), but results vary run to run and some icons

@@ -1,6 +1,7 @@
 import { commands, type StatusItemView } from "@/shared/bindings";
 import { useItems } from "@/shared/hooks/use-items";
 import { useTrayStyle } from "@/shared/hooks/use-tray-style";
+import { itemClickHandlers } from "@/shared/lib/item-click";
 import { TRAY_PANEL_HEIGHT, TRAY_PANEL_WIDTH } from "@/features/panel/tray-panel";
 import { useOpenPanel } from "@/features/panel";
 import { Swap, WAVE_EXIT, WAVE_HIDDEN, WAVE_SHOWN, staggerDelay, waveEnter } from "@/shared/motion";
@@ -16,54 +17,76 @@ const ARROW_ID = "tray/arrow";
 /**
  * The Windows tray in the bar, as the `trayStyle` setting says (default `panel`; the v0.8 settings
  * window flips it): an arrow that opens a grid under it, or an arrow that unfolds the icons inline.
+ * Pinned tray icons are always in the bar, as pills with the same clicks as in the Windows tray.
  */
 export function TrayItems() {
   return useTrayStyle() === "inline" ? <InlineTray /> : <PanelTray />;
 }
 
+/** What the tray needs from the item list: the icons Rust placed in the bar, and whether any item is in overflow. */
+function useTray() {
+  const items = useItems();
+  const tray = items.filter((item) => item.source === "tray");
+  return {
+    // Pinned icons (or all of them while the bar is expanded) live in the bar.
+    inBar: tray.filter((item) => item.placement === "bar"),
+    // The rest wait behind the arrow.
+    folded: tray.filter((item) => item.placement === "overflow"),
+    // The arrow is there while there is anything behind it, and while any tray icon exists (the panel holds the pin and collapse controls).
+    arrow: tray.length > 0 || items.some((item) => item.placement === "overflow"),
+  };
+}
+
 /**
- * The arrow only; the icons are in the `tray` panel (`features/panel/tray-panel.tsx`). Nothing in
- * the bar moves when it opens, whatever the screen width. No arrow when the tray is empty.
+ * The arrow and the pinned icons; the rest are in the `tray` panel (`features/panel/tray-panel.tsx`).
+ * Nothing in the bar moves when the panel opens, whatever the screen width.
  */
 function PanelTray() {
-  const items = useItems().filter((item) => item.source === "tray");
+  const { inBar, arrow } = useTray();
   const open = useOpenPanel();
   const isOpen = open?.anchor === ARROW_ID;
-  useItemBounds(items.length ? ARROW_ID : "");
-
-  if (items.length === 0) return null;
+  useItemBounds(`${arrow ? ARROW_ID : ""}|${inBar.map((item) => item.id).join("|")}`);
 
   const click = () =>
     void commands.openPanel("tray", ARROW_ID, TRAY_PANEL_WIDTH, TRAY_PANEL_HEIGHT, "none");
   return (
-    <MenubarItem
-      variant="icon"
-      role="button"
-      tabIndex={0}
-      aria-label="Tray icons"
-      aria-expanded={isOpen}
-      title="Tray icons"
-      open={isOpen}
-      data-item-id={ARROW_ID}
-      className="cursor-default outline-none focus-visible:bg-bar-hover"
-      {...ITEM_APPEAR}
-      onClick={click}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          click();
-        }
-      }}
-    >
-      <ChevronIcon direction="down" />
-    </MenubarItem>
+    <>
+      <AnimatePresence initial={false} mode="popLayout">
+        {inBar.map((item) => (
+          <TrayItem key={item.id} item={item} order={0} />
+        ))}
+      </AnimatePresence>
+      {arrow && (
+        <MenubarItem
+          variant="icon"
+          role="button"
+          tabIndex={0}
+          aria-label="Tray icons"
+          aria-expanded={isOpen}
+          title="Tray icons"
+          open={isOpen}
+          data-item-id={ARROW_ID}
+          className="cursor-default outline-none focus-visible:bg-bar-hover"
+          {...ITEM_APPEAR}
+          onClick={click}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              click();
+            }
+          }}
+        >
+          <ChevronIcon direction="down" />
+        </MenubarItem>
+      )}
+    </>
   );
 }
 
 /**
  * The Windows tray, folded away, unfolding inside the bar. It needs room: on a narrow bar a long
  * tray can push the other items off, which is why `panel` is the default. Tray icons are many and mostly not needed at a glance, so the
- * group starts collapsed and shows only an arrow; open it to reach one. It folds itself again after
+ * group starts collapsed and shows only an arrow (and the pinned icons); open it to reach one. It folds itself again after
  * the pointer has been away for a few seconds. No arrow when the tray is empty.
  *
  * The arrow never moves: the icons open out to its left (the bar's right side is right-aligned, so
@@ -72,25 +95,32 @@ function PanelTray() {
  * instantly, because apps flip it all day (unread badges, spinners).
  */
 function InlineTray() {
-  const items = useItems().filter((item) => item.source === "tray");
+  const { inBar, folded, arrow } = useTray();
   const [open, setOpen] = useState(false);
   const collapse = useCallback(() => setOpen(false), []);
   useAutoCollapse(open, collapse);
 
-  // Rust needs each pill's place (v0.7 opens tray menus under it).
-  useItemBounds(`${items.length ? ARROW_ID : ""}|${open ? items.map((item) => item.id).join("|") : ""}`);
+  // Rust needs each pill's place (it opens tray menus under it).
+  useItemBounds(
+    `${arrow ? ARROW_ID : ""}|${inBar.map((item) => item.id).join("|")}|${open ? folded.map((item) => item.id).join("|") : ""}`,
+  );
 
-  if (items.length === 0) return null;
+  if (!arrow) return null;
 
   const label = open ? "Hide tray icons" : "Show tray icons";
   return (
     <>
       <AnimatePresence initial={false} mode="popLayout">
         {open &&
-          items.map((item, index) => (
+          folded.map((item, index) => (
             // The wave starts next to the arrow (the last one in the row) and moves outwards.
-            <TrayItem key={item.id} item={item} order={items.length - 1 - index} />
+            <TrayItem key={item.id} item={item} order={folded.length - 1 - index} />
           ))}
+      </AnimatePresence>
+      <AnimatePresence initial={false} mode="popLayout">
+        {inBar.map((item) => (
+          <TrayItem key={item.id} item={item} order={0} />
+        ))}
       </AnimatePresence>
       <MenubarItem
         variant="icon"
@@ -130,8 +160,8 @@ function TrayItem({ item, order }: { item: StatusItemView; order: number }) {
       initial={WAVE_HIDDEN}
       animate={{ ...WAVE_SHOWN, transition: waveEnter(staggerDelay(order)) }}
       exit={{ ...WAVE_HIDDEN, x: 0, scale: 0.9, transition: WAVE_EXIT }}
-      // Clicks arrive with v0.7: no press dip until the icon does something.
-      whileTap={undefined}
+      // Left, right and middle go to the app like in the Windows tray (a double click is found in Rust).
+      {...itemClickHandlers(item.id)}
     >
       {item.icon ? (
         <img src={item.icon} alt="" draggable={false} className="pointer-events-none size-4 object-contain" />
