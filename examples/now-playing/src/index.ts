@@ -53,10 +53,10 @@ const helper = startHelper(
     const text = [event.artist, event.title].filter(Boolean).join(" - ")
     item.setLabel(shorten(text))
     item.setIcon({ icon: event.playing ? PauseIcon : PlayIcon, color: "#ffffff", height: 12 })
-    item.setTooltip(`${text}\n${appName(event.app)}`)
+    item.setTooltip(text ? `${text} (${appName(event.app)})` : "Now playing")
     item.updateMenuItem("title", { label: shorten(text) || "Nothing playing" })
     item.updateMenuItem("previous", { enabled: event.canPrevious })
-    item.updateMenuItem("playPause", { label: event.playing ? "Pause" : "Play" })
+    item.updateMenuItem("play-pause", { label: event.playing ? "Pause" : "Play" })
     item.updateMenuItem("next", { enabled: event.canNext })
   },
   () => process.exit(1),
@@ -67,7 +67,7 @@ const MENU = [
   { id: "title", label: "Nothing playing", enabled: false },
   { type: "separator" as const },
   { id: "previous", label: "Previous", click: () => helper.send({ cmd: "previous" }) },
-  { id: "playPause", label: "Play", click: () => helper.send({ cmd: "playPause" }) },
+  { id: "play-pause", label: "Play", click: () => helper.send({ cmd: "playPause" }) },
   { id: "next", label: "Next", click: () => helper.send({ cmd: "next" }) },
 ]
 
