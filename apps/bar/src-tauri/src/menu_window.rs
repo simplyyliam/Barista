@@ -201,6 +201,15 @@ pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Resul
             }
             Ok(())
         }
+        ClickTarget::Tray => {
+            crate::popover::close();
+            crate::panel::close();
+            #[cfg(windows)]
+            return crate::tray::click(registry, key, button, known_anchor_of(key));
+            // No tray off Windows: the click goes nowhere.
+            #[cfg(not(windows))]
+            Err(ClickError::NotFound)
+        }
         ClickTarget::App => {
             // A click on an item without a popover must not leave another item's popover up.
             crate::popover::close();
@@ -208,6 +217,20 @@ pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Resul
             registry.click_with_anchor(key, button, anchor_of(key))
         }
     }
+}
+
+/// Like `anchor_of`, but `None` unless the UI reported where the item is drawn. A tray tile inside
+/// the tray panel has no bounds: the pointer is a better anchor than a guess under the bar.
+#[cfg(windows)]
+fn known_anchor_of(key: &str) -> Option<ScreenRect> {
+    let (bar, _, scale) = geometry()?;
+    let r = placement::known_item_rect(key, &bar, scale)?;
+    Some(ScreenRect {
+        x: r.left,
+        y: r.top,
+        width: r.width(),
+        height: r.height(),
+    })
 }
 
 /// The item's rect on screen, for `item.click`. `None` when the bar has no monitor yet.

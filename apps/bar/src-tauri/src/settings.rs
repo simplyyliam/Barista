@@ -2,6 +2,7 @@
 //! Stored as a small JSON file in the app's config folder.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 // 28 like a notched MacBook's bar; 24 is Apple's HIG height without a notch. The UI's
@@ -36,6 +37,49 @@ pub enum TrayStyle {
     Inline,
 }
 
+/// How many ids the saved layout keeps and how long one may be (a hand-edited or runaway file must
+/// not grow without bound, rule 3).
+pub const MAX_LAYOUT_ENTRIES: usize = 512;
+pub const MAX_LAYOUT_ID: usize = 300;
+
+/// The user's arrangement of the bar's items (ADR 0028). Ids are stable across runs
+/// (`app:<app>/<item>`, `tray:...`), not the per-run keys the UI sees.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ItemLayout {
+    /// Left to right. Items not listed go after, in arrival order.
+    pub order: Vec<String>,
+    /// The user's pin choices. No entry = the default (client items pinned, tray icons not).
+    pub pinned: BTreeMap<String, bool>,
+    /// While collapsed, only pinned items stay in the bar; the rest go to the overflow list.
+    pub collapsed: bool,
+}
+
+impl Default for ItemLayout {
+    fn default() -> Self {
+        Self {
+            order: Vec::new(),
+            pinned: BTreeMap::new(),
+            collapsed: true,
+        }
+    }
+}
+
+impl ItemLayout {
+    /// Drops empty or oversized ids and duplicates, and cuts the lists to their limits.
+    pub fn cleaned(mut self) -> Self {
+        let ok = |id: &String| !id.is_empty() && id.len() <= MAX_LAYOUT_ID;
+        let mut seen = std::collections::HashSet::new();
+        self.order.retain(|id| ok(id) && seen.insert(id.clone()));
+        self.order.truncate(MAX_LAYOUT_ENTRIES);
+        self.pinned.retain(|id, _| ok(id));
+        while self.pinned.len() > MAX_LAYOUT_ENTRIES {
+            self.pinned.pop_last();
+        }
+        self
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -53,6 +97,8 @@ pub struct Settings {
     pub tray_mode: Mode,
     /// How tray icons are laid out in the bar: a dropdown panel or unfolded inline.
     pub tray_style: TrayStyle,
+    /// Order, pinned and collapsed state of the bar's items (v0.7).
+    pub item_layout: ItemLayout,
 }
 
 impl Default for Settings {
@@ -65,6 +111,7 @@ impl Default for Settings {
             control_center_mode: Mode::Barista,
             tray_mode: Mode::Barista,
             tray_style: TrayStyle::Panel,
+            item_layout: ItemLayout::default(),
         }
     }
 }
@@ -73,6 +120,7 @@ impl Settings {
     /// A hand-edited file must not be able to make the bar huge or invisible.
     fn clamped(mut self) -> Self {
         self.bar_height = clamp_bar_height(self.bar_height);
+        self.item_layout = self.item_layout.cleaned();
         self
     }
 
@@ -154,6 +202,34 @@ mod tests {
         assert_eq!(s.control_center_mode, Mode::Barista);
         assert_eq!(s.tray_mode, Mode::Barista);
         assert_eq!(s.tray_style, TrayStyle::Panel);
+        // No saved layout: nothing ordered or pinned, and the tray starts collapsed.
+        assert_eq!(s.item_layout, ItemLayout::default());
+        assert!(s.item_layout.collapsed);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_hand_edited_layout_is_cleaned_on_load() {
+        let path = temp_file("layout.json");
+        let long = "x".repeat(MAX_LAYOUT_ID + 1);
+        let order: Vec<String> = (0..MAX_LAYOUT_ENTRIES + 50)
+            .map(|i| format!("a{i}"))
+            .chain(["".to_string(), long.clone(), "dup".to_string(), "dup".to_string()])
+            .collect();
+        let mut pinned = serde_json::Map::new();
+        pinned.insert(String::new(), true.into());
+        pinned.insert(long.clone(), true.into());
+        pinned.insert("ok".into(), false.into());
+        let text = serde_json::json!({ "itemLayout": { "order": order, "pinned": pinned } });
+        std::fs::write(&path, text.to_string()).unwrap();
+        let layout = Settings::load(&path).item_layout;
+        assert_eq!(layout.order.len(), MAX_LAYOUT_ENTRIES);
+        assert!(!layout.order.contains(&long) && !layout.order.iter().any(String::is_empty));
+        assert_eq!(layout.pinned.len(), 1);
+        assert_eq!(layout.pinned.get("ok"), Some(&false));
+        // Duplicates collapse to one.
+        let dup = ItemLayout { order: vec!["a".into(), "a".into(), "b".into()], ..Default::default() }.cleaned();
+        assert_eq!(dup.order, ["a", "b"]);
         let _ = std::fs::remove_file(path);
     }
 
@@ -168,6 +244,11 @@ mod tests {
             control_center_mode: Mode::Windows,
             tray_mode: Mode::Windows,
             tray_style: TrayStyle::Inline,
+            item_layout: ItemLayout {
+                order: vec!["tray:discord/1".into(), "app:Timer/main".into()],
+                pinned: BTreeMap::from([("tray:discord/1".to_string(), true)]),
+                collapsed: false,
+            },
         };
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);

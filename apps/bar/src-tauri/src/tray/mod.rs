@@ -9,21 +9,25 @@
 //! worker (here)  parse.rs → state.rs (limits, add/modify/delete) → icons.rs (PNG cache) → registry
 //! ```
 
+pub mod click;
 pub mod icons;
 pub mod parse;
 pub mod state;
 
 #[cfg(windows)]
-pub use worker::{init, shutdown};
+pub use worker::{click, init, shutdown};
 
 #[cfg(windows)]
 mod worker {
+    use super::click as sequences;
     use super::icons::{self, IconCache};
     use super::parse::{Action, TrayMessage};
     use super::state::{Outcome, Picture, TrayState};
     use crate::platform::windows::app_icon;
     use crate::platform::windows::tray_host::{self, Host, HostEvent, OwnedIcon};
-    use crate::registry::{Registry, TrayItem};
+    use crate::registry::{ClickError, Registry, TrayItem, TrayOwner};
+    use barista_protocol::{MouseButton, ScreenRect};
+    use crate::platform::windows::{foreground, tray_input};
     use crate::settings::Mode;
     use std::sync::mpsc::{sync_channel, Receiver};
     use std::sync::{Arc, Mutex};
@@ -51,6 +55,7 @@ mod worker {
         match tray_host::start(tx) {
             Ok(host) => {
                 *HOST.lock().unwrap_or_else(|e| e.into_inner()) = Some(host);
+                retry_announce(registry.clone());
                 let spawned = std::thread::Builder::new()
                     .name("tray-worker".into())
                     .spawn(move || Worker::new(registry).run(rx));
@@ -62,6 +67,23 @@ mod worker {
         }
     }
 
+    /// Seen once: after a start no tray app re-added its icon (the host worked, a manual broadcast
+    /// brought them all back). So if the tray is still empty a few seconds after the first broadcast,
+    /// broadcast again, at most twice. Two sleeps, not a poll; a machine with no tray apps just gets
+    /// two harmless broadcasts.
+    fn retry_announce(registry: Arc<Registry>) {
+        let _ = std::thread::Builder::new().name("tray-announce".into()).spawn(move || {
+            for wait in [4u64, 8] {
+                std::thread::sleep(std::time::Duration::from_secs(wait));
+                if registry.tray_len() > 0 {
+                    return;
+                }
+                eprintln!("[tray] no icon arrived {wait} s after start: announcing the taskbar again");
+                tray_host::announce();
+            }
+        });
+    }
+
     /// Closes the host window, so messages reach Explorer alone again (on a normal quit).
     pub fn shutdown() {
         let stats = tray_host::stats();
@@ -70,6 +92,59 @@ mod worker {
             stats.tray_messages, stats.reraised, stats.dropped, stats.forward_failed
         );
         drop(HOST.lock().unwrap_or_else(|e| e.into_inner()).take());
+    }
+
+    static DOUBLE: Mutex<sequences::DoubleClick> = Mutex::new(sequences::DoubleClick::default_const());
+
+    /// A click on the tray icon `key` (`tray/<key>`): posts the run of mouse messages the real tray
+    /// would, to the app's own window (ADR 0027). `rect` is the icon in the bar, in screen pixels,
+    /// when the UI told us (the anchor); without it the mouse pointer stands in.
+    pub fn click(
+        registry: &Registry,
+        key: &str,
+        button: MouseButton,
+        rect: Option<ScreenRect>,
+    ) -> Result<(), ClickError> {
+        let (owner, pid) = registry.tray_owner(key).ok_or(ClickError::NotFound)?;
+        let callback = owner.callback_message.ok_or(ClickError::NotFound)?;
+        // A dead window: the icon is about to be removed by the destroy hook, say so.
+        if !tray_host::window_exists(owner.hwnd) {
+            return Err(ClickError::NotFound);
+        }
+        let double = {
+            let mut tracker = DOUBLE.lock().unwrap_or_else(|e| e.into_inner());
+            if button == MouseButton::Left {
+                tracker.left(key, now_ms(), tray_input::double_click_ms())
+            } else {
+                tracker.reset();
+                false
+            }
+        };
+        // Bottom centre of the icon, where a menu would drop from; else the pointer.
+        let anchor = rect
+            .map(|r| (r.x + r.width / 2, r.y + r.height))
+            .or_else(tray_input::cursor)
+            .unwrap_or((0, 0));
+        // The app must be allowed to take focus, or its menu would not close on an outside click.
+        foreground::allow(pid);
+        let mut delivered = true;
+        for message in sequences::sequence(button, owner.version, double) {
+            let (w, l) = sequences::encode(message, owner.version, owner.id, anchor);
+            delivered &= tray_input::post(owner.hwnd, callback, w, l);
+        }
+        if delivered {
+            Ok(())
+        } else {
+            // The app never saw this click, so the next one must not count as its double.
+            DOUBLE.lock().unwrap_or_else(|e| e.into_inner()).reset();
+            Err(ClickError::Unreachable)
+        }
+    }
+
+    fn now_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as u64)
     }
 
     struct Worker {
@@ -173,6 +248,13 @@ mod worker {
                             TrayItem {
                                 app_name: icon.app_name.clone(),
                                 pid: icon.pid,
+                                stable_id: super::state::stable_id(&key, &icon.app_name, icon.id),
+                                owner: TrayOwner {
+                                    hwnd: icon.hwnd,
+                                    id: icon.id,
+                                    callback_message: icon.callback_message,
+                                    version: icon.version,
+                                },
                                 icon: icon.icon.clone(),
                                 tooltip: icon.tip.clone(),
                                 visible: !icon.hidden,

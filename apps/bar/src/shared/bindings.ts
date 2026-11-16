@@ -98,6 +98,32 @@ export const commands = {
 	 */
 	setItemBounds: (bounds: ItemBounds[]) => __TAURI_INVOKE<void>("set_item_bounds", { bounds }),
 	/**
+	 *  Pins or unpins an item (`id` from `getItems()`). While the bar is collapsed only pinned items
+	 *  stay in the bar. Saved; `itemsChanged` follows with the new `pinned` and `placement`. Client
+	 *  items start pinned, tray icons do not.
+	 */
+	setPinned: (id: string, pinned: boolean) => typedError<null, string>(__TAURI_INVOKE("set_pinned", { id, pinned })),
+	/**
+	 *  Saves the order the user arranged: `ids` are item ids, left to right, as many as they can see
+	 *  (bar and overflow). Only those items move, so items that are not running keep their place.
+	 *  An id that is gone is skipped; a repeated id refuses the order. Saved; `itemsChanged` follows.
+	 */
+	setOrder: (ids: string[]) => typedError<null, string>(__TAURI_INVOKE("set_order", { ids })),
+	/**
+	 *  Collapse or expand the bar: collapsed (the default) keeps only pinned items in the bar and
+	 *  moves the rest to overflow. Saved; `collapsedChanged` and `itemsChanged` follow.
+	 */
+	setCollapsed: (collapsed: boolean) => __TAURI_INVOKE<void>("set_collapsed", { collapsed }),
+	/**  Whether the bar is collapsed. Call once when the UI starts; `collapsedChanged` keeps it fresh. */
+	getCollapsed: () => __TAURI_INVOKE<boolean>("get_collapsed"),
+	/**
+	 *  How much room the bar has for items, in logical px (what is left after the arrow, the clock and
+	 *  the system icons), and the gap between two items. Items that do not fit get `placement:
+	 *  "overflow"` in `itemsChanged`, the left-most unpinned ones first. Send it whenever it changes;
+	 *  `width: null` means no limit. Not saved.
+	 */
+	setItemSpace: (width: number | null, gap: number | null) => __TAURI_INVOKE<void>("set_item_space", { width, gap }),
+	/**
 	 *  The item whose popover is open right now (the `id` from `getItems()`), if any. Call once when
 	 *  the UI starts; `popoverChanged` keeps it fresh. Show that item as "open".
 	 */
@@ -334,6 +360,7 @@ export const events = {
 	bluetoothChanged: makeEvent<BluetoothChanged, BluetoothChanged>("bluetooth-changed"),
 	brightnessChanged: makeEvent<BrightnessChanged, BrightnessChanged>("brightness-changed"),
 	clockSettingsChanged: makeEvent<ClockSettingsChanged, ClockSettingsChanged>("clock-settings-changed"),
+	collapsedChanged: makeEvent<CollapsedChanged, CollapsedChanged>("collapsed-changed"),
 	controlCenterModeChanged: makeEvent<ControlCenterModeChanged, ControlCenterModeChanged>("control-center-mode-changed"),
 	hotspotChanged: makeEvent<HotspotChanged, HotspotChanged>("hotspot-changed"),
 	itemsChanged: makeEvent<ItemsChanged_Serialize, ItemsChanged_Deserialize>("items-changed"),
@@ -567,6 +594,9 @@ export type ClockSettings = {
  *  most once per frame.
  */
 export type ClockSettingsChanged = ClockSettings;
+
+/**  The bar was collapsed or expanded (`setCollapsed`). Collapsed keeps only pinned items in the bar. */
+export type CollapsedChanged = boolean;
 
 /**  The control center is now ours or Windows' (a setting, see `setControlCenterMode`). */
 export type ControlCenterModeChanged = Mode;
@@ -986,6 +1016,9 @@ export type PanelOpen = {
  */
 export type PanelWarm = boolean;
 
+/**  Where the UI draws an item: in the bar, or in the overflow list (a panel behind an arrow). */
+export type Placement = "bar" | "overflow";
+
 /**
  *  The popover that is open changed: `item_id` is the item it hangs from, `None` = none is open.
  *  The UI shows the item as "open" while this is set.
@@ -1040,6 +1073,16 @@ export type StatusItemView_Deserialize = {
 	tooltip?: string | null,
 	/**  `app` for items clients made, `tray` for icons from the Windows tray (v0.6). */
 	source: ItemSource,
+	/**
+	 *  Pinned items stay in the bar while it is collapsed (the user's choice, else the default:
+	 *  client items pinned, tray icons not). Since v0.7.
+	 */
+	pinned: boolean,
+	/**
+	 *  `bar` or `overflow` (the list behind the arrow). The list is in display order; draw `bar`
+	 *  ones in the bar and `overflow` ones in the overflow panel. Since v0.7.
+	 */
+	placement: Placement,
 };
 
 /**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
@@ -1052,6 +1095,16 @@ export type StatusItemView_Serialize = {
 	tooltip: string | null,
 	/**  `app` for items clients made, `tray` for icons from the Windows tray (v0.6). */
 	source: ItemSource,
+	/**
+	 *  Pinned items stay in the bar while it is collapsed (the user's choice, else the default:
+	 *  client items pinned, tray icons not). Since v0.7.
+	 */
+	pinned: boolean,
+	/**
+	 *  `bar` or `overflow` (the list behind the arrow). The list is in display order; draw `bar`
+	 *  ones in the bar and `overflow` ones in the overflow panel. Since v0.7.
+	 */
+	placement: Placement,
 };
 
 /**  The submenu closed (the main menu draws nothing for it any more). */

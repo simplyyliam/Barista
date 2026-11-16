@@ -240,6 +240,10 @@ pub struct MediaChanged(pub crate::system::media::Media);
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct ThemeModeChanged(pub crate::system::theme::ThemeMode);
 
+/// The bar was collapsed or expanded (`setCollapsed`). Collapsed keeps only pinned items in the bar.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct CollapsedChanged(pub bool);
+
 /// The tray icons are now shown in a panel or inline (a setting, see `setTrayStyle`).
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct TrayStyleChanged(pub crate::settings::TrayStyle);

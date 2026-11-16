@@ -102,6 +102,29 @@ pub struct Stats {
     pub forward_failed: u64,
 }
 
+/// Tells every program the taskbar was (re)created, so they add their icons again. Sent once when the
+/// host starts, and again by the worker if nothing has arrived a few seconds later. A hung window costs
+/// at most half a second.
+pub fn announce() {
+    let message = TASKBAR_CREATED.load(Ordering::Relaxed);
+    if message == 0 {
+        return;
+    }
+    let mut sent = 0usize;
+    // SAFETY: plain call; the result is only the count we pass a pointer to.
+    let _ = unsafe {
+        SendMessageTimeoutW(
+            windows::Win32::UI::WindowsAndMessaging::HWND_BROADCAST,
+            message,
+            WPARAM(0),
+            LPARAM(0),
+            SMTO_ABORTIFHUNG,
+            500,
+            Some(&mut sent),
+        )
+    };
+}
+
 pub fn stats() -> Stats {
     Stats {
         reraised: RERAISED.load(Ordering::Relaxed),
@@ -121,7 +144,7 @@ fn to_32(hwnd: HWND) -> u32 {
 }
 
 /// The other way round: sign-extend, like Windows does for 32-bit handles.
-fn from_32(handle: u32) -> HWND {
+pub fn from_32(handle: u32) -> HWND {
     HWND(handle as i32 as isize as *mut c_void)
 }
 
@@ -512,16 +535,7 @@ fn run(ready: mpsc::Sender<Result<(), String>>) {
 
         // Apps already running re-add their icons when they hear this (that is how they survive an
         // Explorer restart); now those messages come through us.
-        let mut sent = 0usize;
-        let _ = SendMessageTimeoutW(
-            windows::Win32::UI::WindowsAndMessaging::HWND_BROADCAST,
-            TASKBAR_CREATED.load(Ordering::Relaxed),
-            WPARAM(0),
-            LPARAM(0),
-            SMTO_ABORTIFHUNG,
-            500,
-            Some(&mut sent),
-        );
+        announce();
 
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {

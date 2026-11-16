@@ -24,6 +24,7 @@ pub mod power;
 pub mod display_brightness;
 pub mod tethering;
 pub mod tray_host;
+pub mod tray_input;
 pub mod registry_watch;
 pub mod radio_manager;
 pub mod radios;

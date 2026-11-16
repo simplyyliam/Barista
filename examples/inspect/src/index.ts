@@ -1,7 +1,7 @@
 // Prints the bar's item registry, or fakes a click (debug builds of the bar only).
 //   pnpm inspect                     list every item
 //   pnpm inspect --watch             list again every 250 ms until Ctrl+C
-//   pnpm inspect --click s1/counter  click an item (add "right" or "middle" for another button)
+//   pnpm inspect --click s1/counter  click an item (add "right", "middle" or "double" for another click)
 //   pnpm inspect --menu-click s1/timer sounds   pick an entry in an item's menu
 //   pnpm inspect --system [--watch]  print clock, battery, volume, brightness, Wi-Fi, Bluetooth, airplane, hotspot, outputs, user (--watch: on change)
 //   pnpm inspect --panel test s1/counter [width height]   open a system panel under an item
@@ -81,11 +81,11 @@ const watch = args.includes("--watch")
 const panelAt = args.indexOf("--panel")
 
 /** Sends one debug request, then reports success (no error within 200 ms) or the error. */
-function request(message: ClientMessage, done: string) {
+function request(messages: ClientMessage | ClientMessage[], done: string) {
   let timer: NodeJS.Timeout | undefined
   const socket = open((reply, send) => {
     if (reply.type === "welcome") {
-      send(message)
+      for (const message of Array.isArray(messages) ? messages : [messages]) send(message)
       timer = setTimeout(() => {
         console.log(done)
         socket.end()
@@ -145,12 +145,19 @@ if (args.includes("--system")) {
   request({ type: "debug.menuClick", id, menuItemId }, `picked ${menuItemId} in ${id}`)
 } else if (clickAt >= 0) {
   const id = args[clickAt + 1]
-  const button = (args[clickAt + 2] ?? "left") as "left" | "right" | "middle"
+  const kind = (args[clickAt + 2] ?? "left") as "left" | "right" | "middle" | "double"
   if (!id) {
-    console.error("usage: pnpm inspect --click <item id, like s1/counter> [left|right|middle]")
+    console.error("usage: pnpm inspect --click <item id, like s1/counter> [left|right|middle|double]")
     process.exit(1)
   }
-  request({ type: "debug.click", id, button }, `click (${button}) sent to ${id}`)
+  // A double click is two left clicks back to back (the bar tells them apart by time, ADR 0027).
+  const button = kind === "double" ? "left" : kind
+  const clicks: ClientMessage[] = Array.from({ length: kind === "double" ? 2 : 1 }, () => ({
+    type: "debug.click",
+    id,
+    button,
+  }))
+  request(clicks, `click (${kind}) sent to ${id}`)
 } else {
   let timer: NodeJS.Timeout | undefined
   const socket = open((message, send) => {

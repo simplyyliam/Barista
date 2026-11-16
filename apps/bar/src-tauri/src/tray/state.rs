@@ -34,6 +34,16 @@ pub struct TrayIcon {
     pub hidden: bool,
 }
 
+/// The id that survives a restart (runtime keys hold window handles, which change every run): the
+/// GUID the app registered with, else the program name and the icon's own id. Two windows of one
+/// program that use the same icon id share a stable id (they are then ordered together).
+pub fn stable_id(key: &IconKey, app_name: &str, id: u32) -> String {
+    match key {
+        IconKey::Guid(_) => format!("tray:{}", key.text()),
+        IconKey::Handle { .. } => format!("tray:{}/{id}", app_name.to_lowercase()),
+    }
+}
+
 /// What a message did, so the caller can update the registry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
@@ -90,12 +100,14 @@ impl TrayState {
                 None => Outcome::Nothing,
             },
             Action::SetVersion => {
-                if let (Some(icon), Some(version)) =
-                    (self.icons.get_mut(&message.key), message.version)
-                {
-                    icon.version = version;
+                // The version decides how a click is encoded (ADR 0027), so the registry needs it.
+                match (self.icons.get_mut(&message.key), message.version) {
+                    (Some(icon), Some(version)) if icon.version != version => {
+                        icon.version = version;
+                        Outcome::Upsert(message.key)
+                    }
+                    _ => Outcome::Nothing,
                 }
-                Outcome::Nothing
             }
             Action::SetFocus => Outcome::Nothing,
         }
@@ -349,12 +361,24 @@ mod tests {
     }
 
     #[test]
+    fn stable_ids_do_not_hold_window_handles() {
+        let handle = |hwnd| IconKey::Handle { hwnd, id: 7 };
+        assert_eq!(stable_id(&handle(0x1234), "Discord", 7), "tray:discord/7");
+        assert_eq!(stable_id(&handle(0x9999), "Discord", 7), "tray:discord/7");
+        let guid = IconKey::Guid([0xAB; 16]);
+        assert_eq!(stable_id(&guid, "explorer", 0), format!("tray:{}", guid.text()));
+    }
+
+    #[test]
     fn set_version_is_remembered() {
         let mut state = TrayState::default();
         state.apply(&message(Action::Add, 1, 1), 5, "App", Picture::Clear);
         let mut version = message(Action::SetVersion, 1, 1);
         version.version = Some(4);
-        assert_eq!(state.apply(&version, 5, "App", Picture::Keep), Outcome::Nothing);
+        // A new version is news for the registry (it decides how clicks are encoded).
+        assert_eq!(state.apply(&version, 5, "App", Picture::Keep), Outcome::Upsert(key(1, 1)));
         assert_eq!(state.get(&key(1, 1)).unwrap().version, 4);
+        // The same version again changes nothing.
+        assert_eq!(state.apply(&version, 5, "App", Picture::Keep), Outcome::Nothing);
     }
 }

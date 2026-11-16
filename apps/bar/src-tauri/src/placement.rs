@@ -25,6 +25,12 @@ pub fn set_item_bounds(items: Vec<ItemBounds>) {
         .collect();
 }
 
+/// The item's rect on screen only if the UI reported where it is drawn (no guess).
+pub fn known_item_rect(key: &str, bar: &Rect, scale: f64) -> Option<Rect> {
+    let found = bounds().lock().unwrap_or_else(|e| e.into_inner()).get(key).cloned()?;
+    Some(anchor::to_screen(&found, bar, scale))
+}
+
 /// The item's rect on screen. Without bounds from the UI, a slim rect under the mouse x.
 pub fn item_rect(key: &str, bar: &Rect, scale: f64) -> Rect {
     let found = bounds().lock().unwrap_or_else(|e| e.into_inner()).get(key).cloned();

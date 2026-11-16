@@ -9,7 +9,8 @@ import { MenubarItem } from "./menubar-item";
 
 /** The items client apps made through the SDK. Windows tray icons are in `TrayItems`. */
 export function StatusItems() {
-  const items = useItems().filter((item) => item.source === "app");
+  // Items Rust put in overflow (collapsed and unpinned, or no room) are in the tray panel, not here.
+  const items = useItems().filter((item) => item.source === "app" && item.placement === "bar");
   // Items that arrive together (every app reconnecting after a bar start) come in as a small wave.
   const delayOf = useArrivalDelays(items.map((item) => item.id));
 

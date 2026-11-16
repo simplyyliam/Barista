@@ -3,7 +3,20 @@
 Keep this file short: where we are, the next step, and facts a new session needs.
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
-## Where we are (2026-11-14)
+## Where we are (2026-11-16)
+
+- **v0.7 "Tray, live" built, PR open** (branch `feature/v0.7-tray-live`, `UI: rust-only` in the /goal, then Liam pointed at the `CLAUDE (UI)` heading and the UI was built too; Liam reviews and merges; ADRs 0027 clicks, 0028 layout).
+  Tray clicks: `tray/click.rs` (message runs per button and version, wParam/lParam encoding, DPI conversion of the anchor, double-click
+  tracker) + `platform/windows/tray_input.rs`; `route_click` sends `tray/...` ids to the owner after `AllowSetForegroundWindow`. Layout:
+  `registry/layout.rs` (pure), settings `itemLayout { order, pinned, collapsed }`, stable ids (`app:<app>/<item>`, `tray:<guid>` or
+  `tray:<exe>/<id>`). **UI (wired, real mouse tested):** `features/panel/tray-panel.tsx` (tile clicks, pin, drag to reorder, collapse button), `features/menubar/tray-items.tsx` (pinned tray pills in the bar, same clicks), `use-item-space.ts` (`setItemSpace`), `shared/lib/item-click.ts`, `shared/hooks/use-collapsed.ts`. Uses `StatusItemView.pinned` and `.placement` (`bar` | `overflow`, list in display order),
+  commands `setPinned`, `setOrder`, `setCollapsed`, `getCollapsed`, `setItemSpace(width, gap)`, event `collapsedChanged`. Defaults: collapsed,
+  client items pinned, tray icons not (Liam's choice). Tools: `scripts/tray-probe.ps1` (fake app that logs the callback messages, optional
+  menu), `scripts/tray-click.ps1` (real click on the bar, then `inspect --click`, reports windows/menus that opened), `inspect --click <id> double`.
+  Bench in `docs/perf/0.7.md`. Verified live with the probe (sequences, anchor, menu opens at the pointer) and over CDP (pin, order, restart keeps them).
+  **Reviews done:** `/code-review medium` (9 findings: fixed width updates from overflow, snapshot cost of `note_widths`, pins dropped at the cap, save race, failed click leaving a double pending, reorder refused for a vanished id; the rest are in Fix next), `/security-review` (no findings), end-to-end (test client item and menu, gone after kill, pin / order / restart). **Checked against Explorer (2026-11-16):** Liam recorded Explorer's clicks on the probe's two icons; the bar now sends the same runs (fixed: a
+  version 4 double click ends with `NIN_SELECT`; the anchor is the physical pointer position, not DPI-converted). Differences kept on purpose: one
+  `WM_MOUSEMOVE` before a click, no hover messages (ADR 0027).
 
 - **v0.6.0 shipped** (tag `v0.6.0` on the merge of PR #38, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.6 are done; notes in `docs/release/history/` (local only, v0.6 in `v0.6-checkpoint.md`: tray host, `source: app | tray`, `trayMode` / `trayStyle`, new for the UI already wired). Next: v0.7 "Tray, live" (`releases/v0.7.md`).
 
@@ -132,6 +145,47 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `pnpm --filter @barista/bar dev` when testing with inspect.
 
 ## Fix next
+
+- Through the UI (2026-11-16, end-to-end with the 10 tray apps on this machine, bar expanded so each icon is a pill): the clicks were fired as DOM events on
+  the pills (the UI's own `onClick` / `onContextMenu` -> `itemClicked`), because scripted pointer input (`SetCursorPos`, error 203) stopped working halfway
+  through the session; the real-mouse checks below were done before that. Result, left / right / double: Medal window / window / window, AMD none / menu / window,
+  SteelSeries GG none / menu / window, Twinkle Tray none / window / none, ISLC none / window / none, Windhawk none / menu / none, Explorer's Safely Remove
+  menus, Bluetooth menu / none / Settings window. **No reaction** for Raycast and Sonar (Raycast reacted in the first sweep). Restart with the UI: saved order and
+  pins -> Rust -> the bar draws the two pinned icons and the panel shows the same order with the pins marked.
+  - Startup: on one start no tray app re-added its icon after the bar's `TaskbarCreated` broadcast (0 icons; the host worked: a probe appeared; a manual
+    broadcast brought 12 back; the next start was fine). **Fixed:** if the tray is still empty 4 s after the start the host broadcasts again, and once more
+    at 12 s (`tray::retry_announce`, `tray_host::announce`; two sleeps, not a poll). The failure could not be reproduced, so the retry path was not seen
+    firing live: only that a normal start is unchanged (10 icons, no retry logged).
+  - The panel: once `getOpenPanel` still said `tray` while the window was hidden and the arrow's next click toggled it shut. `panel.rs` closes on blur after
+    a short grace and clears the state then, so this was most likely that grace window; not reproduced, nothing changed.
+- From wiring the v0.7 UI (real mouse, dev bar): pin (hover shows the pin), right-click on a pinned icon in the bar opens the app's own menu under the
+  icon (AMD: "Open AMD Software / Video Profile / Hide System Tray"), drag a tile to the first place and it stayed after the event, "Show all in the bar"
+  moved all 16 icons into the bar, a tile click opened Medal and closed the panel. Not done / to look at:
+  - Pinned pills in the bar cannot be dragged (reorder is in the panel only); no way to unpin from the bar itself (open the panel).
+  - The pin only shows on hover when unpinned: not obvious. Needs Liam's eye (no design exists).
+  - With the bar expanded, 16 icons fill the right side; `setItemSpace` sends the room but it was not tested on a narrow bar.
+  - In one screenshot an editor window sat in front of the open panel (the panel is not always on top?): not investigated, may be my test setup.
+  - The panel route has no keyboard path for pin or reorder.
+- From v0.7 (tray, live), found by testing (a real afternoon with the UI is Liam's, the UI is not wired yet):
+  - Clicks were checked on 11 real tray icons through `scripts/tray-click.ps1`: most open their window or menu under the pointer
+    (Medal, Twinkle Tray, G HUB, SteelSeries GG, AMD, ISLC, Windhawk, Explorer's own icons), but results vary run to run and some icons
+    show nothing (Raycast on a second run, SteelSeries left click): not compared with Explorer. Debug clicks are not real input, so a
+    menu sometimes stays open until Escape / `WM_CANCELMODE`; the real check is once the UI calls `itemClicked`.
+  - Two more rounds of the sweep (fresh bar, left / right / double each, `tray-click.ps1`): the same in both rounds: AMD Software (right = menu, double = window),
+    Medal (left and double = window), ISLC (right = its menu), SteelSeries GG (right = menu, double = window), Windhawk (right = menu), Explorer's own icons
+    (menus). Nothing visible in either round: Twinkle Tray and Raycast (both reacted in the earlier sweep: the detector or the apps' toggle state), and left
+    on most apps (many only react to a double click or toggle an existing window). The messages themselves now match Explorer's (above), so what an app does
+    with them is the app's.
+  - Stable ids: some programs use a changing number as icon id (G HUB's was `532175291`), so their saved place is lost at the next start.
+    Needs a friendlier id (executable path + icon id?).
+  - Explorer's own icons (Safely Remove, Bluetooth, Sonar) are listed and clickable like any other: still undecided which to hide (v0.6 note).
+  - Stale item bounds: an item that moved to overflow keeps its old entry in `placement::bounds()`, so a click from the overflow panel may anchor
+    at the old bar position (only matters for apps that use the version 4 anchor). Drop bounds when the placement changes.
+  - The width guesses (28 px icon, 14 + 7 per character label) live in `registry/mod.rs`; the UI could send the real ones once.
+  - `tray_set` compares the owner fields too, so a callback change wakes the UI with an identical list (rare).
+  - Bench: worst tooltip latency 1804 ms in one run (median 19 ms), disturbed by the reviews running; re-run on a quiet machine.
+  - Once the dev bar died at startup with `0xc0000409` right after "appbar registration failed, will retry" (the known `ExplorerHooks.dll`
+    crash, see the v0.6 notes); the next four starts were fine. Not reproduced.
 
 - From v0.6 (tray, read), found by testing and by Liam's feedback:
   - Soak (1 h, unattended, `scripts/soak.ps1`): bar alive throughout, CPU 0.004 to 0.28 %, memory 156 / 180 / 90 MB (no growth), Explorer never restarted; says nothing about daily feel, which is Liam's to judge.
