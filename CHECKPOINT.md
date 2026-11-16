@@ -4,22 +4,9 @@ Keep this file short: where we are, the next step, and facts a new session needs
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-16)
-
-- **v0.7 "Tray, live" built, PR open** (branch `feature/v0.7-tray-live`, `UI: rust-only` in the /goal, then Liam pointed at the `CLAUDE (UI)` heading and the UI was built too; Liam reviews and merges; ADRs 0027 clicks, 0028 layout).
-  Tray clicks: `tray/click.rs` (message runs per button and version, wParam/lParam encoding, DPI conversion of the anchor, double-click
-  tracker) + `platform/windows/tray_input.rs`; `route_click` sends `tray/...` ids to the owner after `AllowSetForegroundWindow`. Layout:
-  `registry/layout.rs` (pure), settings `itemLayout { order, pinned, collapsed }`, stable ids (`app:<app>/<item>`, `tray:<guid>` or
-  `tray:<exe>/<id>`). **UI (wired, real mouse tested):** `features/panel/tray-panel.tsx` (tile clicks, pin, drag to reorder, collapse button), `features/menubar/tray-items.tsx` (pinned tray pills in the bar, same clicks), `use-item-space.ts` (`setItemSpace`), `shared/lib/item-click.ts`, `shared/hooks/use-collapsed.ts`. Uses `StatusItemView.pinned` and `.placement` (`bar` | `overflow`, list in display order),
-  commands `setPinned`, `setOrder`, `setCollapsed`, `getCollapsed`, `setItemSpace(width, gap)`, event `collapsedChanged`. Defaults: collapsed,
-  client items pinned, tray icons not (Liam's choice). Tools: `scripts/tray-probe.ps1` (fake app that logs the callback messages, optional
-  menu), `scripts/tray-click.ps1` (real click on the bar, then `inspect --click`, reports windows/menus that opened), `inspect --click <id> double`.
-  Bench in `docs/perf/0.7.md`. Verified live with the probe (sequences, anchor, menu opens at the pointer) and over CDP (pin, order, restart keeps them).
-  **Reviews done:** `/code-review medium` (9 findings: fixed width updates from overflow, snapshot cost of `note_widths`, pins dropped at the cap, save race, failed click leaving a double pending, reorder refused for a vanished id; the rest are in Fix next), `/security-review` (no findings), end-to-end (test client item and menu, gone after kill, pin / order / restart). **Checked against Explorer (2026-11-16):** Liam recorded Explorer's clicks on the probe's two icons; the bar now sends the same runs (fixed: a
-  version 4 double click ends with `NIN_SELECT`; the anchor is the physical pointer position, not DPI-converted). Differences kept on purpose: one
-  `WM_MOUSEMOVE` before a click, no hover messages (ADR 0027).
+- **v0.7.0 shipped** (tag `v0.7.0` on the merge of PR #42, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.7 are done; notes in `docs/release/history/` (local only, v0.7 in `v0.7-checkpoint.md`: tray clicks, pin / order / collapse, new for the UI already wired). Next: v0.8 "Daily driver" (`releases/v0.8.md`; add every new `barista | windows` switch to its list).
 
 - **v0.6.0 shipped** (tag `v0.6.0` on the merge of PR #38, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.6 are done; notes in `docs/release/history/` (local only, v0.6 in `v0.6-checkpoint.md`: tray host, `source: app | tray`, `trayMode` / `trayStyle`, new for the UI already wired). Next: v0.7 "Tray, live" (`releases/v0.7.md`).
-
 - **v0.5.0 shipped** (tag `v0.5.0` on the merge of PR #32, pushed). `sdk-v0.1.0` is pushed and the Action
   logged a publish; do `npm install @baristabar/sdk` in a fresh folder once to confirm it is on npm. Plan releases v0.0 to v0.5 are done;
   notes in `docs/release/history/` (local only, v0.5 in `v0.5-checkpoint.md`, with its dogfooding papercuts: `item.ready`, a
