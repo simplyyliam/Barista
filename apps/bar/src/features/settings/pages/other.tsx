@@ -160,7 +160,7 @@ export function ComingSoonPage({ id }: { id: PageId }) {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={page.label} />
-      <div className="flex flex-col items-center gap-3 rounded-xl bg-card/40 px-6 py-14 text-center ring-1 ring-border/50">
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/10 px-6 py-16 text-center">
         <PageBadge page={page} size={44} />
         <p className="text-[13px] text-foreground">Coming in {page.comingIn ?? "a later release"}</p>
         <p className="max-w-80 text-xs text-muted-foreground">Nothing to set here yet.</p>

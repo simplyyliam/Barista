@@ -26,10 +26,13 @@ pub struct Out {
     last: std::sync::Mutex<String>,
 }
 
-impl Out {
-    pub fn new() -> Self {
+impl Default for Out {
+    fn default() -> Self {
         Self { last: std::sync::Mutex::new(String::new()) }
     }
+}
+
+impl Out {
 
     pub fn emit(&self, value: serde_json::Value) {
         let line = value.to_string();
@@ -64,7 +67,7 @@ fn read_commands(send: impl Fn(serde_json::Value)) {
 #[cfg(windows)]
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_default();
-    let out = std::sync::Arc::new(Out::new());
+    let out = std::sync::Arc::new(Out::default());
     match mode.as_str() {
         "--mic" => {
             let tx = mic::start(out);

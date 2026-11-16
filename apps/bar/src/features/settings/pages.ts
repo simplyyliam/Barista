@@ -36,30 +36,30 @@ export interface Page {
 
 /** The sidebar, in the order and groups of docs/design/settings-window.png. */
 export const SIDEBAR: { title?: string; pages: Page[] }[] = [
-  { pages: [{ id: "general", label: "General", icon: Settings01Icon, color: "#3d63ff" }] },
+  { pages: [{ id: "general", label: "General", icon: Settings01Icon, color: "#3b5bff" }] },
   {
     pages: [
-      { id: "menu-bar", label: "Menu bar", icon: PanelTopIcon, color: "#4ee05a" },
-      { id: "dock", label: "Dock", icon: DockIcon, color: "#ff4d4d", comingIn: "a later release" },
-      { id: "sidedock", label: "Sidedock", icon: SidebarLeftIcon, color: "#ff8a3d", comingIn: "a later release" },
+      { id: "menu-bar", label: "Menu bar", icon: PanelTopIcon, color: "#2fb344" },
+      { id: "dock", label: "Dock", icon: DockIcon, color: "#e5484d", comingIn: "a later release" },
+      { id: "sidedock", label: "Sidedock", icon: SidebarLeftIcon, color: "#f08a24", comingIn: "a later release" },
     ],
   },
   {
     title: "Apps & Scripts",
     pages: [
-      { id: "connected-apps", label: "Connected Apps", icon: PlugSocketIcon, color: "#ff4d4d" },
-      { id: "script-items", label: "Script Items", icon: SourceCodeIcon, color: "#e84dff", comingIn: "v0.9" },
-      { id: "script-gallery", label: "Script Gallery", icon: GridViewIcon, color: "#3dffe8", comingIn: "v1.1" },
+      { id: "connected-apps", label: "Connected Apps", icon: PlugSocketIcon, color: "#e5484d" },
+      { id: "script-items", label: "Script Items", icon: SourceCodeIcon, color: "#b44de0", comingIn: "v0.9" },
+      { id: "script-gallery", label: "Script Gallery", icon: GridViewIcon, color: "#16a5b8", comingIn: "v1.1" },
     ],
   },
   {
     title: "Advanced",
     pages: [
-      { id: "advanced", label: "Advanced", icon: SlidersHorizontalIcon, color: "#ff4d4d" },
-      { id: "developer", label: "Developer", icon: ComputerTerminal01Icon, color: "#e84dff", comingIn: "v1.0" },
+      { id: "advanced", label: "Advanced", icon: SlidersHorizontalIcon, color: "#e5484d" },
+      { id: "developer", label: "Developer", icon: ComputerTerminal01Icon, color: "#b44de0", comingIn: "v1.0" },
     ],
   },
-  { pages: [{ id: "about", label: "About", icon: InformationCircleIcon, color: "#4ee05a" }] },
+  { pages: [{ id: "about", label: "About", icon: InformationCircleIcon, color: "#2fb344" }] },
 ]
 
 export const PAGES: Page[] = SIDEBAR.flatMap((group) => group.pages)

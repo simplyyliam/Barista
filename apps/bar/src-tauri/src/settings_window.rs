@@ -33,6 +33,10 @@ pub fn open(app: &AppHandle) {
 fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let mut builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
         .title("Barista Settings")
+        // No frame: the page draws its own titlebar (features/settings/titlebar.tsx), so it can
+        // be black to the edge. The permissions are in capabilities/settings.json.
+        .decorations(false)
+        .background_color(tauri::window::Color(0, 0, 0, 255))
         .inner_size(1052.0, 748.0)
         .min_inner_size(820.0, 560.0)
         .center();

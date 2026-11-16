@@ -1,4 +1,4 @@
-import { useRef, useState, type ComponentProps, type ReactNode } from "react"
+import { useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from "react"
 import { cn } from "cn"
 import {
   AirplaneModeIcon,
@@ -19,8 +19,8 @@ import type { CcTile_Serialize } from "@/shared/bindings"
 import type { Settings } from "@/shared/stores/settings"
 import { actions } from "./actions"
 import { Chip, Tray } from "./bar-editor"
-import { useReorder } from "./hooks/use-reorder"
 import { PreviewFrame } from "./preview-frame"
+import { SortableList, type SortableState } from "./sortable"
 import { ActionButton, Row, Segmented } from "./ui"
 
 type IconType = ComponentProps<typeof Icon>["icon"]
@@ -127,28 +127,10 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
     setSelected(null)
   }
 
-  const tileOrder = useReorder({
-    ids: visibleTiles.map((t) => t.id),
-    onReorder: (next) => {
-      const byId = new Map(prefs.tiles.map((t) => [t.id, t]))
-      setTiles([...next.flatMap((id) => (byId.get(id) ? [byId.get(id)!] : [])), ...hiddenTiles])
-    },
-    onRemove: removeTile,
-    boundsRef: tileBox,
-    name: tileName,
-  })
-
   const removeAction = (id: string) => {
     actions.controlCenter(settings, { quickActions: prefs.quickActions.filter((a) => a !== id) })
     setSelected(null)
   }
-  const actionOrder = useReorder({
-    ids: prefs.quickActions,
-    onReorder: (next) => actions.controlCenter(settings, { quickActions: next }),
-    onRemove: removeAction,
-    boundsRef: actionBox,
-    name: actionName,
-  })
 
   const setModule = (key: ModuleKey, on: boolean) => {
     actions.controlCenter(settings, { [key]: on })
@@ -166,7 +148,7 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <PreviewFrame settings={settings} height={596} className="grid place-items-center">
+      <PreviewFrame settings={settings} height={560} className="grid place-items-center">
         <div
           className="flex w-panel-w flex-col gap-2"
           onClick={(e) => e.target === e.currentTarget && setSelected(null)}
@@ -191,40 +173,32 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
               </Selectable>
             )}
 
-            <div ref={tileBox} className="grid grid-cols-4 content-start gap-cc-gap">
-              {tileOrder.shown.map((id) => {
-                const tile = tileOf(id)
-                const def = TILES[id]
-                if (!def) return null
-                const wide = tile.size === "wide"
-                return (
-                  <div key={id} className={cn("relative", wide && "col-span-2")}>
-                    <button
-                      type="button"
-                      aria-pressed={is("tile", id)}
-                      aria-label={`${def.label}. Alt plus arrow keys moves it, Delete removes it.`}
-                      {...tileOrder.handlers(id)}
-                      onClick={() => setSelected({ kind: "tile", id })}
-                      className={cn(
-                        "flex h-cc-tile w-full cursor-grab touch-none items-center rounded-panel-child bg-cc-tile text-cc-fg outline-none select-none",
-                        "focus-visible:ring-2 focus-visible:ring-[#0a64e8]",
-                        wide ? "justify-start gap-2.5 px-cc-label-pad text-left" : "justify-center",
-                        is("tile", id) && "ring-2 ring-[#0a64e8]",
-                        tileOrder.dragging === id && "z-10 cursor-grabbing opacity-70 shadow-lg",
-                      )}
-                    >
-                      <Icon icon={def.icon} size={wide ? 20 : 24} className="shrink-0" />
-                      {wide && (
-                        <span className="flex min-w-0 flex-col leading-tight">
-                          <span className="truncate text-[11px] font-medium">{def.label}</span>
-                          {def.sub && <span className="truncate text-[10px] text-cc-fg-muted">{def.sub}</span>}
-                        </span>
-                      )}
-                    </button>
-                    {is("tile", id) && <Minus label={`Remove ${def.label}`} onClick={() => removeTile(id)} />}
-                  </div>
-                )
-              })}
+            <div ref={tileBox}>
+              <SortableList
+                ids={visibleTiles.map((t) => t.id)}
+                layout="grid"
+                className="grid grid-cols-4 content-start gap-cc-gap"
+                boundsRef={tileBox}
+                name={tileName}
+                onRemove={removeTile}
+                onReorder={(next) => {
+                  const byId = new Map(prefs.tiles.map((t) => [t.id, t]))
+                  setTiles([...next.flatMap((id) => (byId.get(id) ? [byId.get(id)!] : [])), ...hiddenTiles])
+                }}
+                renderItem={(id, state) => (
+                  <Draggable
+                    state={state}
+                    className={cn(tileOf(id).size === "wide" && "col-span-2")}
+                    selected={is("tile", id)}
+                    label={tileName(id)}
+                    onSelect={() => setSelected({ kind: "tile", id })}
+                    onRemove={() => removeTile(id)}
+                  >
+                    <TileFace id={id} wide={tileOf(id).size === "wide"} selected={is("tile", id) && !state.dragging} />
+                  </Draggable>
+                )}
+                renderOverlay={(id) => <TileFace id={id} wide={tileOf(id).size === "wide"} selected={false} overlay />}
+              />
             </div>
 
             {prefs.brightness && (
@@ -268,39 +242,32 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
           </section>
 
           {prefs.quickActions.length > 0 && (
-            <section ref={actionBox} className="grid grid-cols-4 gap-cc-gap rounded-panel bg-cc-card p-cc-pad backdrop-blur-md">
-              {actionOrder.shown.map((id) => {
-                const action = ACTIONS.find((a) => a.id === id)
-                if (!action) return null
-                return (
-                  <div key={id} className="relative">
-                    <button
-                      type="button"
-                      aria-pressed={is("action", id)}
-                      aria-label={`${action.label}. Alt plus arrow keys moves it, Delete removes it.`}
-                      {...actionOrder.handlers(id)}
-                      onClick={() => setSelected({ kind: "action", id })}
-                      className={cn(
-                        "flex h-cc-tile w-full cursor-grab touch-none items-center justify-center rounded-panel-child bg-cc-tile text-cc-fg outline-none select-none",
-                        "focus-visible:ring-2 focus-visible:ring-[#0a64e8]",
-                        is("action", id) && "ring-2 ring-[#0a64e8]",
-                        actionOrder.dragging === id && "z-10 cursor-grabbing opacity-70 shadow-lg",
-                      )}
-                    >
-                      <Icon icon={action.icon} size={24} />
-                    </button>
-                    {is("action", id) && <Minus label={`Remove ${action.label}`} onClick={() => removeAction(id)} />}
-                  </div>
-                )
-              })}
+            <section ref={actionBox} className="rounded-panel bg-cc-card p-cc-pad backdrop-blur-md">
+              <SortableList
+                ids={prefs.quickActions}
+                layout="grid"
+                className="grid grid-cols-4 gap-cc-gap"
+                boundsRef={actionBox}
+                name={actionName}
+                onRemove={removeAction}
+                onReorder={(next) => actions.controlCenter(settings, { quickActions: next })}
+                renderItem={(id, state) => (
+                  <Draggable
+                    state={state}
+                    selected={is("action", id)}
+                    label={actionName(id)}
+                    onSelect={() => setSelected({ kind: "action", id })}
+                    onRemove={() => removeAction(id)}
+                  >
+                    <ActionFace id={id} selected={is("action", id) && !state.dragging} />
+                  </Draggable>
+                )}
+                renderOverlay={(id) => <ActionFace id={id} selected={false} overlay />}
+              />
             </section>
           )}
         </div>
       </PreviewFrame>
-
-      <div aria-live="polite" className="sr-only">
-        {tileOrder.announcement || actionOrder.announcement}
-      </div>
 
       {!nothingHidden && (
         <Tray label="Add to the control center">
@@ -329,7 +296,7 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
       )}
 
       {selectedTile && (
-        <div className="divide-y divide-border/60 rounded-xl bg-card/60 ring-1 ring-border/60">
+        <div className="flex flex-col border-y border-white/[0.07]">
           <Row label={tileName(selectedTile.id)} hint="Selected tile">
             <Segmented
               label="Tile size"
@@ -346,6 +313,93 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
           </Row>
         </div>
       )}
+    </div>
+  )
+}
+
+/** A draggable thing in the preview: the item itself, plus its remove badge while selected. */
+function Draggable({
+  state,
+  className,
+  selected,
+  label,
+  onSelect,
+  onRemove,
+  children,
+}: {
+  state: SortableState
+  className?: string
+  selected: boolean
+  label: string
+  onSelect: () => void
+  onRemove: () => void
+  children: ReactNode
+}) {
+  const { onKeyDown: dragKeys, ...handle } = state.handle as { onKeyDown?: (e: KeyboardEvent) => void }
+  return (
+    <div ref={state.setNodeRef} style={state.style} className={cn("relative touch-none", state.dragging && "opacity-30", className)}>
+      <div
+        {...handle}
+        role="button"
+        aria-pressed={selected}
+        aria-label={label}
+        onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSelect()
+          else if (e.key === "Delete" || e.key === "Backspace") {
+            e.preventDefault()
+            onRemove()
+          } else dragKeys?.(e)
+        }}
+        className={cn(
+          "cursor-grab rounded-panel-child outline-none focus-visible:ring-2 focus-visible:ring-[#0a64e8] active:cursor-grabbing",
+          // No ring on what you are dragging, even if it has keyboard focus.
+          state.dragging && "focus-visible:ring-0",
+        )}
+      >
+        {children}
+      </div>
+      {selected && !state.dragging && <Minus label={`Remove ${label}`} onClick={onRemove} />}
+    </div>
+  )
+}
+
+function TileFace({ id, wide, selected, overlay }: { id: string; wide: boolean; selected: boolean; overlay?: boolean }) {
+  const def = TILES[id]
+  if (!def) return null
+  return (
+    <div
+      className={cn(
+        "flex h-cc-tile items-center rounded-panel-child bg-cc-tile text-cc-fg select-none",
+        wide ? "justify-start gap-2.5 px-cc-label-pad text-left" : "justify-center",
+        selected && "ring-2 ring-[#0a64e8]",
+        overlay && "cursor-grabbing bg-neutral-700/90 shadow-xl",
+      )}
+      style={overlay ? { width: wide ? 140 : 66 } : undefined}
+    >
+      <Icon icon={def.icon} size={wide ? 20 : 24} className="shrink-0" />
+      {wide && (
+        <span className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate text-[11px] font-medium">{def.label}</span>
+          {def.sub && <span className="truncate text-[10px] text-cc-fg-muted">{def.sub}</span>}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function ActionFace({ id, selected, overlay }: { id: string; selected: boolean; overlay?: boolean }) {
+  const action = ACTIONS.find((a) => a.id === id)
+  if (!action) return null
+  return (
+    <div
+      className={cn(
+        "flex h-cc-tile items-center justify-center rounded-panel-child bg-cc-tile text-cc-fg select-none",
+        selected && "ring-2 ring-[#0a64e8]",
+        overlay && "w-[66px] cursor-grabbing bg-neutral-700/90 shadow-xl",
+      )}
+    >
+      <Icon icon={action.icon} size={24} />
     </div>
   )
 }

@@ -19,6 +19,7 @@ async function main(): Promise<void> {
     bar = await BA.connect({ appName: "System monitor" })
   } catch (error) {
     console.error((error as Error).message)
+    ;(await import("node:fs")).appendFileSync("C:/Users/matth/AppData/Local/Temp/sm-debug.log", `${(error as Error).stack}\n`)
     app.exit(1)
     return
   }

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { commands } from "@/shared/bindings"
-import { cn } from "cn"
 import { Input } from "@barista/ui/components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "@barista/ui/components/ui/tabs"
 import type { Settings } from "@/shared/stores/settings"
 import { actions } from "../actions"
 import { BarEditor } from "../bar-editor"
@@ -12,27 +12,15 @@ type View = "bar" | "control-center"
 
 const FONTS = ["Segoe UI", "Segoe UI Variable", "Bahnschrift", "Calibri", "Cascadia Code", "Consolas", "Inter"]
 
-/** The two pills under the picture in the design: which thing the preview shows and edits. */
-function ViewPills({ view, onChange }: { view: View; onChange: (view: View) => void }) {
-  const pill = (value: View, label: string) => (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={view === value}
-      onClick={() => onChange(value)}
-      className={cn(
-        "rounded-full px-3 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-        view === value ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}
-    </button>
-  )
+/** The two tabs under the picture in the design: which thing the preview shows and edits (shadcn Tabs). */
+function ViewTabs({ view, onChange }: { view: View; onChange: (view: View) => void }) {
   return (
-    <div role="tablist" aria-label="What to edit" className="flex gap-1.5">
-      {pill("bar", "Menu bar")}
-      {pill("control-center", "Control center")}
-    </div>
+    <Tabs value={view} onValueChange={(next) => onChange(next as View)}>
+      <TabsList aria-label="What to edit">
+        <TabsTrigger value="bar">Menu bar</TabsTrigger>
+        <TabsTrigger value="control-center">Control center</TabsTrigger>
+      </TabsList>
+    </Tabs>
   )
 }
 
@@ -54,7 +42,7 @@ function FontRow({ settings }: { settings: Settings }) {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
-        className="w-48"
+        className="w-60"
       />
       <datalist id="barista-fonts">
         {FONTS.map((f) => (
@@ -80,10 +68,10 @@ export function MenuBarPage({ settings }: { settings: Settings }) {
 
       <div className="flex flex-col gap-3">
         {view === "bar" ? <BarEditor settings={settings} /> : <ControlCenterEditor settings={settings} />}
-        <ViewPills view={view} onChange={setView} />
+        <ViewTabs view={view} onChange={setView} />
       </div>
 
-      <h2 className="-mb-3 text-[13px] text-muted-foreground">Appearance</h2>
+      <h2 className="-mb-2 pt-4 text-lg font-medium tracking-tight text-foreground">Appearance</h2>
 
       <Group title="Look" onReset={() => actions.reset("appearance")}>
         <SegmentedRow

@@ -1,9 +1,15 @@
 import { useState, type ReactNode } from "react"
+import { Button } from "@barista/ui/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@barista/ui/components/ui/select"
 import { Slider } from "@barista/ui/components/ui/slider"
 import { Switch } from "@barista/ui/components/ui/switch"
+import { ToggleGroup, ToggleGroupItem } from "@barista/ui/components/ui/toggle-group"
 import { cn } from "cn"
 
-/** A titled group of rows on a page, like one card in macOS System Settings. */
+/**
+ * A titled group of rows on a page. No box around it: the rows sit on the page itself and a hairline
+ * tells them apart, so the page reads as one calm column.
+ */
 export function Group({
   title,
   description,
@@ -17,23 +23,19 @@ export function Group({
   children: ReactNode
 }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between px-1">
-        <div>
-          <h3 className="text-[13px] font-medium text-foreground">{title}</h3>
-          {description && <p className="text-xs text-muted-foreground">{description}</p>}
+    <section aria-label={title} className="flex flex-col">
+      <div className="flex items-end justify-between pb-2">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-[15px] font-medium tracking-tight text-foreground">{title}</h3>
+          {description && <p className="text-[13px] text-muted-foreground">{description}</p>}
         </div>
         {onReset && (
-          <button
-            type="button"
-            onClick={onReset}
-            className="rounded px-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
-          >
+          <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground">
             Reset
-          </button>
+          </Button>
         )}
       </div>
-      <div className="divide-y divide-border/60 rounded-xl bg-card/60 ring-1 ring-border/60">{children}</div>
+      <div className="flex flex-col divide-y divide-white/[0.07] border-t border-white/[0.07]">{children}</div>
     </section>
   )
 }
@@ -51,12 +53,12 @@ export function Row({
   disabled?: boolean
 }) {
   return (
-    <div className={cn("flex min-h-11 items-center justify-between gap-4 px-3.5 py-2", disabled && "opacity-45")}>
-      <div className="min-w-0">
-        <div className="text-[13px] text-foreground">{label}</div>
-        {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
+    <div className={cn("flex min-h-16 items-center justify-between gap-8 py-3.5", disabled && "opacity-40")}>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="text-sm text-foreground">{label}</div>
+        {hint && <div className="text-[13px] leading-snug text-muted-foreground">{hint}</div>}
       </div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <div className="flex shrink-0 items-center gap-3">{children}</div>
     </div>
   )
 }
@@ -81,7 +83,7 @@ export function SwitchRow({
   )
 }
 
-/** Two to four choices side by side. More than that is a `SelectRow`. */
+/** Two to four choices side by side (a shadcn toggle group). More than that is a `SelectRow`. */
 export function Segmented<T extends string>({
   value,
   options,
@@ -96,26 +98,26 @@ export function Segmented<T extends string>({
   disabled?: boolean
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-lg bg-muted p-0.5">
+    <ToggleGroup
+      aria-label={label}
+      variant="outline"
+      size="sm"
+      spacing={0}
+      disabled={disabled}
+      value={[value]}
+      // A group with one choice always keeps one: ignore the click that would clear it.
+      onValueChange={(next) => next[0] && onChange(next[0] as T)}
+    >
       {options.map((option) => (
-        <button
+        <ToggleGroupItem
           key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={option.value === value}
-          disabled={disabled}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "rounded-md px-2.5 py-1 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40",
-            option.value === value
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+          value={option.value}
+          className="px-3.5 data-pressed:bg-white data-pressed:text-black"
         >
           {option.label}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   )
 }
 
@@ -171,7 +173,8 @@ export function SliderRow({
     <Row label={label} hint={hint} disabled={disabled}>
       <Slider
         aria-label={label}
-        className="w-40"
+        // A thicker track and a round thumb you can actually grab.
+        className="w-72 [&_[data-slot=slider-thumb]]:size-5 [&_[data-slot=slider-thumb]]:rounded-full [&_[data-slot=slider-thumb]]:border-0 [&_[data-slot=slider-thumb]]:shadow-md [&_[data-slot=slider-track]]:h-2 [&_[data-slot=slider-track]]:rounded-full"
         min={min}
         max={max}
         step={step}
@@ -183,7 +186,7 @@ export function SliderRow({
           onChange(first(v))
         }}
       />
-      <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+      <span className="w-16 text-right text-sm whitespace-nowrap tabular-nums text-muted-foreground">
         {shown}
         {unit}
       </span>
@@ -191,7 +194,7 @@ export function SliderRow({
   )
 }
 
-/** For five or more choices, or a list that can grow (monitors). */
+/** For five or more choices, or a list that can grow (monitors). A shadcn select. */
 export function SelectRow({
   label,
   hint,
@@ -209,33 +212,32 @@ export function SelectRow({
 }) {
   return (
     <Row label={label} hint={hint} disabled={disabled}>
-      <select
-        aria-label={label}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-7 max-w-56 rounded-md bg-muted px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <Select items={options} value={value} disabled={disabled} onValueChange={(next) => next && onChange(String(next))}>
+        <SelectTrigger aria-label={label} className="w-60">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </Row>
   )
 }
 
 export function PageTitle({ title, description }: { title: string; description?: string }) {
   return (
-    <header className="flex flex-col gap-1">
-      <h2 className="text-[15px] font-medium text-foreground">{title}</h2>
-      {description && <p className="text-[13px] text-muted-foreground">{description}</p>}
+    <header className="flex flex-col gap-1.5 pb-2">
+      <h2 className="text-2xl font-medium tracking-tight text-foreground">{title}</h2>
+      {description && <p className="max-w-xl text-sm text-muted-foreground">{description}</p>}
     </header>
   )
 }
 
-/** A small button for the settings pages. */
+/** A small button for the settings pages (shadcn Button). */
 export function ActionButton({
   children,
   onClick,
@@ -248,16 +250,8 @@ export function ActionButton({
   disabled?: boolean
 }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "h-7 rounded-md px-2.5 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50",
-        tone === "danger" ? "bg-destructive/15 text-destructive hover:bg-destructive/25" : "bg-muted text-foreground hover:bg-muted/70",
-      )}
-    >
+    <Button variant={tone === "danger" ? "destructive" : "secondary"} size="sm" disabled={disabled} onClick={onClick}>
       {children}
-    </button>
+    </Button>
   )
 }
