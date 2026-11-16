@@ -53,7 +53,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     // No monitor at launch (display reset, session switch): start on a placeholder instead of
     // failing. Windows sends WM_DISPLAYCHANGE when a real one appears, and `refresh_monitors`
     // then replaces it.
-    let current = pick_monitor(settings.monitor.as_deref(), &monitors)
+    let current = pick_monitor(settings.general.monitor.as_deref(), &monitors)
         .cloned()
         .unwrap_or_else(placeholder_monitor);
 
@@ -198,11 +198,11 @@ impl Controller {
         let height_px = bar_rect(
             &state.current.rect,
             state.current.scale,
-            state.settings.bar_height,
+            state.settings.menu_bar.height,
         )
         .height();
         BarInfo {
-            height: state.settings.bar_height,
+            height: state.settings.menu_bar.height,
             height_px,
             scale: state.current.scale,
             monitor: state.current.clone(),
@@ -253,7 +253,7 @@ impl Controller {
     fn refresh_monitors(&self) {
         let mut state = self.lock();
         let list = monitors::list();
-        if let Some(m) = pick_monitor(state.settings.monitor.as_deref(), &list) {
+        if let Some(m) = pick_monitor(state.settings.general.monitor.as_deref(), &list) {
             state.current = m.clone();
             state.monitors = list;
         }
@@ -267,7 +267,7 @@ impl Controller {
             if !state.monitors.iter().any(|m| m.id == id) {
                 return Err(format!("unknown monitor: {id}"));
             }
-            state.settings.monitor = Some(id.to_string());
+            state.settings.general.monitor = Some(id.to_string());
             if let Err(e) = state.settings.save(&state.settings_file) {
                 eprintln!("barista: could not save settings: {e}");
             }
@@ -291,8 +291,8 @@ impl Controller {
         let height = clamp_bar_height(height);
         {
             let mut state = self.lock();
-            if state.settings.bar_height != height {
-                state.settings.bar_height = height;
+            if state.settings.menu_bar.height != height {
+                state.settings.menu_bar.height = height;
                 if let Err(e) = state.settings.save(&state.settings_file) {
                     eprintln!("barista: could not save settings: {e}");
                 }
@@ -350,7 +350,7 @@ impl Controller {
         let (desired, hidden) = {
             let s = self.lock();
             (
-                bar_rect(&s.current.rect, s.current.scale, s.settings.bar_height),
+                bar_rect(&s.current.rect, s.current.scale, s.settings.menu_bar.height),
                 s.hidden_for_fullscreen,
             )
         };

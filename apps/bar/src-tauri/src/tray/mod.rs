@@ -41,7 +41,7 @@ mod worker {
     /// program already hosts it. Call once, after the controller (it reads the settings).
     pub fn init(registry: Arc<Registry>) {
         let mode = crate::controller::get()
-            .map(|c| c.settings().tray_mode)
+            .map(|c| c.settings().advanced.tray)
             .unwrap_or_default();
         if mode == Mode::Windows {
             eprintln!("[tray] trayMode is windows: the tray stays with Explorer");

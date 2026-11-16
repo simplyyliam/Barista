@@ -240,7 +240,7 @@ pub fn run() {
             let registry = Arc::new(registry::Registry::new());
             // The saved order, pins and collapsed flag, before the first item arrives.
             if let Some(c) = controller::get() {
-                registry.set_layout(c.settings().item_layout);
+                registry.set_layout(c.settings().menu_bar.layout);
             }
             app.manage(registry.clone());
             // Open the pipe before the windows and services are set up (they take well over a

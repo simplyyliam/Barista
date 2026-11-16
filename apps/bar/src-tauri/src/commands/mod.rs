@@ -249,7 +249,7 @@ fn save_layout(registry: &Registry, before: &crate::settings::ItemLayout) {
         if let Some(c) = controller::get() {
             // Read at write time, so two commands finishing together cannot save an older layout
             // over a newer one.
-            c.update_settings(|s| s.item_layout = registry.layout());
+            c.update_settings(|s| s.menu_bar.layout = registry.layout());
         }
     }
 }
@@ -752,7 +752,7 @@ pub fn set_brightness(id: String, level: f64) {
 #[specta::specta]
 pub fn get_tray_style() -> crate::settings::TrayStyle {
     crate::controller::get()
-        .map(|c| c.settings().tray_style)
+        .map(|c| c.settings().menu_bar.tray.style)
         .unwrap_or_default()
 }
 
@@ -767,7 +767,7 @@ pub fn set_tray_style(app: tauri::AppHandle, style: crate::settings::TrayStyle) 
     }
     crate::panel::close();
     if let Some(c) = crate::controller::get() {
-        c.update_settings(|s| s.tray_style = style);
+        c.update_settings(|s| s.menu_bar.tray.style = style);
     }
     let _ = crate::events::TrayStyleChanged(style).emit(&app);
 }
