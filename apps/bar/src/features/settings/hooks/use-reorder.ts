@@ -21,17 +21,22 @@ interface Options {
 /**
  * Drag to reorder with plain pointer events (Tauri turns native drag and drop into file drops, so
  * HTML5 drag does not work here). Items need `data-reorder-id`. The others make room at once while
- * you drag; the new order is saved when you let go. Without a mouse: focus an item, then Alt+Left /
- * Alt+Right move it and Delete removes it, and a live region says what happened (WCAG 2.5.7: every
- * drag has a way that needs no dragging).
+ * you drag; the new order is saved when you let go.
+ *
+ * While a drag runs the listeners sit on `window`, not on the item: when the order changes React
+ * moves the item's element, and a moved element loses its pointer capture.
+ *
+ * Without a mouse: focus an item, then Alt+Left / Alt+Right move it and Delete removes it, and a
+ * live region says what happened (WCAG 2.5.7: every drag has a way that needs no dragging).
  */
-export function useReorder({ ids, onReorder, onRemove, boundsRef, name }: Options) {
+export function useReorder(options: Options) {
+  const { ids, boundsRef } = options
   const [order, setOrder] = useState<string[] | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState("")
   const latest = useRef<string[] | null>(null)
-  const press = useRef<{ id: string; x: number; y: number; dragging: boolean } | null>(null)
   const justDragged = useRef(false)
+  const stop = useRef<(() => void) | null>(null)
 
   // Rust answered with the saved order (or the items changed): draw what it says again.
   const key = ids.join("|")
@@ -43,6 +48,13 @@ export function useReorder({ ids, onReorder, onRemove, boundsRef, name }: Option
   const local = order && order.length === ids.length && order.every((id) => ids.includes(id)) ? order : null
   const shown = local ?? ids
 
+  // The newest options and order for the window listeners, which outlive a render.
+  const live = useRef({ options, shown })
+  live.current = { options, shown }
+
+  // A window that closes mid-drag must not leave listeners behind.
+  useEffect(() => () => stop.current?.(), [])
+
   const move = (id: string, by: -1 | 1) => {
     const from = shown.indexOf(id)
     const to = from + by
@@ -50,30 +62,25 @@ export function useReorder({ ids, onReorder, onRemove, boundsRef, name }: Option
     const next = [...shown]
     next.splice(from, 1)
     next.splice(to, 0, id)
-    onReorder(next)
-    setAnnouncement(`${name(id)} moved to position ${to + 1} of ${next.length}`)
+    options.onReorder(next)
+    setAnnouncement(`${options.name(id)} moved to position ${to + 1} of ${next.length}`)
   }
 
-  const handlers = (id: string) => ({
-    "data-reorder-id": id,
-    onPointerDown: (e: PointerEvent<HTMLElement>) => {
-      if (e.button !== 0) return
-      press.current = { id, x: e.clientX, y: e.clientY, dragging: false }
-      e.currentTarget.setPointerCapture(e.pointerId)
-    },
-    onPointerMove: (e: PointerEvent<HTMLElement>) => {
-      const current = press.current
-      if (!current || current.id !== id) return
-      if (!current.dragging) {
-        if (Math.hypot(e.clientX - current.x, e.clientY - current.y) < DRAG_START_PX) return
-        current.dragging = true
+  const start = (id: string, x0: number, y0: number) => {
+    stop.current?.()
+    let dragged = false
+
+    const onMove = (e: globalThis.PointerEvent) => {
+      if (!dragged) {
+        if (Math.hypot(e.clientX - x0, e.clientY - y0) < DRAG_START_PX) return
+        dragged = true
         setDragging(id)
       }
       const over = document
         .elementFromPoint(e.clientX, e.clientY)
         ?.closest<HTMLElement>("[data-reorder-id]")?.dataset.reorderId
       if (!over || over === id) return
-      const base = latest.current ?? shown
+      const base = latest.current ?? live.current.shown
       const from = base.indexOf(id)
       const to = base.indexOf(over)
       if (from < 0 || to < 0) return
@@ -82,36 +89,55 @@ export function useReorder({ ids, onReorder, onRemove, boundsRef, name }: Option
       next.splice(to, 0, id)
       latest.current = next
       setOrder(next)
-    },
-    onPointerUp: (e: PointerEvent<HTMLElement>) => {
-      const current = press.current
-      press.current = null
+    }
+
+    const finish = (e: globalThis.PointerEvent | null) => {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onCancel)
+      stop.current = null
       setDragging(null)
-      if (!current?.dragging) return
+      if (!dragged) return
       // The click that follows the release belongs to the drag: swallow it.
       justDragged.current = true
       setTimeout(() => (justDragged.current = false), 0)
+      const { options: o } = live.current
       const strip = boundsRef?.current?.getBoundingClientRect()
       const off =
+        e &&
         strip &&
-        onRemove &&
+        o.onRemove &&
         (e.clientY < strip.top - OFF_BAR_PX || e.clientY > strip.bottom + OFF_BAR_PX)
       if (off) {
         latest.current = null
         setOrder(null)
-        onRemove(id)
-        setAnnouncement(`${name(id)} removed`)
+        o.onRemove?.(id)
+        setAnnouncement(`${o.name(id)} removed`)
         return
       }
       const next = latest.current
-      if (next) {
-        onReorder(next)
-        setAnnouncement(`${name(id)} moved to position ${next.indexOf(id) + 1} of ${next.length}`)
+      if (next && e) {
+        o.onReorder(next)
+        setAnnouncement(`${o.name(id)} moved to position ${next.indexOf(id) + 1} of ${next.length}`)
+      } else if (!e) {
+        latest.current = null
+        setOrder(null)
       }
-    },
-    onPointerCancel: () => {
-      press.current = null
-      setDragging(null)
+    }
+    const onUp = (e: globalThis.PointerEvent) => finish(e)
+    const onCancel = () => finish(null)
+
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onCancel)
+    stop.current = () => finish(null)
+  }
+
+  const handlers = (id: string) => ({
+    "data-reorder-id": id,
+    onPointerDown: (e: PointerEvent<HTMLElement>) => {
+      if (e.button !== 0) return
+      start(id, e.clientX, e.clientY)
     },
     onClickCapture: (e: MouseEvent) => {
       if (justDragged.current) e.stopPropagation()
@@ -123,10 +149,10 @@ export function useReorder({ ids, onReorder, onRemove, boundsRef, name }: Option
       } else if (e.altKey && e.key === "ArrowRight") {
         e.preventDefault()
         move(id, 1)
-      } else if ((e.key === "Delete" || e.key === "Backspace") && onRemove) {
+      } else if ((e.key === "Delete" || e.key === "Backspace") && options.onRemove) {
         e.preventDefault()
-        onRemove(id)
-        setAnnouncement(`${name(id)} removed`)
+        options.onRemove(id)
+        setAnnouncement(`${options.name(id)} removed`)
       }
     },
   })

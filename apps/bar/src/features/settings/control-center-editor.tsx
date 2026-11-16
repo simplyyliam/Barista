@@ -166,7 +166,7 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <PreviewFrame settings={settings} height={500} className="grid place-items-center">
+      <PreviewFrame settings={settings} height={596} className="grid place-items-center">
         <div
           className="flex w-panel-w flex-col gap-2"
           onClick={(e) => e.target === e.currentTarget && setSelected(null)}
