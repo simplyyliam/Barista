@@ -1,6 +1,8 @@
 //! Tauri commands the frontend can call. Each one is listed in `specta_builder()` (lib.rs)
 //! and appears in the generated `commands` object in bindings.ts.
 
+pub mod settings;
+
 use crate::appearance::BarAppearance;
 use crate::bar::BarInfo;
 use crate::controller;

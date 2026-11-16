@@ -494,6 +494,17 @@ impl Registry {
         }
     }
 
+    /// Drops every tray icon (the tray was switched to Windows' own).
+    pub fn tray_clear(&self) {
+        let mut state = self.lock();
+        let had = !state.tray.is_empty();
+        state.tray.clear();
+        drop(state);
+        if had {
+            self.changed.notify_one();
+        }
+    }
+
     /// Loads the saved layout (once, at startup, before the first items arrive).
     pub fn set_layout(&self, layout: ItemLayout) {
         self.lock().layout = layout.cleaned();

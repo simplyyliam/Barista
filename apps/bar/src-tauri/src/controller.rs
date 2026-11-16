@@ -6,7 +6,7 @@ use crate::events::BarChanged;
 use crate::platform::windows::{appbar, fullscreen, monitors, window};
 use crate::settings::{clamp_bar_height, settings_path, Settings};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
@@ -87,9 +87,11 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     #[cfg(debug_assertions)]
     window::register_debug_hotkeys(c.hwnd);
     crate::appearance::start(app);
+    crate::appearance::settings_changed(app);
     fullscreen::watch_foreground(on_foreground_changed);
     install_panic_hook();
 
+    c.apply_taskbar();
     c.apply();
     Ok(())
 }
@@ -113,10 +115,26 @@ fn placeholder_monitor() -> Monitor {
 
 /// If the bar crashes, give the screen space back before the process dies.
 /// (A kill from Task Manager runs no code at all: see ADR 0002.)
+/// "No taskbar state to give back" for `TASKBAR_RESTORE`.
+const NO_RESTORE: u32 = u32::MAX;
+
+/// The taskbar state from before we turned auto-hide on, readable without a lock so the panic
+/// hook can put it back (a lock could be held by the thread that just panicked).
+static TASKBAR_RESTORE: AtomicU32 = AtomicU32::new(NO_RESTORE);
+
+fn restore_taskbar_lock_free() {
+    let before = TASKBAR_RESTORE.swap(NO_RESTORE, Ordering::SeqCst);
+    if before != NO_RESTORE {
+        // Any window works for ABM_SETSTATE; the hook has no handle, so use none.
+        crate::platform::windows::taskbar::set_state(Default::default(), before);
+    }
+}
+
 fn install_panic_hook() {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         appbar::unregister();
+        restore_taskbar_lock_free();
         previous(info);
     }));
 }
@@ -225,8 +243,53 @@ impl Controller {
         }
     }
 
+    /// Like `update_settings`, returns the settings after the change (to emit `SettingsChanged`).
+    /// The change runs on a copy that is cleaned before it is kept (rule 3).
+    pub fn change_settings(&self, change: impl FnOnce(&mut Settings)) -> Settings {
+        let mut state = self.lock();
+        let mut next = state.settings.clone();
+        change(&mut next);
+        state.settings = next.clamped();
+        if let Err(e) = state.settings.save(&state.settings_file) {
+            eprintln!("barista: could not save settings: {e}");
+        }
+        state.settings.clone()
+    }
+
     pub fn info(&self) -> BarInfo {
         Self::info_of(&self.lock())
+    }
+
+    /// Makes Windows' taskbar match the auto-hide setting. Remembers the state from before we
+    /// touched it (saved, so a crash is undone at the next start) and puts it back when switched off.
+    pub fn apply_taskbar(&self) {
+        use crate::platform::windows::taskbar;
+        let hwnd = self.hwnd();
+        let (want, saved) = {
+            let s = self.lock();
+            (s.settings.menu_bar.taskbar.auto_hide, s.settings.menu_bar.taskbar.saved_state)
+        };
+        if want {
+            let before = saved.unwrap_or_else(taskbar::state);
+            if saved.is_none() {
+                self.update_settings(|s| s.menu_bar.taskbar.saved_state = Some(before));
+            }
+            TASKBAR_RESTORE.store(before, Ordering::SeqCst);
+            taskbar::set_state(hwnd, taskbar::with_autohide(before, true));
+        } else if let Some(before) = saved {
+            taskbar::set_state(hwnd, before);
+            TASKBAR_RESTORE.store(NO_RESTORE, Ordering::SeqCst);
+            self.update_settings(|s| s.menu_bar.taskbar.saved_state = None);
+        }
+    }
+
+    /// Gives the taskbar back as we found it (quit, panic). The setting stays on for the next start.
+    pub fn restore_taskbar(&self) {
+        let before = TASKBAR_RESTORE.swap(NO_RESTORE, Ordering::SeqCst);
+        if before != NO_RESTORE {
+            crate::platform::windows::taskbar::set_state(self.hwnd(), before);
+        }
+        self.update_settings(|s| s.menu_bar.taskbar.saved_state = None);
     }
 
     /// The same, but read from Windows right now. The cached state is only refreshed on display and
@@ -322,7 +385,7 @@ impl Controller {
     }
 
     /// Puts the window where it belongs: reserve the strip, move there, show or hide.
-    fn apply(&self) {
+    pub fn apply(&self) {
         if self.applying.swap(true, Ordering::SeqCst) {
             self.again.store(true, Ordering::SeqCst);
             return;
@@ -394,6 +457,7 @@ impl Controller {
 
     /// Gives the screen space back. Called when the app exits.
     pub fn shutdown(&self) {
+        self.restore_taskbar();
         appbar::unregister();
     }
 }

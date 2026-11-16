@@ -15,7 +15,7 @@ pub mod parse;
 pub mod state;
 
 #[cfg(windows)]
-pub use worker::{click, init, shutdown};
+pub use worker::{click, init, set_mode, shutdown};
 
 #[cfg(windows)]
 mod worker {
@@ -36,10 +36,30 @@ mod worker {
     const QUEUE: usize = 1024;
 
     static HOST: Mutex<Option<Host>> = Mutex::new(None);
+    /// Kept so `set_mode` can start the host again (ADR 0032).
+    static REGISTRY: std::sync::OnceLock<Arc<Registry>> = std::sync::OnceLock::new();
+
+    /// Switches the tray between ours and Explorer's while the bar runs. `windows` closes the host
+    /// window (Explorer gets every message again) and empties the bar's tray icons; `barista` starts
+    /// the host, which announces `TaskbarCreated` so running apps add their icons back.
+    pub fn set_mode(mode: Mode) {
+        let Some(registry) = REGISTRY.get().cloned() else { return };
+        let running = HOST.lock().unwrap_or_else(|e| e.into_inner()).is_some();
+        match mode {
+            Mode::Windows if running => {
+                shutdown();
+                registry.tray_clear();
+            }
+            Mode::Windows => registry.tray_clear(),
+            Mode::Barista if !running => init(registry),
+            Mode::Barista => {}
+        }
+    }
 
     /// Starts the tray host and the worker, unless the user picked Windows' own tray or another
     /// program already hosts it. Call once, after the controller (it reads the settings).
     pub fn init(registry: Arc<Registry>) {
+        let _ = REGISTRY.set(registry.clone());
         let mode = crate::controller::get()
             .map(|c| c.settings().advanced.tray)
             .unwrap_or_default();

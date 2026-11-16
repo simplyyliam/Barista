@@ -251,3 +251,8 @@ pub struct TrayStyleChanged(pub crate::settings::TrayStyle);
 /// The control center is now ours or Windows' (a setting, see `setControlCenterMode`).
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct ControlCenterModeChanged(pub crate::settings::Mode);
+
+/// Any saved setting changed. Carries the whole settings tree (small), so the settings window
+/// and the bar just replace what they have.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct SettingsChanged(pub crate::settings::Settings);

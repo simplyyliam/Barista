@@ -96,7 +96,7 @@ pub struct General {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub enum Tone {
+pub enum ToneChoice {
     /// Follows the wallpaper behind the bar (ADR 0009).
     #[default]
     Auto,
@@ -147,7 +147,7 @@ pub const MIN_OPACITY: u8 = 30;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Appearance {
-    pub tone: Tone,
+    pub tone: ToneChoice,
     pub blur: Blur,
     pub font: Font,
     /// Bar text size in logical px.
@@ -161,7 +161,7 @@ pub struct Appearance {
 impl Default for Appearance {
     fn default() -> Self {
         Self {
-            tone: Tone::Auto,
+            tone: ToneChoice::Auto,
             blur: Blur::Auto,
             font: Font::Inter,
             font_size: 13,
@@ -175,7 +175,7 @@ impl Default for Appearance {
 /// What a bar item shows.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub enum Display {
+pub enum ItemDisplay {
     Icon,
     Label,
     #[default]
@@ -188,7 +188,7 @@ pub enum Display {
 pub struct BarItemPref {
     pub id: String,
     pub visible: bool,
-    pub display: Display,
+    pub display: ItemDisplay,
 }
 
 impl Default for BarItemPref {
@@ -196,7 +196,7 @@ impl Default for BarItemPref {
         Self {
             id: String::new(),
             visible: true,
-            display: Display::Both,
+            display: ItemDisplay::Both,
         }
     }
 }
@@ -725,7 +725,7 @@ mod tests {
         assert_eq!(&ids[..2], ["clock", "wifi"]);
         assert_eq!(items.len(), BAR_ITEMS.len());
         assert!(!items[0].visible);
-        assert_eq!(items[1].display, Display::Icon);
+        assert_eq!(items[1].display, ItemDisplay::Icon);
         assert!(!ids.contains(&"evil"));
     }
 
@@ -752,8 +752,7 @@ mod tests {
 
     #[test]
     fn reset_keeps_bookkeeping() {
-        let mut s = Settings::default();
-        s.notifications_seen_at = 5;
+        let mut s = Settings { notifications_seen_at: 5, ..Default::default() };
         s.menu_bar.taskbar.saved_state = Some(2);
         s.menu_bar.taskbar.auto_hide = true;
         s.menu_bar.appearance.font_size = 16;

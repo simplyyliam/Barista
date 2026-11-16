@@ -29,7 +29,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     ChangeWindowMessageFilterEx, CopyIcon, CreateWindowExW, DefWindowProcW, DestroyIcon,
     DestroyWindow, DispatchMessageW, FindWindowExW, FindWindowW, GetMessageW, GetWindowRect,
     GetWindowThreadProcessId, InSendMessage, IsWindow, PostMessageW, PostQuitMessage,
-    RegisterClassW, RegisterWindowMessageW, SendMessageTimeoutW, SetWindowPos, TranslateMessage,
+    RegisterClassW, RegisterWindowMessageW, UnregisterClassW, SendMessageTimeoutW, SetWindowPos, TranslateMessage,
     EVENT_OBJECT_DESTROY, EVENT_OBJECT_REORDER, EVENT_SYSTEM_FOREGROUND, HICON, HWND_TOPMOST,
     MSG, MSGFLT_ALLOW, OBJID_WINDOW, SMTO_ABORTIFHUNG, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
     SWP_NOZORDER, WINEVENT_OUTOFCONTEXT, WM_CLOSE, WM_COMMAND, WM_COPYDATA, WM_DESTROY,
@@ -81,7 +81,8 @@ impl Drop for OwnedIcon {
 static OURS: AtomicIsize = AtomicIsize::new(0);
 static EXPLORER: AtomicIsize = AtomicIsize::new(0);
 static TASKBAR_CREATED: AtomicU32 = AtomicU32::new(0);
-static SINK: OnceLock<SyncSender<HostEvent>> = OnceLock::new();
+/// Where host events go. Emptied when the host stops, so it can start again (ADR 0032).
+static SINK: Mutex<Option<SyncSender<HostEvent>>> = Mutex::new(None);
 /// Windows (as 32-bit handles) that own at least one icon: only their destruction is reported.
 static WATCHED: OnceLock<Mutex<HashSet<u32>>> = OnceLock::new();
 
@@ -291,7 +292,7 @@ fn mirror_rect() {
 }
 
 fn send(event: HostEvent) {
-    if let Some(sink) = SINK.get() {
+    if let Some(sink) = SINK.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
         if sink.try_send(event).is_err() {
             DROPPED.fetch_add(1, Ordering::Relaxed);
         }
@@ -460,12 +461,22 @@ impl Drop for Host {
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
+        stop_sink();
+        if let Some(watched) = WATCHED.get() {
+            watched.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        }
     }
 }
 
 /// Starts the host on its own thread. Events go to `sink`.
 pub fn start(sink: SyncSender<HostEvent>) -> Result<Host, String> {
-    SINK.set(sink).map_err(|_| "tray host already started".to_string())?;
+    {
+        let mut slot = SINK.lock().unwrap_or_else(|e| e.into_inner());
+        if slot.is_some() {
+            return Err("tray host already started".to_string());
+        }
+        *slot = Some(sink);
+    }
     let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
     let thread = std::thread::Builder::new()
         .name("tray-host".into())
@@ -475,9 +486,20 @@ pub fn start(sink: SyncSender<HostEvent>) -> Result<Host, String> {
         Ok(Ok(())) => Ok(Host {
             thread: Some(thread),
         }),
-        Ok(Err(e)) => Err(e),
-        Err(_) => Err("tray host did not start".to_string()),
+        Ok(Err(e)) => {
+            stop_sink();
+            Err(e)
+        }
+        Err(_) => {
+            stop_sink();
+            Err("tray host did not start".to_string())
+        }
     }
+}
+
+/// Forgets the sink so the next `start` is accepted.
+fn stop_sink() {
+    *SINK.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 fn run(ready: mpsc::Sender<Result<(), String>>) {
@@ -546,6 +568,8 @@ fn run(ready: mpsc::Sender<Result<(), String>>) {
             let _ = UnhookWinEvent(hook);
         }
         OURS.store(0, Ordering::Relaxed);
+        // Free the class name so a later start (switching the tray back on) can register it again.
+        let _ = UnregisterClassW(CLASS, Some(instance));
     }
 }
 

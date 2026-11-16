@@ -41,11 +41,13 @@ struct State {
     measured: Tone,
     /// Debug builds only: a tone forced from the keyboard.
     forced: Option<Tone>,
+    /// The user's choice in the settings window (`None` = follow the wallpaper).
+    user: Option<Tone>,
 }
 
 impl State {
     fn effective(&self) -> Tone {
-        self.forced.unwrap_or(self.measured)
+        self.forced.or(self.user).unwrap_or(self.measured)
     }
 }
 
@@ -53,6 +55,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     // Light is also the page's default, so nothing flickers before the first measurement.
     measured: Tone::Light,
     forced: None,
+    user: None,
 });
 static SENDER: OnceLock<Sender<Msg>> = OnceLock::new();
 static APP: OnceLock<AppHandle> = OnceLock::new();
@@ -130,6 +133,27 @@ pub fn start(app: &AppHandle) {
     crate::platform::windows::wallpaper_watch::start(wallpaper_changed);
     if let Err(e) = spawned {
         eprintln!("barista: could not start the appearance worker: {e}");
+    }
+}
+
+/// The settings changed: applies the tone choice (`auto` follows the wallpaper again). Safe to call
+/// for any settings change; it only emits when the tone really changes.
+pub fn settings_changed(_app: &AppHandle) {
+    use crate::settings::ToneChoice as Choice;
+    let choice = crate::controller::get().map(|c| c.settings().menu_bar.appearance.tone);
+    let user = match choice {
+        Some(Choice::Light) => Some(Tone::Light),
+        Some(Choice::Dark) => Some(Tone::Dark),
+        _ => None,
+    };
+    let (before, after) = {
+        let mut s = lock();
+        let before = s.effective();
+        s.user = user;
+        (before, s.effective())
+    };
+    if before != after {
+        emit(after);
     }
 }
 

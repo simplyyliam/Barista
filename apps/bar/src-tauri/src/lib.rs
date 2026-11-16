@@ -17,6 +17,7 @@ mod platform;
 mod radius;
 mod registry;
 mod settings;
+mod settings_window;
 mod system;
 mod tray;
 mod window_radius;
@@ -118,6 +119,20 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::media_next,
             commands::media_previous,
             commands::get_theme_mode,
+            commands::settings::get_settings,
+            commands::settings::open_settings_window,
+            commands::settings::set_start_with_windows,
+            commands::settings::set_appearance,
+            commands::settings::set_menu_bar_items,
+            commands::settings::set_clock_prefs,
+            commands::settings::set_control_center_prefs,
+            commands::settings::set_behavior,
+            commands::settings::set_tray_prefs,
+            commands::settings::set_taskbar_auto_hide,
+            commands::settings::set_advanced,
+            commands::settings::reset_settings,
+            commands::settings::export_settings,
+            commands::settings::import_settings,
             commands::set_dark_mode
         ])
         .events(collect_events![
@@ -138,6 +153,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::BatteryChanged,
             events::VolumeChanged,
             events::TrayStyleChanged,
+            events::SettingsChanged,
             events::ControlCenterModeChanged,
             events::BrightnessChanged,
             events::ThemeModeChanged,
