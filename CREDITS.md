@@ -52,6 +52,10 @@ The first column must be the exact package or crate name.
 | @hugeicons/react           | 1.1     | MIT               | https://github.com/hugeicons/hugeicons                 |
 | @hugeicons/core-free-icons | 4.4     | MIT               | https://github.com/hugeicons/hugeicons                 |
 | lucide-react               | 1.70    | ISC               | https://github.com/lucide-icons/lucide                 |
+| @dnd-kit/core              | 6.3     | MIT               | https://github.com/clauderic/dnd-kit                   |
+| @dnd-kit/sortable          | 10.0    | MIT               | https://github.com/clauderic/dnd-kit                   |
+| @dnd-kit/utilities         | 3.2     | MIT               | https://github.com/clauderic/dnd-kit                   |
+| @dnd-kit/modifiers         | 9.0     | MIT               | https://github.com/clauderic/dnd-kit                   |
 | react-day-picker           | 10.0    | MIT               | https://github.com/gpbl/react-day-picker               |
 | date-fns                   | 4.4     | MIT               | https://github.com/date-fns/date-fns                   |
 | lucide                     | 1.72    | ISC               | https://github.com/lucide-icons/lucide                 |

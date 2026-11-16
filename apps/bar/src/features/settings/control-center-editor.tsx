@@ -153,7 +153,7 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
           className="flex w-panel-w flex-col gap-2"
           onClick={(e) => e.target === e.currentTarget && setSelected(null)}
         >
-          <section className="flex flex-col gap-cc-gap rounded-panel bg-cc-card p-cc-pad text-cc-fg backdrop-blur-md">
+          <section className="flex flex-col gap-cc-gap rounded-panel bg-cc-card p-cc-pad text-cc-fg">
             {prefs.userCard && (
               <Selectable
                 label="User card"
@@ -242,7 +242,7 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
           </section>
 
           {prefs.quickActions.length > 0 && (
-            <section ref={actionBox} className="rounded-panel bg-cc-card p-cc-pad backdrop-blur-md">
+            <section ref={actionBox} className="rounded-panel bg-cc-card p-cc-pad">
               <SortableList
                 ids={prefs.quickActions}
                 layout="grid"
