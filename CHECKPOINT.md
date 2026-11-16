@@ -155,6 +155,17 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Fix next
 
+- Through the UI (2026-11-16, end-to-end with the 10 tray apps on this machine, bar expanded so each icon is a pill): the clicks were fired as DOM events on
+  the pills (the UI's own `onClick` / `onContextMenu` -> `itemClicked`), because scripted pointer input (`SetCursorPos`, error 203) stopped working halfway
+  through the session; the real-mouse checks below were done before that. Result, left / right / double: Medal window / window / window, AMD none / menu / window,
+  SteelSeries GG none / menu / window, Twinkle Tray none / window / none, ISLC none / window / none, Windhawk none / menu / none, Explorer's Safely Remove
+  menus, Bluetooth menu / none / Settings window. **No reaction** for Raycast and Sonar (Raycast reacted in the first sweep). Restart with the UI: saved order and
+  pins -> Rust -> the bar draws the two pinned icons and the panel shows the same order with the pins marked.
+  - Startup: on one start no tray app re-added its icon after the bar's `TaskbarCreated` broadcast (0 icons, the host worked: a probe appeared); a manual
+    broadcast brought 12 back; the next start was fine. A bar that starts with an empty tray is the worst outcome: re-broadcast after a few seconds
+    when no icon has arrived (ADR 0026 mentions a re-broadcast).
+  - The panel closes when it loses focus; at one point `getOpenPanel` still said `tray` while the window was hidden, and the arrow's next click then toggled
+    it shut: check that the panel state follows the real window.
 - From wiring the v0.7 UI (real mouse, dev bar): pin (hover shows the pin), right-click on a pinned icon in the bar opens the app's own menu under the
   icon (AMD: "Open AMD Software / Video Profile / Hide System Tray"), drag a tile to the first place and it stayed after the event, "Show all in the bar"
   moved all 16 icons into the bar, a tile click opened Medal and closed the panel. Not done / to look at:
