@@ -3,7 +3,10 @@
 // Previous / Play-Pause / Next. Hidden while nothing plays.
 // Run with the bar running: `pnpm now-playing` (build the helper first: `cargo build -p barista-win-helper`).
 import * as BA from "@baristabar/sdk"
-import { MusicNote01Icon, PauseIcon, PlayIcon } from "@hugeicons/core-free-icons"
+// One import per icon: the package's index loads thousands of icons (about 100 MB of memory).
+import MusicNote01Icon from "@hugeicons/core-free-icons/MusicNote01Icon"
+import PauseIcon from "@hugeicons/core-free-icons/PauseIcon"
+import PlayIcon from "@hugeicons/core-free-icons/PlayIcon"
 import { startHelper } from "./helper.ts"
 
 interface MediaEvent {

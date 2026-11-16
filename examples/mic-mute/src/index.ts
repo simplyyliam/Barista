@@ -2,7 +2,9 @@
 // the default microphone, the same switch Windows uses. The mic's name is in the tooltip.
 // Run with the bar running: `pnpm mic-mute` (build the helper first: `cargo build -p barista-win-helper`).
 import * as BA from "@baristabar/sdk"
-import { Mic01Icon, MicOff01Icon } from "@hugeicons/core-free-icons"
+// One import per icon: the package's index loads thousands of icons (about 100 MB of memory).
+import Mic01Icon from "@hugeicons/core-free-icons/Mic01Icon"
+import MicOff01Icon from "@hugeicons/core-free-icons/MicOff01Icon"
 import { startHelper } from "./helper.ts"
 
 interface MicEvent {

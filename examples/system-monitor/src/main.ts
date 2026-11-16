@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url"
 import { app, BrowserWindow, ipcMain, screen } from "electron"
 import * as BA from "@baristabar/sdk"
 import { electronPopover } from "@baristabar/sdk/electron"
-import { CpuIcon } from "@hugeicons/core-free-icons"
+// One import per icon: the package's index loads thousands of icons (about 100 MB of memory).
+import CpuIcon from "@hugeicons/core-free-icons/CpuIcon"
 import os from "node:os"
 import { corePercents, cpuPercent, cpuTimes, memory, push, type CpuTimes } from "./sampler.ts"
 
