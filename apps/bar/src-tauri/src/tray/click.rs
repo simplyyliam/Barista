@@ -60,6 +60,34 @@ pub fn encode(message: u32, version: u32, id: u32, (x, y): (i32, i32)) -> (usize
     }
 }
 
+/// How the owner window sees pixels (its DPI awareness).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Awareness {
+    /// Always 96 dpi: Windows scales its pixels.
+    Unaware,
+    /// Sees the system's dpi on every monitor.
+    System,
+    /// Sees the real pixels.
+    PerMonitor,
+}
+
+/// A physical screen point as the owner window counts pixels, so a version 4 anchor lands on the icon
+/// even for an app that is not DPI aware (rule 8: converted once, at the boundary).
+/// Same idea as Windows' own virtualization, so a second monitor with another scale is only close.
+pub fn to_owner(
+    (x, y): (i32, i32),
+    awareness: Awareness,
+    monitor_dpi: u32,
+    system_dpi: u32,
+) -> (i32, i32) {
+    let scale = |v: i32, to: u32| (f64::from(v) * f64::from(to) / f64::from(monitor_dpi.max(1))).round() as i32;
+    match awareness {
+        Awareness::PerMonitor => (x, y),
+        Awareness::System => (scale(x, system_dpi), scale(y, system_dpi)),
+        Awareness::Unaware => (scale(x, 96), scale(y, 96)),
+    }
+}
+
 /// Remembers the last left click, so a second one on the same icon within the double-click time
 /// becomes a double click. Time comes in as a parameter so tests need no clock.
 #[derive(Default)]
@@ -129,6 +157,16 @@ mod tests {
         let (w, _) = encode(WM_LBUTTONUP, 4, 1, (-20, 5));
         assert_eq!(w & 0xFFFF, 0xFFEC); // -20 as i16
         assert_eq!(w >> 16, 5);
+    }
+
+    #[test]
+    fn anchor_follows_the_owners_dpi_awareness() {
+        // 150 % screen: a point at 2096,1238 is 1397,825 for an app that is not DPI aware.
+        assert_eq!(to_owner((2096, 1238), Awareness::Unaware, 144, 144), (1397, 825));
+        assert_eq!(to_owner((2096, 1238), Awareness::PerMonitor, 144, 144), (2096, 1238));
+        assert_eq!(to_owner((2096, 1238), Awareness::System, 144, 144), (2096, 1238));
+        // System aware at 100 % system dpi on a 150 % monitor sees 1.5x fewer pixels.
+        assert_eq!(to_owner((300, 150), Awareness::System, 144, 96), (200, 100));
     }
 
     #[test]
