@@ -6,6 +6,60 @@ All notable changes to the Barista app are listed here. The SDK has its own chan
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-16
+
+Tray icons now work from the bar: click them, right-click for their menu, pin your favourites and drag them into order.
+
+### Added
+
+- **Click your tray icons.** Left, right, middle and double click go to the app the same way the Windows tray sends them.
+  A right-click opens the app's own menu right under the icon, so you don't need the Windows tray any more.
+- **Pin your favourites.** Pinned icons stay in the bar itself; the rest wait behind the arrow. Hover an icon in
+  the tray panel to pin or unpin it.
+- **Drag to reorder.** Drag the icons in the tray panel into the order you like.
+- **Collapse the rest.** One button folds the extra icons away or shows them all in the bar.
+- **Icons that don't fit move to the panel.** When the bar is full, the icons that don't fit go into the
+  panel instead of being pushed off the bar.
+- **Your layout is kept.** Pins, order and collapsed state are still there after you restart the bar.
+
+### Changed
+
+- By default the bar starts collapsed, apps that add their own items are pinned, and tray icons are not.
+- If no tray icon shows up after the bar starts, it asks the apps to add their icons again a few
+  seconds later.
+
+### Known issues
+
+- Windows SmartScreen may warn that the installer is from an unknown publisher, because it isn't
+  code-signed yet. Click "More info", then "Run anyway".
+- No automatic updates yet. To get a newer version, download its installer from the GitHub
+  Releases page and run it.
+- What an app does with a click is up to the app: some only react to a double click, and a few
+  (Raycast and Sonar in testing) sometimes show nothing.
+- Pinned icons in the bar can't be dragged or unpinned from there yet: use the tray panel. The pin only
+  appears when you hover an icon.
+- Some programs give their icon a different number each time they start, so their saved place and pin
+  can be forgotten after a restart.
+- Windows' own icons (volume, network, Bluetooth) still appear next to the bar's own, and the tray icons still
+  show in the Windows taskbar.
+- Tested on Windows 11 only. In testing, restarting Explorer while an app that tweaks the taskbar was running
+  closed Barista; start it again if that happens.
+- Menus take about 45 to 55 ms to appear and Barista uses about 145 MB of memory, because the panel and menu
+  windows are ready in the background. A release for speed and memory is planned.
+
+### Privacy
+
+- Barista sends nothing over the internet. It doesn't check for updates yet.
+- Your notifications, Wi-Fi networks, battery and volume are read on this computer only and never
+  sent anywhere.
+- Apps that add items, menus or popovers talk to the bar only on this computer; nothing leaves the
+  machine. The "are you still there" checks between the bar and apps stay on this computer too.
+- The bar looks at the wallpaper behind it only to pick light or dark text. This happens on your
+  computer, and the wallpaper is never sent anywhere.
+- Tray icons (their picture and tooltip) are read on this computer only and never sent anywhere. Your
+  clicks on them go straight to the app they belong to, on this computer.
+- Your pins, order and collapsed state are saved in the bar's settings file on this computer.
+
 ## [0.6.0] - 2026-11-14
 
 The icons from the Windows tray (Discord, Steam, OneDrive and the rest) now show up in the bar.
