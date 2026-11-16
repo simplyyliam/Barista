@@ -368,6 +368,8 @@ export class StatusItem {
   remove(): void {
     if (this.#removed) return
     this.#removed = true
+    // Removed before the bar accepted it: `await item.ready` must not hang.
+    this.#rejectReady(new Error(`Item ${JSON.stringify(this.id)} was removed`))
     this.#closeOpenPopover()
     this.#bar.items.delete(this.id)
     this.#bar.send({

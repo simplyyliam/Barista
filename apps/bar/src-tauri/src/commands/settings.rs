@@ -204,23 +204,37 @@ pub fn import_settings(app: tauri::AppHandle, text: String) -> Result<(), String
     Ok(())
 }
 
-/// After a bulk change (reset, import): do what the individual setters would have done.
+/// After a bulk change (reset, import): do what the individual setters would have done. `before`
+/// is the settings from before the change; the new ones are read raw from the controller, because
+/// `current()` replaces the autostart flag with the registry's answer.
 fn apply_differences(app: &tauri::AppHandle, before: &Settings) {
-    let after = current();
-    if before.general.start_with_windows != after.general.start_with_windows {
+    use tauri::Manager;
+    let Some(c) = controller::get() else { return };
+    let after = c.settings();
+
+    // The registry is the truth for autostart: make it match what the settings now say.
+    if after.general.start_with_windows != crate::platform::windows::autostart::is_enabled() {
         let _ = crate::platform::windows::autostart::set_enabled(after.general.start_with_windows);
         notify(app);
     }
     if before.menu_bar.taskbar.auto_hide != after.menu_bar.taskbar.auto_hide {
-        if let Some(c) = controller::get() {
-            c.apply_taskbar();
-            c.apply();
-        }
+        c.apply_taskbar();
+        c.apply();
     }
     if before.menu_bar.height != after.menu_bar.height {
-        if let Some(c) = controller::get() {
-            c.set_bar_height(after.menu_bar.height);
+        c.set_bar_height(after.menu_bar.height);
+    }
+    if before.menu_bar.tray != after.menu_bar.tray {
+        if let Some(registry) = app.try_state::<std::sync::Arc<crate::registry::Registry>>() {
+            registry.set_hide_windows_icons(after.menu_bar.tray.hide_windows_icons);
         }
+        if before.menu_bar.tray.style != after.menu_bar.tray.style {
+            crate::panel::close();
+            let _ = crate::events::TrayStyleChanged(after.menu_bar.tray.style).emit(app);
+        }
+    }
+    if before.behavior != after.behavior {
+        c.behavior_changed();
     }
     apply_advanced(app, &before.advanced, &after.advanced);
     crate::appearance::settings_changed(app);

@@ -387,7 +387,11 @@ impl Controller {
 
     /// The "hide on full screen" setting changed: show the bar again if it was hidden for that.
     pub fn behavior_changed(&self) {
-        if !self.lock().settings.behavior.hide_on_fullscreen {
+        if self.lock().settings.behavior.hide_on_fullscreen {
+            // Switched on: a full-screen app that is already in front must hide the bar now.
+            let monitor = self.lock().current.rect;
+            self.set_fullscreen(fullscreen::foreground_covers(&monitor, self.hwnd()));
+        } else {
             self.set_fullscreen(false);
         }
     }

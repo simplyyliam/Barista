@@ -4,7 +4,7 @@
 
 use std::path::Path;
 use windows::core::{w, HSTRING};
-use windows::Win32::Foundation::ERROR_SUCCESS;
+use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_SUCCESS};
 use windows::Win32::System::Registry::{
     RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_SZ,
 };
@@ -26,7 +26,7 @@ pub fn is_enabled() -> bool {
 }
 
 fn read() -> Option<String> {
-    let mut buf = [0u16; 1024];
+    let mut buf = [0u16; 4096];
     let mut bytes = std::mem::size_of_val(&buf) as u32;
     // SAFETY: `buf` and `bytes` outlive the call; `bytes` is the buffer size in bytes.
     let status = unsafe {
@@ -69,7 +69,8 @@ pub fn set_enabled(on: bool) -> bool {
     } else {
         // SAFETY: plain call with static strings. A missing value is fine (already off).
         let status = unsafe { RegDeleteKeyValueW(HKEY_CURRENT_USER, KEY, NAME) };
-        status == ERROR_SUCCESS || read().is_none()
+        // Already off counts as done.
+        status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND
     }
 }
 

@@ -467,6 +467,7 @@ impl Settings {
     pub fn reset(&mut self, section: Section) {
         let keep_taskbar = self.menu_bar.taskbar.clone();
         let layout = self.menu_bar.layout.clone();
+        let monitor = self.general.monitor.clone();
         match section {
             Section::General => {
                 // Start with Windows is applied through the registry by the caller.
@@ -485,8 +486,12 @@ impl Settings {
                 let seen = self.notifications_seen_at;
                 *self = Settings::default();
                 self.notifications_seen_at = seen;
+                // The pins and order live in the registry too; a reset must not fight it.
+                self.menu_bar.layout = layout;
             }
         }
+        // Which monitor the bar is on is not a preference: a reset leaves it.
+        self.general.monitor = monitor;
         self.menu_bar.taskbar.saved_state = keep_taskbar.saved_state;
     }
 
@@ -784,7 +789,10 @@ mod tests {
         assert_eq!(s.menu_bar.appearance, Appearance::default());
         s.reset(Section::MenuBar);
         assert_eq!(s.menu_bar.layout.order, ["a"]);
+        s.general.monitor = Some("m1".into());
         s.reset(Section::All);
+        assert_eq!(s.general.monitor.as_deref(), Some("m1"));
+        assert_eq!(s.menu_bar.layout.order, ["a"]);
         assert_eq!(s.notifications_seen_at, 5);
         assert_eq!(s.menu_bar.taskbar.saved_state, Some(2));
         assert!(!s.menu_bar.taskbar.auto_hide);

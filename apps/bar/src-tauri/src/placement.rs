@@ -31,7 +31,18 @@ pub fn retain_in_bar(in_bar: &std::collections::HashSet<String>) {
     bounds()
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .retain(|id, _| in_bar.contains(id));
+        .retain(|id, _| !is_registry_key(id) || in_bar.contains(id));
+}
+
+/// Keys of registry items (`s3/timer`, `tray/<key>`). The bar's own items (`system/clock`, ...) are
+/// not in the registry, so a snapshot of it says nothing about them: their bounds always stay.
+fn is_registry_key(id: &str) -> bool {
+    if id.starts_with("tray/") {
+        return true;
+    }
+    id.strip_prefix('s')
+        .and_then(|rest| rest.split_once('/'))
+        .is_some_and(|(session, _)| !session.is_empty() && session.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// The item's rect on screen only if the UI reported where it is drawn (no guess).
@@ -89,6 +100,13 @@ pub fn inset_work(work: &Rect, scale: f64) -> Rect {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn only_registry_keys_are_dropped_with_the_bar_snapshot() {
+        use super::is_registry_key;
+        assert!(is_registry_key("s3/timer") && is_registry_key("tray/abc-1"));
+        assert!(!is_registry_key("system/clock") && !is_registry_key("system/battery") && !is_registry_key("shop/x") && !is_registry_key("s/x"));
+    }
+
     use super::*;
 
     #[test]

@@ -120,12 +120,12 @@ export class StatusBar {
     return this.#sessionId
   }
 
-  /** The version of the bar you are connected to, or `undefined` while it is not there. */
   /** @internal The connected bar answers `item.create` with `item.created` (protocol 0.7+). */
   get acksCreates(): boolean {
     return this.#acksCreates
   }
 
+  /** The version of the bar you are connected to, or `undefined` while it is not there. */
   get barVersion(): string | undefined {
     return this.#barVersion
   }
@@ -451,6 +451,8 @@ export class StatusBar {
     if (this.#state === "closed") return
     const socket = this.#socket
     this.#state = "closed"
+    // Items still waiting for the bar to accept them never will: let `await item.ready` end.
+    for (const item of this.items.values()) item.rejectReady(new Error("The connection to the bar was closed"))
     clearTimeout(this.#hintTimer)
     clearTimeout(this.#retryTimer)
     this.#retryTimer = undefined
