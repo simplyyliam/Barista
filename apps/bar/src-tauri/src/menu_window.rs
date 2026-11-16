@@ -461,7 +461,7 @@ impl MenuWindow {
             inner.generation += 1;
             let rect = place_logical(&inner.item_rect, inner.size, extra, &work, scale);
             inner.root_rect = rect;
-            (rect, inner.item_rect, inner.acrylic, inner.generation, inner.pending_show, previous)
+            (rect, inner.item_rect, crate::appearance::blur_allowed(inner.acrylic), inner.generation, inner.pending_show, previous)
         };
         // The apps hear about it (a swap closes the old menu and opens the new one).
         if previous.as_deref() != Some(key) {
@@ -706,7 +706,7 @@ impl MenuWindow {
     pub fn current(&self) -> Option<MenuOpen> {
         let (key, item, acrylic) = {
             let inner = self.lock();
-            (inner.shown.clone()?, inner.item_rect, inner.acrylic)
+            (inner.shown.clone()?, inner.item_rect, crate::appearance::blur_allowed(inner.acrylic))
         };
         let snapshot = self.registry.menu(&key)?;
         let info = crate::controller::get()?.info();

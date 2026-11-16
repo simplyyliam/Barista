@@ -25,6 +25,15 @@ pub fn set_item_bounds(items: Vec<ItemBounds>) {
         .collect();
 }
 
+/// Forgets bounds of items that are not drawn in the bar any more (moved to overflow, removed).
+/// A click from the overflow panel then anchors under the pointer, not at the old bar position.
+pub fn retain_in_bar(in_bar: &std::collections::HashSet<String>) {
+    bounds()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .retain(|id, _| in_bar.contains(id));
+}
+
 /// The item's rect on screen only if the UI reported where it is drawn (no guess).
 pub fn known_item_rect(key: &str, bar: &Rect, scale: f64) -> Option<Rect> {
     let found = bounds().lock().unwrap_or_else(|e| e.into_inner()).get(key).cloned()?;

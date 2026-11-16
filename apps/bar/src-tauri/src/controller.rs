@@ -376,12 +376,20 @@ impl Controller {
     fn set_fullscreen(&self, on: bool) {
         {
             let mut state = self.lock();
+            let on = on && state.settings.behavior.hide_on_fullscreen;
             if state.hidden_for_fullscreen == on {
                 return;
             }
             state.hidden_for_fullscreen = on;
         }
         self.apply();
+    }
+
+    /// The "hide on full screen" setting changed: show the bar again if it was hidden for that.
+    pub fn behavior_changed(&self) {
+        if !self.lock().settings.behavior.hide_on_fullscreen {
+            self.set_fullscreen(false);
+        }
     }
 
     /// Puts the window where it belongs: reserve the strip, move there, show or hide.

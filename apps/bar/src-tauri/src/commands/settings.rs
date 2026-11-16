@@ -91,6 +91,9 @@ pub fn set_control_center_prefs(app: tauri::AppHandle, prefs: ControlCenterPrefs
 #[specta::specta]
 pub fn set_behavior(app: tauri::AppHandle, behavior: Behavior) {
     change(&app, |s| s.behavior = behavior);
+    if let Some(c) = controller::get() {
+        c.behavior_changed();
+    }
 }
 
 /// Tray options (style, hide the icons Windows owns that the bar already draws).

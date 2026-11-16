@@ -32,6 +32,11 @@ pub fn read() -> Option<RawPower> {
     })
 }
 
+/// True while Windows' battery saver is on (it also turns transparency effects off).
+pub fn battery_saver_on() -> bool {
+    read().is_some_and(|p| p.saver == 1)
+}
+
 /// Asks Windows to send `WM_POWERBROADCAST` to `hwnd` when the charge, the power source or
 /// battery saver changes. The registrations live as long as the window, so the handles are kept.
 pub fn register(hwnd: HWND) {

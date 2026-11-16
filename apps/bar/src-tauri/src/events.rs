@@ -39,7 +39,14 @@ pub fn forward_changes(app: tauri::AppHandle, registry: std::sync::Arc<Registry>
             // Wait one frame, then send one snapshot: a client that updates 1000 times a
             // second makes the UI redraw at most ~60 times a second.
             tokio::time::sleep(std::time::Duration::from_millis(16)).await;
-            let _ = ItemsChanged(registry.snapshot()).emit(&app);
+            let snapshot = registry.snapshot();
+            let in_bar = snapshot
+                .iter()
+                .filter(|v| v.placement == crate::registry::layout::Placement::Bar)
+                .map(|v| v.id.clone())
+                .collect();
+            crate::placement::retain_in_bar(&in_bar);
+            let _ = ItemsChanged(snapshot).emit(&app);
             if let Some(menu) = crate::menu_window::get() {
                 menu.sync();
             }

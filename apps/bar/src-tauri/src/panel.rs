@@ -332,7 +332,7 @@ impl PanelWindow {
                 monitor_id: crate::controller::get()
                     .map(|c| c.info().monitor.id)
                     .unwrap_or_default(),
-                acrylic: inner.acrylic && chrome == PanelChrome::Glass,
+                acrylic: crate::appearance::blur_allowed(inner.acrylic) && chrome == PanelChrome::Glass,
                 chrome,
             };
             inner.open = Some(open.clone());

@@ -192,7 +192,7 @@ fn open_radius_test_windows(app: &tauri::AppHandle) -> Result<(), Box<dyn std::e
     use tauri::{WebviewUrl, WebviewWindowBuilder};
     for (label, title, mode) in [
         (
-            "settings",
+            "radius-test-settings",
             "barista-test-settings",
             window_radius::Mode::Tracked,
         ),

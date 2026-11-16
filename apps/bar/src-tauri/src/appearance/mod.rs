@@ -157,6 +157,33 @@ pub fn settings_changed(_app: &AppHandle) {
     }
 }
 
+/// Whether menus and panels may use the blurred backdrop. `has_backdrop` is what the window got
+/// from DWM. Blur also needs the setting on `auto`, Windows' "Transparency effects" on, and no
+/// battery saver (which turns transparency off). Read each time a menu or panel opens, so no
+/// watcher is needed (ADR 0029).
+pub fn blur_allowed(has_backdrop: bool) -> bool {
+    use crate::settings::Blur;
+    if !has_backdrop {
+        return false;
+    }
+    let setting = crate::controller::get().map(|c| c.settings().menu_bar.appearance.blur);
+    if setting == Some(Blur::Off) {
+        return false;
+    }
+    #[cfg(windows)]
+    {
+        use crate::platform::windows::registry_watch::read_user_dword;
+        let key = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
+        if read_user_dword(key, "EnableTransparency") == Some(0) {
+            return false;
+        }
+        if crate::platform::windows::power::battery_saver_on() {
+            return false;
+        }
+    }
+    true
+}
+
 /// Tells the worker where the bar is. Cheap: it only sends a message.
 pub fn request(monitor: Rect, strip_h: i32) {
     let mut last = LAST_LAYOUT.lock().unwrap_or_else(|e| e.into_inner());

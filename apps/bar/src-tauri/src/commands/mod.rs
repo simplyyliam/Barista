@@ -243,6 +243,8 @@ pub fn set_item_bounds(registry: State<'_, Arc<Registry>>, bounds: Vec<ItemBound
     // The widths also tell the overflow split how much room each item takes.
     registry.note_widths(bounds.iter().map(|b| (b.id.clone(), b.width)));
     crate::placement::set_item_bounds(bounds);
+    // A report can arrive after an item moved to overflow: drop what is not in the bar.
+    crate::placement::retain_in_bar(&registry.ids_in_bar());
 }
 
 /// Saves the registry's layout in settings, if it changed since `before`.
