@@ -5,6 +5,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-16)
 - **v0.7.0 shipped** (tag `v0.7.0` on the merge of PR #42, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.7 are done; notes in `docs/release/history/` (local only, v0.7 in `v0.7-checkpoint.md`: tray clicks, pin / order / collapse, new for the UI already wired). Next: v0.8 "Daily driver" (`releases/v0.8.md`; add every new `barista | windows` switch to its list).
+
+- **v0.6.0 shipped** (tag `v0.6.0` on the merge of PR #38, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.6 are done; notes in `docs/release/history/` (local only, v0.6 in `v0.6-checkpoint.md`: tray host, `source: app | tray`, `trayMode` / `trayStyle`, new for the UI already wired). Next: v0.7 "Tray, live" (`releases/v0.7.md`).
 - **v0.5.0 shipped** (tag `v0.5.0` on the merge of PR #32, pushed). `sdk-v0.1.0` is pushed and the Action
   logged a publish; do `npm install @baristabar/sdk` in a fresh folder once to confirm it is on npm. Plan releases v0.0 to v0.5 are done;
   notes in `docs/release/history/` (local only, v0.5 in `v0.5-checkpoint.md`, with its dogfooding papercuts: `item.ready`, a
