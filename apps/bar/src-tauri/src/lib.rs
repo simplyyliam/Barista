@@ -257,6 +257,7 @@ pub fn run() {
             // The saved order, pins and collapsed flag, before the first item arrives.
             if let Some(c) = controller::get() {
                 registry.set_layout(c.settings().menu_bar.layout);
+                registry.set_hide_windows_icons(c.settings().menu_bar.tray.hide_windows_icons);
             }
             app.manage(registry.clone());
             // Open the pipe before the windows and services are set up (they take well over a

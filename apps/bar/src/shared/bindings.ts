@@ -362,7 +362,7 @@ export const commands = {
 	setControlCenterPrefs: (prefs: ControlCenterPrefs_Deserialize) => __TAURI_INVOKE<void>("set_control_center_prefs", { prefs }),
 	/**  Behaviour switches (hide on full screen). */
 	setBehavior: (behavior: Behavior_Deserialize) => __TAURI_INVOKE<void>("set_behavior", { behavior }),
-	/**  Tray options (style, hide the icons Windows owns that the bar already draws). */
+	/**  Tray options (style, hide the icons Explorer itself owns). */
 	setTrayPrefs: (prefs: TrayPrefs_Deserialize) => __TAURI_INVOKE<void>("set_tray_prefs", { prefs }),
 	/**  Windows' own taskbar auto-hides while Barista runs. Put back when switched off or on quit. */
 	setTaskbarAutoHide: (on: boolean) => __TAURI_INVOKE<void>("set_taskbar_auto_hide", { on }),
@@ -1540,13 +1540,19 @@ export type TrayPrefs = TrayPrefs_Serialize | TrayPrefs_Deserialize;
 
 export type TrayPrefs_Deserialize = {
 	style?: TrayStyle,
-	/**  Hide the icons Windows owns that the bar already draws (volume, network, battery). */
+	/**
+	 *  Hide the icons Explorer itself puts in the tray (Safely Remove, Bluetooth, ...). Off by default:
+	 *  some of them are the only way to reach that feature.
+	 */
 	hideWindowsIcons?: boolean,
 };
 
 export type TrayPrefs_Serialize = {
 	style: TrayStyle,
-	/**  Hide the icons Windows owns that the bar already draws (volume, network, battery). */
+	/**
+	 *  Hide the icons Explorer itself puts in the tray (Safely Remove, Bluetooth, ...). Off by default:
+	 *  some of them are the only way to reach that feature.
+	 */
 	hideWindowsIcons: boolean,
 };
 

@@ -11,7 +11,7 @@ use specta::Type;
 
 /// `major.minor`. The bar accepts any client with the same major version.
 /// New optional fields bump the minor; removing or renaming a field bumps the major.
-pub const PROTOCOL_VERSION: &str = "0.6";
+pub const PROTOCOL_VERSION: &str = "0.7";
 
 /// Largest frame (the JSON part) either side accepts.
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
@@ -372,6 +372,14 @@ pub enum BarMessage {
         session_id: String,
         bar_version: String,
         protocol_version: String,
+    },
+    /// The bar accepted an `item.create` (it is in the bar now). Answers the request with the same
+    /// `request_id`; a refusal comes as `error` instead. Sent only to clients that say 0.7 or newer.
+    /// Since 0.7.
+    #[serde(rename = "item.created")]
+    ItemCreated {
+        request_id: Option<String>,
+        id: String,
     },
     /// Something went wrong. `request_id` echoes the request it answers, if there was one.
     #[serde(rename = "error")]

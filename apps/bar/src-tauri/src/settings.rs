@@ -276,7 +276,8 @@ pub struct Taskbar {
 #[serde(default, rename_all = "camelCase")]
 pub struct TrayPrefs {
     pub style: TrayStyle,
-    /// Hide the icons Windows owns that the bar already draws (volume, network, battery).
+    /// Hide the icons Explorer itself puts in the tray (Safely Remove, Bluetooth, ...). Off by default:
+    /// some of them are the only way to reach that feature.
     pub hide_windows_icons: bool,
 }
 
@@ -284,7 +285,7 @@ impl Default for TrayPrefs {
     fn default() -> Self {
         Self {
             style: TrayStyle::Panel,
-            hide_windows_icons: true,
+            hide_windows_icons: false,
         }
     }
 }

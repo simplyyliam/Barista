@@ -96,10 +96,15 @@ pub fn set_behavior(app: tauri::AppHandle, behavior: Behavior) {
     }
 }
 
-/// Tray options (style, hide the icons Windows owns that the bar already draws).
+/// Tray options (style, hide the icons Explorer itself owns).
 #[tauri::command]
 #[specta::specta]
-pub fn set_tray_prefs(app: tauri::AppHandle, prefs: TrayPrefs) {
+pub fn set_tray_prefs(
+    app: tauri::AppHandle,
+    registry: tauri::State<'_, std::sync::Arc<crate::registry::Registry>>,
+    prefs: TrayPrefs,
+) {
+    registry.set_hide_windows_icons(prefs.hide_windows_icons);
     let style_changed =
         controller::get().is_some_and(|c| c.settings().menu_bar.tray.style != prefs.style);
     if style_changed {

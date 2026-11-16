@@ -100,11 +100,43 @@ export class StatusItem {
   /** @internal The request id of the latest `item.create`, to recognise a refused create. */
   createRequestId: string
 
+  /**
+   * Resolves when the bar has accepted this item (it is in the bar now). Rejects with a
+   * {@link BarError} if the bar refuses it (for example `"limit_reached"`). While the bar is not
+   * running it stays pending and settles once the bar starts. With a bar older than protocol 0.7
+   * (which does not answer) it resolves as soon as the item is sent.
+   *
+   * @example
+   * ```ts
+   * const item = await BA.StatusItem.create({ id: "mail", label: "3" })
+   * await item.ready // now it is really in the bar
+   * ```
+   */
+  readonly ready: Promise<void>
+  #resolveReady!: () => void
+  #rejectReady!: (error: Error) => void
+
   private constructor(id: string, bar: StatusBar, state: ItemState, createRequestId: string) {
     this.id = id
     this.#bar = bar
     this.#state = state
     this.createRequestId = createRequestId
+    this.ready = new Promise<void>((resolve, reject) => {
+      this.#resolveReady = resolve
+      this.#rejectReady = reject
+    })
+    // Nobody has to await `ready`: a refusal also reaches `on("error")`, so it is never "unhandled".
+    this.ready.catch(() => {})
+  }
+
+  /** @internal The bar accepted the create (or cannot say, being older than 0.7). */
+  resolveReady(): void {
+    this.#resolveReady()
+  }
+
+  /** @internal The bar refused the create. */
+  rejectReady(error: Error): void {
+    this.#rejectReady(error)
   }
 
   /**
@@ -113,9 +145,10 @@ export class StatusItem {
    * itself after a bar restart, with its menu, popover and your callbacks. Rejects (without
    * sending anything) if an argument breaks a rule such as a bad id or an icon over 256 KB.
    *
-   * It resolves once the request is sent, not when the bar accepted it. If the bar refuses
-   * the create (for example `"limit_reached"`), the error goes to `item.on("error")` (or the
-   * connection's `error` listeners) and the item is forgotten, so its id can be used again.
+   * It resolves once the request is sent, not when the bar accepted it: await `item.ready` for
+   * that. If the bar refuses the create (for example `"limit_reached"`), `item.ready` rejects, the
+   * error also goes to `item.on("error")` (or the connection's `error` listeners), and the item is
+   * forgotten, so its id can be used again.
    *
    * @example
    * ```ts
@@ -147,6 +180,8 @@ export class StatusItem {
     // Without a bar this sends nothing; the item is sent when the bar is there.
     bar.send(item.#createMessage())
     bar.items.set(options.id, item)
+    // A connected bar older than 0.7 never answers: nothing to wait for.
+    if (bar.available && !bar.acksCreates) item.resolveReady()
     return item
   }
 
@@ -241,6 +276,30 @@ export class StatusItem {
     })
     this.#menu = built ?? undefined
     return built
+  }
+
+  /**
+   * Changes one entry of the menu you set (label, enabled, checked, visible) and sends the menu
+   * again. Throws if there is no menu or no entry with that id (give entries an `id` to find them).
+   *
+   * @example
+   * ```ts
+   * item.setMenu([{ id: "pause", label: "Pause" }, { role: "quit" }])
+   * item.updateMenuItem("pause", { label: "Resume" })
+   * ```
+   */
+  updateMenuItem(
+    id: string,
+    changes: { label?: string; enabled?: boolean; checked?: boolean; visible?: boolean },
+  ): void {
+    const menu = this.#menu
+    const entry = menu?.getItemById(id)
+    if (!menu || !entry) throw new Error(`No menu entry with the id ${JSON.stringify(id)}`)
+    if (changes.label !== undefined) entry.label = changes.label
+    if (changes.enabled !== undefined) entry.enabled = changes.enabled
+    if (changes.checked !== undefined) entry.checked = changes.checked
+    if (changes.visible !== undefined) entry.visible = changes.visible
+    this.setMenu(menu)
   }
 
   /**

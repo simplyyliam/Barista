@@ -185,6 +185,8 @@ struct State {
     /// Last width each item had in the bar, by UI key. Kept after an item moves to overflow so it
     /// does not flip back and forth.
     widths: HashMap<String, f64>,
+    /// Hide the icons Explorer itself puts in the tray (Safely Remove, Bluetooth, ...).
+    hide_windows_icons: bool,
     /// Source of `menu_rev`s. Registry-wide, so a removed and re-created item never reuses one.
     last_rev: u64,
 }
@@ -266,7 +268,9 @@ fn arranged(state: &State) -> Vec<StatusItemView> {
             placement: Placement::Bar,
         }));
     }
-    for (key, t) in state.tray.iter().filter(|(_, t)| t.visible) {
+    for (key, t) in state.tray.iter().filter(|(_, t)| {
+        t.visible && !(state.hide_windows_icons && t.app_name.eq_ignore_ascii_case("explorer"))
+    }) {
         stables.push(t.stable_id.clone());
         views.push(Some(StatusItemView {
             id: format!("tray/{key}"),
@@ -511,6 +515,17 @@ impl Registry {
         if removed {
             self.changed.notify_one();
         }
+    }
+
+    /// The "hide Windows' own icons" setting. Wakes the UI only when it changes.
+    pub fn set_hide_windows_icons(&self, hide: bool) {
+        let mut state = self.lock();
+        if state.hide_windows_icons == hide {
+            return;
+        }
+        state.hide_windows_icons = hide;
+        drop(state);
+        self.changed.notify_one();
     }
 
     /// Drops every tray icon (the tray was switched to Windows' own).

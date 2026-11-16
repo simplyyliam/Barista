@@ -30,6 +30,8 @@ const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
 const OUTBOX_SIZE: usize = 64;
 /// Clients that say protocol 0.5 or newer get the heartbeat; older ones never answer `ping`.
 const HEARTBEAT_SINCE_MINOR: u32 = 5;
+/// Clients that say protocol 0.7 or newer get `item.created` after an accepted `item.create`.
+const ITEM_CREATED_SINCE_MINOR: u32 = 7;
 /// 10 rejected messages within a minute and the client is disconnected.
 const STRIKE_LIMIT: usize = 10;
 const STRIKE_WINDOW: Duration = Duration::from_secs(60);
@@ -269,7 +271,7 @@ async fn serve(
             Err(_) => break, // hung up (or the connection broke)
         };
         let step = match validate::parse_message(&bytes) {
-            Ok(message) => handle(session, message, registry, tx),
+            Ok(message) => handle(session, message, registry, tx, accepted.acks),
             Err(e) => Step::Reject(Reject {
                 request_id: e.request_id,
                 code: e.code,
@@ -317,6 +319,8 @@ struct Accepted {
     session: SessionId,
     /// It speaks 0.5 or newer, so it answers `ping`.
     heartbeat: bool,
+    /// It speaks 0.7 or newer, so it understands `item.created`.
+    acks: bool,
 }
 
 /// First message must be a valid `hello`. Returns the new session, or None after telling the
@@ -401,7 +405,8 @@ async fn handshake(
         registry.remove_session(session);
         return None;
     }
-    Some(Accepted { session, heartbeat })
+    let acks = minor_version(&protocol_version).is_some_and(|m| m >= ITEM_CREATED_SINCE_MINOR);
+    Some(Accepted { session, heartbeat, acks })
 }
 
 fn reject(request_id: &Option<String>, code: ErrorCode, message: impl Into<String>) -> Step {
@@ -442,7 +447,13 @@ fn check_fields(
     Ok(())
 }
 
-fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &Outbox) -> Step {
+fn handle(
+    session: SessionId,
+    message: ClientMessage,
+    registry: &Registry,
+    tx: &Outbox,
+    acks: bool,
+) -> Step {
     let rid = message.request_id().map(str::to_string);
     let result = match message {
         ClientMessage::Hello { .. } => Err(reject(
@@ -461,7 +472,11 @@ fn handle(session: SessionId, message: ClientMessage, registry: &Registry, tx: &
             check_fields(&rid, &icon, &label, &tooltip)?;
             registry
                 .create(session, id.clone(), icon, label, tooltip)
-                .map_err(|e| registry_reject(&rid, e, &id))
+                .map_err(|e| registry_reject(&rid, e, &id))?;
+            if acks && !send(tx, BarMessage::ItemCreated { request_id: rid.clone(), id }) {
+                return Err(Step::Disconnect);
+            }
+            Ok(())
         })(),
         ClientMessage::ItemUpdate {
             id,
@@ -715,7 +730,14 @@ mod tests {
             self.send_raw(value.to_string().as_bytes()).await;
         }
 
+        /// Says hello as a 0.6 client: no `item.created` acks, like every SDK before 0.7.
         async fn hello(&mut self) -> BarMessage {
+            self.send(hello_json(4242, "0.6")).await;
+            self.recv().await
+        }
+
+        /// Says hello with the bar's own version (gets the 0.7 acks).
+        async fn hello_current(&mut self) -> BarMessage {
             self.send(hello_json(4242, PROTOCOL_VERSION)).await;
             self.recv().await
         }
@@ -806,6 +828,27 @@ mod tests {
         assert_eq!(c.items().await[0].label.as_deref(), Some("1"));
         c.send(json!({"type":"item.remove","id":"a"})).await;
         assert!(c.items().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_current_client_hears_item_created_and_an_old_one_does_not() {
+        let registry = Arc::new(Registry::new());
+        let mut c = connect(&registry);
+        c.hello_current().await;
+        c.send(json!({"type":"item.create","requestId":"r1","id":"a"})).await;
+        assert_eq!(
+            c.recv().await,
+            BarMessage::ItemCreated { request_id: Some("r1".into()), id: "a".into() }
+        );
+        // A refusal is an error, never an ack.
+        c.send(json!({"type":"item.create","requestId":"r2","id":"a"})).await;
+        assert!(matches!(c.recv().await, BarMessage::Error { request_id: Some(r), .. } if r == "r2"));
+
+        // A 0.6 client gets nothing extra: the next reply is the one it asked for.
+        let mut old = connect(&registry);
+        old.hello().await;
+        old.send(json!({"type":"item.create","id":"b"})).await;
+        assert!(old.items().await.iter().any(|i| i.id.ends_with("/b")));
     }
 
     #[tokio::test]
