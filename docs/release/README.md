@@ -48,7 +48,7 @@ through a `release/v0.X.Y` PR (see `CLAUDE.md` > Releases).
 | v0.4b | System panels | The bar shows the clock, battery and volume from real data; a panel (control center, notifications, calendar) opens under an item. Built-in Rust services, a reusable panel window (`releases/v0.4b.md`) |
 | v0.5 | Never stuck (done, 0.5.0) | Kill a client, its icon goes; restart the bar, icons come back. SDK published |
 | v0.6 | Tray, read (done, 0.6.0) | Every tray icon shows in the bar |
-| v0.7 | Tray, live | Tray icons work: click, right-click menus, pin, collapse |
+| v0.7 | Tray, live (done, 0.7.0) | Tray icons work: click, right-click menus, pin, collapse |
 | v0.8 | Daily driver | Settings, first-party items (mic mute, now playing, system monitor), Liam uses it all day instead of the taskbar tray |
 | v0.9 | Script items | Drop a PowerShell, Python or Node script in a folder and it shows up in the bar (a system monitor script is the demo) |
 | v0.10 | Ship it | Installer, auto-updater, docs, first public release |
