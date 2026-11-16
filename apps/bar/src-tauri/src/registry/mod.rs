@@ -520,14 +520,22 @@ impl Registry {
     pub fn set_pinned(&self, key: &str, pinned: bool) -> Result<(), LayoutError> {
         self.edit_layout(|state| {
             let stable = stable_of(state, key).ok_or(LayoutError::NotFound)?;
-            state.layout.pinned.insert(stable, pinned);
+            // Only a choice that differs from the default is worth saving: it keeps the map small,
+            // so the cap in `cleaned` does not drop a pin the user just made.
+            let default = key.strip_prefix("tray/").is_none();
+            if pinned == default {
+                state.layout.pinned.remove(&stable);
+            } else {
+                state.layout.pinned.insert(stable, pinned);
+            }
             state.layout = std::mem::take(&mut state.layout).cleaned();
             Ok(())
         })
     }
 
     /// The user arranged these items (UI keys, left to right). Only they move, within the slots they
-    /// held, so items that are not running keep their place.
+    /// held, so items that are not running keep their place. Keys that are gone are skipped; a
+    /// repeated key refuses the call.
     pub fn set_order(&self, keys: &[String]) -> Result<(), LayoutError> {
         if keys.len() > MAX_LAYOUT_ENTRIES {
             return Err(LayoutError::Invalid);
@@ -539,7 +547,8 @@ impl Registry {
                 if !seen.insert(key.as_str()) {
                     return Err(LayoutError::Invalid);
                 }
-                let stable = stable_of(state, key).ok_or(LayoutError::NotFound)?;
+                // An item can quit between the UI's list and the drop: skip it, keep the rest.
+                let Some(stable) = stable_of(state, key) else { continue };
                 // Two items can share a stable id (same program, same icon id): order them as one.
                 if !stables.contains(&stable) {
                     stables.push(stable);
@@ -575,20 +584,36 @@ impl Registry {
         });
     }
 
-    /// Widths the UI measured (`setItemBounds`), keyed by item id. A change under half a pixel is noise.
+    /// Widths the UI measured (`setItemBounds`), keyed by item id. A change under half a pixel is noise,
+    /// and an item in overflow is not measured in the bar, so its remembered width stays.
     pub fn note_widths(&self, widths: impl IntoIterator<Item = (String, f64)>) {
+        let widths: Vec<(String, f64)> = widths
+            .into_iter()
+            .filter(|(_, w)| (1.0..=2000.0).contains(w))
+            .collect();
+        // Cheap check first: the UI reports on every layout pass, mostly with nothing new.
+        let state = self.lock();
+        let changed = widths.iter().any(|(id, w)| {
+            state.widths.get(id).map_or(true, |old| (old - w).abs() > 0.5)
+        });
+        if !changed {
+            return;
+        }
+        drop(state);
         let _ = self.edit_layout(|state| {
+            let in_bar: std::collections::HashSet<String> = arranged(state)
+                .into_iter()
+                .filter(|v| v.placement == Placement::Bar)
+                .map(|v| v.id)
+                .collect();
             for (id, width) in widths {
-                if !(1.0..=2000.0).contains(&width) {
+                if !in_bar.contains(&id) {
                     continue;
                 }
                 if state.widths.len() >= 512 && !state.widths.contains_key(&id) {
                     state.widths.clear();
                 }
-                let old = state.widths.get(&id).copied();
-                if old.map_or(true, |old| (old - width).abs() > 0.5) {
-                    state.widths.insert(id, width);
-                }
+                state.widths.insert(id, width);
             }
             Ok(())
         });
@@ -1447,7 +1472,8 @@ mod tests {
         let ids: Vec<_> = order_and_placement(&reg).into_iter().map(|v| v.0).collect();
         assert_eq!(ids, ["tray/c", "tray/a", "s1/main", "tray/b"].map(String::from));
         // Unknown or repeated keys are refused and change nothing.
-        assert_eq!(reg.set_order(&["tray/nope".into()]), Err(LayoutError::NotFound));
+        // A key that is gone is skipped (an app quit mid-drag); the rest still applies.
+        assert_eq!(reg.set_order(&["tray/nope".into(), "tray/b".into()]), Ok(()));
         assert_eq!(reg.set_order(&["tray/a".into(), "tray/a".into()]), Err(LayoutError::Invalid));
         let still: Vec<_> = order_and_placement(&reg).into_iter().map(|v| v.0).collect();
         assert_eq!(still, ids);

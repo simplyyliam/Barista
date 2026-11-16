@@ -118,6 +118,8 @@ mod worker {
         if delivered {
             Ok(())
         } else {
+            // The app never saw this click, so the next one must not count as its double.
+            DOUBLE.lock().unwrap_or_else(|e| e.into_inner()).reset();
             Err(ClickError::Unreachable)
         }
     }

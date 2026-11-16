@@ -245,10 +245,11 @@ pub fn set_item_bounds(registry: State<'_, Arc<Registry>>, bounds: Vec<ItemBound
 
 /// Saves the registry's layout in settings, if it changed since `before`.
 fn save_layout(registry: &Registry, before: &crate::settings::ItemLayout) {
-    let layout = registry.layout();
-    if layout != *before {
+    if registry.layout() != *before {
         if let Some(c) = controller::get() {
-            c.update_settings(|s| s.item_layout = layout);
+            // Read at write time, so two commands finishing together cannot save an older layout
+            // over a newer one.
+            c.update_settings(|s| s.item_layout = registry.layout());
         }
     }
 }
@@ -274,7 +275,7 @@ pub fn set_pinned(registry: State<'_, Arc<Registry>>, id: String, pinned: bool) 
 
 /// Saves the order the user arranged: `ids` are item ids, left to right, as many as they can see
 /// (bar and overflow). Only those items move, so items that are not running keep their place.
-/// An unknown or repeated id refuses the whole order. Saved; `itemsChanged` follows.
+/// An id that is gone is skipped; a repeated id refuses the order. Saved; `itemsChanged` follows.
 #[tauri::command]
 #[specta::specta]
 pub fn set_order(registry: State<'_, Arc<Registry>>, ids: Vec<String>) -> Result<(), String> {

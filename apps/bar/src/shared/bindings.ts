@@ -106,7 +106,7 @@ export const commands = {
 	/**
 	 *  Saves the order the user arranged: `ids` are item ids, left to right, as many as they can see
 	 *  (bar and overflow). Only those items move, so items that are not running keep their place.
-	 *  An unknown or repeated id refuses the whole order. Saved; `itemsChanged` follows.
+	 *  An id that is gone is skipped; a repeated id refuses the order. Saved; `itemsChanged` follows.
 	 */
 	setOrder: (ids: string[]) => typedError<null, string>(__TAURI_INVOKE("set_order", { ids })),
 	/**
