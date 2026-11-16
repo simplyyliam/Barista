@@ -1,6 +1,7 @@
 // The lifecycle: the bar goes away and comes back, the client starts first, the bar says
 // goodbye. A fake bar on a real named pipe plays the bar; "killing" it is closing the server.
 import { randomUUID } from "node:crypto"
+import net from "node:net"
 import { afterEach, describe, expect, it } from "vitest"
 import { FakeBar } from "../test/fake-bar.js"
 import type { ClientMessage } from "./protocol.js"
@@ -207,30 +208,50 @@ describe("the client starts before the bar", () => {
 })
 
 describe("the waiting hint", () => {
-  async function hintsWhile(run: () => Promise<void>): Promise<string[]> {
+  async function hintsWhile(run: (seen: () => string[]) => Promise<void>): Promise<string[]> {
     const lines: string[] = []
     const original = process.stderr.write.bind(process.stderr)
     process.stderr.write = ((chunk: string | Uint8Array) => {
       lines.push(String(chunk))
       return true
     }) as typeof process.stderr.write
+    const seen = () => lines.filter((line) => line.includes("[barista]"))
     try {
-      await run()
+      await run(seen)
     } finally {
       process.stderr.write = original
     }
-    return lines.filter((line) => line.includes("[barista]"))
+    return seen()
   }
 
   it("prints once on stderr when no bar shows up, and the connection keeps waiting", async () => {
-    const hints = await hintsWhile(async () => {
+    const hints = await hintsWhile(async (seen) => {
       const bar = await StatusBar.connect({ pipeName: unusedPipe(), timeoutMs: 200, waitingHintMs: 100 })
       bars.push(bar)
-      await new Promise((r) => setTimeout(r, 500))
+      await until(() => seen().length > 0) // wait for the hint itself, not a fixed time
+      await new Promise((r) => setTimeout(r, 300)) // and make sure it stays at one
       expect(bar.available).toBe(false)
     })
     expect(hints).toHaveLength(1)
     expect(hints[0]).toContain("Waiting for the Barista bar")
+  })
+
+  it("still prints when the hint timer fires in the middle of a retry", async () => {
+    // A pipe that accepts but never answers: every attempt lasts the full timeoutMs.
+    const pipeName = unusedPipe()
+    const silent = net.createServer(() => {})
+    await new Promise<void>((resolve) => silent.listen(pipeName, resolve))
+    try {
+      const hints = await hintsWhile(async (seen) => {
+        const bar = await StatusBar.connect({ pipeName, timeoutMs: 300, waitingHintMs: 150 })
+        bars.push(bar)
+        await until(() => seen().length > 0)
+      })
+      expect(hints).toHaveLength(1)
+    } finally {
+      bars.splice(0).forEach((bar) => bar.close())
+      silent.close()
+    }
   })
 
   it("stays quiet when the bar is there, or arrives before the hint", async () => {
