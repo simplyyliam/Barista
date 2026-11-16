@@ -5,18 +5,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-14)
 
-- **v0.6 "Tray, read" built, PR open** (branch `feature/v0.6-tray-read`, Liam reviews and merges; `UI: rust-only` in the /goal, Liam allowed the UI for it).
-  Hidden `Shell_TrayWnd` host (`platform/windows/tray_host.rs`, ADR 0026) forwards every message to Explorer; `tray/` (`parse`, `state`,
-  `icons`, worker); registry `source: app | tray` through the same `items-changed`; settings `trayMode` (barista | windows, rule 11, no UI
-  until v0.8) and `trayStyle` (panel | inline, default panel). **New for the UI (wired already):** `StatusItemView.source`, commands
-  `getTrayStyle` / `setTrayStyle`, event `trayStyleChanged`. UI: an arrow in the bar opens a five-wide grid panel (`features/panel/tray-panel.tsx`)
-  or, with `inline`, unfolds the icons in the bar (`features/menubar/tray-items.tsx`); pills' hover is pointer-driven and reset when a
-  panel/menu/popover opens or closes. Bench in `docs/perf/0.6.md` (idle 0.07 %, 0.11 % with 15 tray icons, tooltip change median 22 ms /
-  worst 630 ms, killed app's icons gone in 385 ms, memory 148 MB like v0.5). Tools: `scripts/tray-icons.ps1` (fake tray app),
-  `scripts/tray-zorder.ps1`, `scripts/soak.ps1`, tray rows in `pnpm bench`, `[tray]` in `pnpm inspect`. A dev bar kills nothing but cannot run
-  next to the installed one (fixed pipe name); `tauri dev` restarts the bar on every `src-tauri` edit; `pnpm bench` needs nobody touching the bar.
+- **v0.6.0 shipped** (tag `v0.6.0` on the merge of PR #38, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.6 are done; notes in `docs/release/history/` (local only, v0.6 in `v0.6-checkpoint.md`: tray host, `source: app | tray`, `trayMode` / `trayStyle`, new for the UI already wired). Next: v0.7 "Tray, live" (`releases/v0.7.md`).
 
-- **v0.5.0 shipped** (tag `v0.5.0` on the merge of PR #32, not pushed yet: Liam runs `pnpm release`). `sdk-v0.1.0` is pushed and the Action
+- **v0.5.0 shipped** (tag `v0.5.0` on the merge of PR #32, pushed). `sdk-v0.1.0` is pushed and the Action
   logged a publish; do `npm install @baristabar/sdk` in a fresh folder once to confirm it is on npm. Plan releases v0.0 to v0.5 are done;
   notes in `docs/release/history/` (local only, v0.5 in `v0.5-checkpoint.md`, with its dogfooding papercuts: `item.ready`, a
   "waiting for Barista" hint, `whenAvailable()`). **New for the UI:** command `quitBar` (for a future "Quit Barista" entry, no design yet).
