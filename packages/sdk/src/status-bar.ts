@@ -319,7 +319,8 @@ export class StatusBar {
     if (this.#state !== "waiting") return
     // unref'd: the hint alone never keeps a process alive.
     this.#hintTimer = setTimeout(() => {
-      if (this.#state === "waiting") {
+      // "connecting" counts too: the timer can land mid-retry, and the hint would be lost for good.
+      if (this.#state === "waiting" || this.#state === "connecting") {
         process.stderr.write("[barista] Waiting for the Barista bar to start. Your items appear when it does.\n")
       }
     }, this.#options.waitingHintMs ?? 10_000)
