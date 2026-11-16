@@ -7,7 +7,8 @@ import { app, BrowserWindow, ipcMain, screen } from "electron"
 import * as BA from "@baristabar/sdk"
 import { electronPopover } from "@baristabar/sdk/electron"
 import { CpuIcon } from "@hugeicons/core-free-icons"
-import { cpuPercent, cpuTimes, memory, push, type CpuTimes } from "./sampler.ts"
+import os from "node:os"
+import { corePercents, cpuPercent, cpuTimes, memory, push, type CpuTimes } from "./sampler.ts"
 
 const cpuHistory: number[] = []
 const ramHistory: number[] = []
@@ -42,7 +43,7 @@ async function main(): Promise<void> {
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }))
   win.webContents.on("will-navigate", (event) => event.preventDefault())
 
-  let latest = { cpu: 0, ram: 0, usedGb: 0, totalGb: 0 }
+  let latest = { cpu: 0, ram: 0, usedGb: 0, totalGb: 0, cores: [] as number[], uptime: 0 }
   const snapshot = () => ({ cpuHistory, ramHistory, ...latest })
   // The page asks once when it opens; after that it gets one push a second while the popover is open.
   ipcMain.handle("load", (event) => (event.sender === win.webContents ? snapshot() : null))
@@ -55,7 +56,7 @@ async function main(): Promise<void> {
     tooltip: "System monitor",
   })
   item.on("error", (error) => console.error(`bar refused: ${error.code}: ${error.message}`))
-  item.setPopover({ window: electronPopover(win, { screen }), width: 300, height: 232 })
+  item.setPopover({ window: electronPopover(win, { screen }), width: 330, height: 492 })
   item.setMenu([{ role: "quit" }])
 
   let open = false
@@ -63,13 +64,17 @@ async function main(): Promise<void> {
   item.on("close", () => (open = false))
 
   let before: CpuTimes | undefined
+  let beforeCores: os.CpuInfo[] | undefined
   let shown = ""
   const sample = () => {
-    const now = cpuTimes()
+    const cpus = os.cpus()
+    const now = cpuTimes(cpus)
     const cpu = cpuPercent(before, now)
+    const cores = corePercents(beforeCores, cpus)
     before = now
+    beforeCores = cpus
     const mem = memory()
-    latest = { cpu, ram: mem.percent, usedGb: mem.usedGb, totalGb: mem.totalGb }
+    latest = { cpu, ram: mem.percent, usedGb: mem.usedGb, totalGb: mem.totalGb, cores, uptime: Math.round(os.uptime()) }
     push(cpuHistory, cpu)
     push(ramHistory, mem.percent)
     // Only touch the bar when the text really changes.

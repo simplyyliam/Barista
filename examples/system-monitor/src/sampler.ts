@@ -26,6 +26,14 @@ export function cpuPercent(before: CpuTimes | undefined, now: CpuTimes): number 
   return Math.min(100, Math.max(0, Math.round((busy / total) * 100)))
 }
 
+/** Percent busy per core between two readings (the same maths as `cpuPercent`, one core at a time). */
+export function corePercents(before: os.CpuInfo[] | undefined, now: os.CpuInfo[]): number[] {
+  return now.map((core, i) => {
+    const prev = before?.[i]
+    return cpuPercent(prev && cpuTimes([prev]), cpuTimes([core]))
+  })
+}
+
 export interface Memory {
   /** Percent in use, 0 to 100. */
   percent: number

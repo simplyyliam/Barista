@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { cpuPercent, cpuTimes, memory, push } from "./sampler.ts"
+import type os from "node:os"
+import { corePercents, cpuPercent, cpuTimes, memory, push } from "./sampler.ts"
 
 describe("sampler", () => {
   it("adds up the cores", () => {
@@ -24,6 +25,19 @@ describe("sampler", () => {
   it("reads memory as used over total", () => {
     const gb = 1024 ** 3
     expect(memory(16 * gb, 4 * gb)).toEqual({ percent: 75, usedGb: 12, totalGb: 16 })
+  })
+
+  it("reads each core on its own", () => {
+    const core = (idle: number, user: number): os.CpuInfo => ({
+      model: "x",
+      speed: 1,
+      times: { user, nice: 0, sys: 0, idle, irq: 0 },
+    })
+    const before = [core(0, 0), core(0, 0)]
+    const now = [core(50, 50), core(100, 0)]
+    expect(corePercents(before, now)).toEqual([50, 0])
+    // No earlier reading: nothing to compare yet.
+    expect(corePercents(undefined, now)).toEqual([0, 0])
   })
 
   it("keeps only the newest values", () => {
