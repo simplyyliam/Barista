@@ -340,6 +340,32 @@ importers:
         specifier: npm:@typescript/typescript6@~6.0.2
         version: '@typescript/typescript6@6.0.2'
 
+  examples/mic-mute:
+    dependencies:
+      '@baristabar/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@hugeicons/core-free-icons':
+        specifier: ^4.4.0
+        version: 4.4.0
+      typescript:
+        specifier: npm:@typescript/typescript6@~6.0.2
+        version: '@typescript/typescript6@6.0.2'
+
+  examples/now-playing:
+    dependencies:
+      '@baristabar/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@hugeicons/core-free-icons':
+        specifier: ^4.4.0
+        version: 4.4.0
+      typescript:
+        specifier: npm:@typescript/typescript6@~6.0.2
+        version: '@typescript/typescript6@6.0.2'
+
   examples/quick-note:
     dependencies:
       '@baristabar/sdk':
@@ -357,6 +383,22 @@ importers:
         version: '@typescript/typescript6@6.0.2'
 
   examples/spotify:
+    dependencies:
+      '@baristabar/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@hugeicons/core-free-icons':
+        specifier: ^4.4.0
+        version: 4.4.0
+      electron:
+        specifier: ^45.2.3
+        version: 45.2.3(supports-color@10.2.2)
+      typescript:
+        specifier: npm:@typescript/typescript6@~6.0.2
+        version: '@typescript/typescript6@6.0.2'
+
+  examples/system-monitor:
     dependencies:
       '@baristabar/sdk':
         specifier: workspace:*

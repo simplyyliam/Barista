@@ -1,0 +1,104 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'"
+/>
+<title>System monitor</title>
+<style>
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+    font: 13px/1.4 system-ui, sans-serif;
+    color: #f2f2f2;
+    background: #202124;
+    user-select: none;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-sizing: border-box;
+    height: 100%;
+    padding: 14px;
+  }
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  h2 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0.65;
+  }
+  strong {
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+  svg {
+    width: 100%;
+    height: 62px;
+    border-radius: 8px;
+    background: #292a2d;
+  }
+  .grid {
+    stroke: #3c4043;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  .line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .area {
+    stroke: none;
+    opacity: 0.18;
+  }
+  #cpu-line {
+    stroke: #8ab4f8;
+  }
+  #cpu-area {
+    fill: #8ab4f8;
+  }
+  #ram-line {
+    stroke: #81c995;
+  }
+  #ram-area {
+    fill: #81c995;
+  }
+</style>
+<main>
+  <section>
+    <header>
+      <h2>CPU, last minute</h2>
+      <strong id="cpu">--%</strong>
+    </header>
+    <svg viewBox="0 0 59 100" preserveAspectRatio="none" role="img" aria-label="CPU graph">
+      <line class="grid" x1="0" y1="50" x2="59" y2="50" />
+      <polygon id="cpu-area" class="area" points="" />
+      <polyline id="cpu-line" class="line" points="" />
+    </svg>
+  </section>
+  <section>
+    <header>
+      <h2>Memory, last minute</h2>
+      <strong id="ram">--%</strong>
+    </header>
+    <svg viewBox="0 0 59 100" preserveAspectRatio="none" role="img" aria-label="Memory graph">
+      <line class="grid" x1="0" y1="50" x2="59" y2="50" />
+      <polygon id="ram-area" class="area" points="" />
+      <polyline id="ram-line" class="line" points="" />
+    </svg>
+  </section>
+</main>
+<script src="monitor.js"></script>
