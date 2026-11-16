@@ -5,13 +5,14 @@
 # Each line in -Log: "<unix ms> id=<n> <MESSAGE> wParam=<hex> lParam=<hex> cursor=<x>,<y>"
 # -Menu shows a small popup menu on right click like a real app does (SetForegroundWindow + TrackPopupMenu)
 # and logs which entry was picked ("menu <id> picked <cmd>", "menu <id> closed").
-# -Seconds N quits after N seconds (default: until Ctrl+C). Quitting removes the icons.
+# -Seconds N quits after N seconds (default 120; 0 = no limit). Ctrl+C does not stop it (it sits in a
+# message loop): create scripts/probe.stop to stop it at once. Quitting removes the icons.
 #
 #   powershell -File scripts/tray-probe.ps1 -Log probe.log -Menu -Seconds 120
 param(
   [string]$Log = '',
   [switch]$Menu,
-  [int]$Seconds = 0
+  [int]$Seconds = 120
 )
 
 Add-Type -ReferencedAssemblies System.Windows.Forms, System.Drawing -TypeDefinition @'
@@ -132,5 +133,14 @@ if ($Seconds -gt 0) {
   $quit.Add_Tick({ [System.Windows.Forms.Application]::ExitThread() })
   $quit.Start()
 }
+# Ctrl+C cannot interrupt the message loop, so also stop as soon as the file "probe.stop" appears
+# next to the script: `New-Item scripts/probe.stop` (or `echo > scripts/probe.stop`).
+$stopFile = Join-Path $PSScriptRoot 'probe.stop'
+Remove-Item $stopFile -ErrorAction SilentlyContinue
+$watch = New-Object System.Windows.Forms.Timer
+$watch.Interval = 500
+$watch.Add_Tick({ if (Test-Path $stopFile) { Remove-Item $stopFile -ErrorAction SilentlyContinue; [System.Windows.Forms.Application]::ExitThread() } })
+$watch.Start()
+"stops by itself after $Seconds s, or create scripts/probe.stop to stop it now"
 try { [System.Windows.Forms.Application]::Run() }
 finally { $window.RemoveAll(); 'removed the tray icons' }

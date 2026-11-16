@@ -50,3 +50,4 @@ docs/release/history/
 docs/research/
 # Tauri generated schemas and capabilities cache
 apps/bar/src-tauri/gen/
+scripts/probe.stop
