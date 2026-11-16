@@ -36,6 +36,15 @@ export {
   UserIcon,
   Tick02Icon,
   Coffee03Icon,
+  // The settings window's sidebar (one icon per page).
+  PanelTopIcon,
+  DockIcon,
+  SidebarLeftIcon,
+  PlugSocketIcon,
+  SourceCodeIcon,
+  GridViewIcon,
+  ComputerTerminal01Icon,
+  InformationCircleIcon,
 } from "@hugeicons/core-free-icons"
 
 // Lucide names clash with Hugeicons' style, so they get a "Lucide" prefix.

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { commands, type PanelOpen } from "@/shared/bindings"
 import { PanelBody, PanelFrame, useOpenPanel, useWarm } from "@/features/panel"
+import { useApplySettings } from "@/shared/hooks/use-apply-settings"
 import { Motion } from "@/shared/motion"
 
 /**
@@ -12,6 +13,8 @@ import { Motion } from "@/shared/motion"
  * left to load: the data, the icons and the decoded pictures are already there ("prebaked").
  */
 export default function PanelWindow() {
+  // The saved font and text size also apply inside the panels.
+  useApplySettings()
   const open = useOpenPanel()
   const warm = useWarm()
   // Closed: remember how the last panel looked, so nothing flips while the window is hidden.

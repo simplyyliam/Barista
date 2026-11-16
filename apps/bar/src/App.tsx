@@ -1,4 +1,4 @@
-import { DebugWindow, Menubar, MenuWindow, PanelWindow } from "@/widgets";
+import { DebugWindow, Menubar, MenuWindow, PanelWindow, SettingsWindow } from "@/widgets";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 // "menu" and "menu-sub" are the two menu windows; everything else is the bar.
@@ -8,5 +8,6 @@ export default function App() {
   const label = getCurrentWindow().label
   if (label === "panel") return <PanelWindow />
   if (label === "debug") return <DebugWindow />
+  if (label === "settings") return <SettingsWindow />
   return MENU_LABELS.includes(label) ? <MenuWindow /> : <Menubar />
 }

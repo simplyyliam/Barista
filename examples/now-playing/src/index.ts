@@ -45,17 +45,7 @@ item.on("error", (error) => console.error(`bar refused: ${error.code}`))
 // Nothing playing yet: stay out of the bar until the helper says there is something.
 item.setVisible(false)
 
-let helper: ReturnType<typeof startHelper>
-const MENU = [
-  { id: "title", label: "Nothing playing", enabled: false },
-  { type: "separator" as const },
-  { id: "previous", label: "Previous", click: () => helper.send({ cmd: "previous" }) },
-  { id: "playPause", label: "Play", click: () => helper.send({ cmd: "playPause" }) },
-  { id: "next", label: "Next", click: () => helper.send({ cmd: "next" }) },
-]
-
-item.setMenu(MENU)
-helper = startHelper(
+const helper = startHelper(
   "--media",
   (event) => {
     if (!isMediaEvent(event)) return
@@ -71,6 +61,17 @@ helper = startHelper(
   },
   () => process.exit(1),
 )
+
+// The menu is set right away: the helper's first event comes later (this runs in one go).
+const MENU = [
+  { id: "title", label: "Nothing playing", enabled: false },
+  { type: "separator" as const },
+  { id: "previous", label: "Previous", click: () => helper.send({ cmd: "previous" }) },
+  { id: "playPause", label: "Play", click: () => helper.send({ cmd: "playPause" }) },
+  { id: "next", label: "Next", click: () => helper.send({ cmd: "next" }) },
+]
+
+item.setMenu(MENU)
 
 process.once("SIGINT", () => process.exit(0))
 process.on("exit", () => {

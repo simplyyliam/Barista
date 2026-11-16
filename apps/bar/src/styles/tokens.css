@@ -187,3 +187,22 @@
   --color-menu-highlight: var(--menu-highlight);
   --color-menu-highlight-fg: var(--menu-highlight-fg);
 }
+
+/* v0.8 settings (ADR 0029). `useApplySettings` sets the data attributes and variables below. */
+
+/* Icon style "mono": every app and tray icon becomes a silhouette in the bar tone. */
+:root[data-icon-style="mono"] [data-bar-root] img {
+  filter: brightness(0) invert(1);
+}
+:root[data-icon-style="mono"][data-tone="light"] [data-bar-root] img,
+:root[data-icon-style="mono"]:not([data-tone]) [data-bar-root] img {
+  filter: brightness(0);
+}
+
+/* Background "solid": a plate in the bar tone, --bar-bg-opacity strong. */
+:root[data-bar-background="solid"] [data-bar-root] {
+  background: color-mix(in srgb, #f4f4f4 var(--bar-bg-opacity, 100%), transparent);
+}
+:root[data-bar-background="solid"][data-tone="dark"] [data-bar-root] {
+  background: color-mix(in srgb, #1c1c1e var(--bar-bg-opacity, 100%), transparent);
+}
