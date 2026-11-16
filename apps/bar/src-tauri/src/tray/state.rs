@@ -90,12 +90,14 @@ impl TrayState {
                 None => Outcome::Nothing,
             },
             Action::SetVersion => {
-                if let (Some(icon), Some(version)) =
-                    (self.icons.get_mut(&message.key), message.version)
-                {
-                    icon.version = version;
+                // The version decides how a click is encoded (ADR 0027), so the registry needs it.
+                match (self.icons.get_mut(&message.key), message.version) {
+                    (Some(icon), Some(version)) if icon.version != version => {
+                        icon.version = version;
+                        Outcome::Upsert(message.key)
+                    }
+                    _ => Outcome::Nothing,
                 }
-                Outcome::Nothing
             }
             Action::SetFocus => Outcome::Nothing,
         }
@@ -354,7 +356,10 @@ mod tests {
         state.apply(&message(Action::Add, 1, 1), 5, "App", Picture::Clear);
         let mut version = message(Action::SetVersion, 1, 1);
         version.version = Some(4);
-        assert_eq!(state.apply(&version, 5, "App", Picture::Keep), Outcome::Nothing);
+        // A new version is news for the registry (it decides how clicks are encoded).
+        assert_eq!(state.apply(&version, 5, "App", Picture::Keep), Outcome::Upsert(key(1, 1)));
         assert_eq!(state.get(&key(1, 1)).unwrap().version, 4);
+        // The same version again changes nothing.
+        assert_eq!(state.apply(&version, 5, "App", Picture::Keep), Outcome::Nothing);
     }
 }

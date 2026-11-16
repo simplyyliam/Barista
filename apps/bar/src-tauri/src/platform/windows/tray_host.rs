@@ -121,7 +121,7 @@ fn to_32(hwnd: HWND) -> u32 {
 }
 
 /// The other way round: sign-extend, like Windows does for 32-bit handles.
-fn from_32(handle: u32) -> HWND {
+pub fn from_32(handle: u32) -> HWND {
     HWND(handle as i32 as isize as *mut c_void)
 }
 

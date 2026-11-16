@@ -40,11 +40,22 @@ pub struct StatusItemView {
     pub source: ItemSource,
 }
 
+/// Where to send a tray icon's clicks: the owner's window, the icon's id, its callback message and
+/// the `NOTIFYICON_VERSION` it asked for (ADR 0027). Handles are the 32-bit numbers tray messages carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrayOwner {
+    pub hwnd: u32,
+    pub id: u32,
+    pub callback_message: Option<u32>,
+    pub version: u32,
+}
+
 /// A Windows tray icon as the tray module hands it over. Its key in the UI is `tray/<key>`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayItem {
     pub app_name: String,
     pub pid: u32,
+    pub owner: TrayOwner,
     /// A `data:` URL.
     pub icon: Option<String>,
     pub tooltip: Option<String>,
@@ -86,6 +97,8 @@ pub enum ClickTarget {
     Menu,
     /// Shows the item's popover.
     Popover,
+    /// A visible Windows tray icon: the click goes to the app that owns it (ADR 0027).
+    Tray,
 }
 
 /// What the coordinator needs to show a popover.
@@ -402,6 +415,16 @@ impl Registry {
         }
     }
 
+    /// Where a visible tray icon's clicks go, with its owner's pid (for `AllowSetForegroundWindow`).
+    /// `key` is the full UI key (`tray/<key>`). `None` when the icon is gone, hidden, or has no
+    /// callback message (nothing to send to).
+    pub fn tray_owner(&self, key: &str) -> Option<(TrayOwner, u32)> {
+        let tray_key = key.strip_prefix("tray/")?;
+        let state = self.lock();
+        let (_, item) = state.tray.iter().find(|(k, _)| k == tray_key)?;
+        (item.visible && item.owner.callback_message.is_some()).then_some((item.owner, item.pid))
+    }
+
     /// Every item including hidden ones, with its owner's pid. For `debug.listItems`.
     pub fn debug_items(&self) -> Vec<ItemInfo> {
         let state = self.lock();
@@ -497,6 +520,10 @@ impl Registry {
     /// Hidden or missing items go to `App` (and `click` reports them as missing).
     pub fn target(&self, key: &str, button: MouseButton) -> ClickTarget {
         let mut state = self.lock();
+        if let Some(tray_key) = key.strip_prefix("tray/") {
+            let visible = state.tray.iter().any(|(k, t)| k == tray_key && t.visible);
+            return if visible { ClickTarget::Tray } else { ClickTarget::App };
+        }
         let Some(item) = state.item_mut(key).filter(|i| i.visible) else {
             return ClickTarget::App;
         };
@@ -893,6 +920,7 @@ mod tests {
         TrayItem {
             app_name: "Discord".into(),
             pid: 42,
+            owner: TrayOwner { hwnd: 0x1234, id: 1, callback_message: Some(0x8001), version: 0 },
             icon: Some("data:image/png;base64,AAAA".into()),
             tooltip: Some(tip.into()),
             visible,
@@ -952,10 +980,24 @@ mod tests {
     }
 
     #[test]
-    fn clicking_a_tray_icon_does_nothing_yet() {
-        // v0.7 adds tray clicks; until then a `tray/...` key must be a safe no-op everywhere.
+    fn a_tray_click_targets_the_owner_and_nothing_else() {
         let reg = Registry::new();
         reg.tray_set("k", tray("x", true));
+        for button in [MouseButton::Left, MouseButton::Right, MouseButton::Middle] {
+            assert_eq!(reg.target("tray/k", button), ClickTarget::Tray);
+        }
+        let (owner, pid) = reg.tray_owner("tray/k").unwrap();
+        assert_eq!((owner.hwnd, owner.id, pid), (0x1234, 1, 42));
+        // Hidden, missing, or without a callback message: nowhere to send it.
+        reg.tray_set("h", tray("x", false));
+        assert_eq!(reg.target("tray/h", MouseButton::Left), ClickTarget::App);
+        assert!(reg.tray_owner("tray/h").is_none());
+        assert!(reg.tray_owner("tray/nope").is_none());
+        let mut silent = tray("x", true);
+        silent.owner.callback_message = None;
+        reg.tray_set("s", silent);
+        assert!(reg.tray_owner("tray/s").is_none());
+        // No client session or menu behind a tray key.
         assert_eq!(reg.click("tray/k", MouseButton::Left), Err(ClickError::NotFound));
         assert!(reg.menu("tray/k").is_none());
         assert!(!reg.has_popover("tray/k"));
