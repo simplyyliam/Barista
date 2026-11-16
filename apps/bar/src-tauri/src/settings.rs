@@ -116,20 +116,12 @@ pub enum Blur {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub enum Font {
-    #[default]
-    Inter,
-    System,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
 pub enum IconStyle {
-    /// Every icon takes the bar's tone.
-    #[default]
-    Mono,
     /// Apps' own colours.
+    #[default]
     Colour,
+    /// Every app and tray icon becomes a silhouette in the bar's tone.
+    Mono,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -149,12 +141,14 @@ pub const MIN_OPACITY: u8 = 30;
 pub struct Appearance {
     pub tone: ToneChoice,
     pub blur: Blur,
-    pub font: Font,
+    /// A font family name installed on the PC. Empty = the bar's own default (Segoe UI Variable).
+    /// Only letters, digits, spaces, dots, dashes and underscores (it ends up in CSS), 64 at most.
+    pub font: String,
     /// Bar text size in logical px.
     pub font_size: u8,
     pub icon_style: IconStyle,
     pub background: BarBackground,
-    /// Bar background opacity in percent (only matters while translucent).
+    /// Opacity of the bar's solid background in percent (only matters while `background` is solid).
     pub opacity: u8,
 }
 
@@ -163,9 +157,9 @@ impl Default for Appearance {
         Self {
             tone: ToneChoice::Auto,
             blur: Blur::Auto,
-            font: Font::Inter,
+            font: String::new(),
             font_size: 13,
-            icon_style: IconStyle::Mono,
+            icon_style: IconStyle::Colour,
             background: BarBackground::Translucent,
             opacity: 100,
         }
@@ -201,14 +195,14 @@ impl Default for BarItemPref {
     }
 }
 
-/// Built-in items, in the default order (left group first, then the right group).
+/// Built-in items in the default order (left group first, then the right group as it is drawn).
 pub const BAR_ITEMS: [&str; 8] = [
     "brand",
     "app-name",
-    "search",
+    "battery",
     "wifi",
     "volume",
-    "battery",
+    "search",
     "control-center",
     "clock",
 ];
@@ -460,6 +454,7 @@ impl Settings {
         bar.layout = std::mem::take(&mut bar.layout).cleaned();
         bar.appearance.font_size = bar.appearance.font_size.clamp(MIN_FONT_SIZE, MAX_FONT_SIZE);
         bar.appearance.opacity = bar.appearance.opacity.clamp(MIN_OPACITY, 100);
+        bar.appearance.font = clean_font(std::mem::take(&mut bar.appearance.font));
         bar.items = clean_bar_items(std::mem::take(&mut bar.items));
         self.control_center.tiles = clean_tiles(std::mem::take(&mut self.control_center.tiles));
         self.control_center.quick_actions =
@@ -530,6 +525,22 @@ pub fn settings_path(config_dir: &Path) -> PathBuf {
 }
 
 // ---------------------------------------------------------------- cleaning
+
+/// A font name goes into CSS, so only safe characters survive; anything else means "default".
+pub const MAX_FONT_LEN: usize = 64;
+
+pub fn clean_font(font: String) -> String {
+    let font = font.trim().to_string();
+    let ok = font.len() <= MAX_FONT_LEN
+        && font
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '-' | '_'));
+    if ok {
+        font
+    } else {
+        String::new()
+    }
+}
 
 /// Known ids only, no duplicates, missing ones appended at the end with their defaults (a new
 /// item shows up for people who saved their bar before it existed).
@@ -749,6 +760,17 @@ mod tests {
         let s = Settings::from_json(r#"{"menuBar":{"appearance":{"fontSize":200,"opacity":0}}}"#).unwrap();
         assert_eq!(s.menu_bar.appearance.font_size, MAX_FONT_SIZE);
         assert_eq!(s.menu_bar.appearance.opacity, MIN_OPACITY);
+    }
+
+    #[test]
+    fn a_font_name_cannot_carry_css() {
+        assert_eq!(clean_font("Cascadia Code".into()), "Cascadia Code");
+        assert_eq!(clean_font("  Inter ".into()), "Inter");
+        assert_eq!(clean_font("x; background:url(//evil)".into()), "");
+        assert_eq!(clean_font("a\"b".into()), "");
+        assert_eq!(clean_font("x".repeat(MAX_FONT_LEN + 1)), "");
+        let s = Settings::from_json(r#"{"menuBar":{"appearance":{"font":"bad{font}"}}}"#).unwrap();
+        assert_eq!(s.menu_bar.appearance.font, "");
     }
 
     #[test]

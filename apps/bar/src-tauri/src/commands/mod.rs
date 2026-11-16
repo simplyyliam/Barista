@@ -35,22 +35,27 @@ pub fn get_bar_info() -> Result<BarInfo, String> {
 }
 
 /// Sets the bar height in logical pixels (clamped to 20-64), saves it and resizes the bar.
-/// The UI calls it with its `--menubar-height` token on start; `barChanged` follows.
+/// The settings window calls it; `barChanged` and `settingsChanged` follow. The bar's CSS follows
+/// the saved height (v0.8: Rust holds it, the UI no longer pushes its token).
 #[tauri::command]
 #[specta::specta]
-pub fn set_bar_height(height: u32) -> Result<BarInfo, String> {
-    Ok(controller::get()
+pub fn set_bar_height(app: tauri::AppHandle, height: u32) -> Result<BarInfo, String> {
+    let info = controller::get()
         .ok_or("the bar is not running yet")?
-        .set_bar_height(height))
+        .set_bar_height(height);
+    settings::notify(&app);
+    Ok(info)
 }
 
 /// Moves the bar to another monitor (an id from `getBarInfo().monitors`) and remembers it.
 #[tauri::command]
 #[specta::specta]
-pub fn set_monitor(id: String) -> Result<BarInfo, String> {
-    controller::get()
+pub fn set_monitor(app: tauri::AppHandle, id: String) -> Result<BarInfo, String> {
+    let info = controller::get()
         .ok_or("the bar is not running yet")?
-        .set_monitor(&id)
+        .set_monitor(&id)?;
+    settings::notify(&app);
+    Ok(info)
 }
 
 /// The items in the bar right now. Call once when the UI starts; `itemsChanged` keeps it fresh.

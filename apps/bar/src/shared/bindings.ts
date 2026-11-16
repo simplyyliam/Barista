@@ -18,7 +18,8 @@ export const commands = {
 	setMonitor: (id: string) => typedError<BarInfo, string>(__TAURI_INVOKE("set_monitor", { id })),
 	/**
 	 *  Sets the bar height in logical pixels (clamped to 20-64), saves it and resizes the bar.
-	 *  The UI calls it with its `--menubar-height` token on start; `barChanged` follows.
+	 *  The settings window calls it; `barChanged` and `settingsChanged` follow. The bar's CSS follows
+	 *  the saved height (v0.8: Rust holds it, the UI no longer pushes its token).
 	 */
 	setBarHeight: (height: number) => typedError<BarInfo, string>(__TAURI_INVOKE("set_bar_height", { height })),
 	/**  The items in the bar right now. Call once when the UI starts; `itemsChanged` keeps it fresh. */
@@ -538,24 +539,32 @@ export type Appearance = Appearance_Serialize | Appearance_Deserialize;
 export type Appearance_Deserialize = {
 	tone?: ToneChoice,
 	blur?: Blur,
-	font?: Font,
+	/**
+	 *  A font family name installed on the PC. Empty = the bar's own default (Segoe UI Variable).
+	 *  Only letters, digits, spaces, dots, dashes and underscores (it ends up in CSS), 64 at most.
+	 */
+	font?: string,
 	/**  Bar text size in logical px. */
 	fontSize?: number,
 	iconStyle?: IconStyle,
 	background?: BarBackground,
-	/**  Bar background opacity in percent (only matters while translucent). */
+	/**  Opacity of the bar's solid background in percent (only matters while `background` is solid). */
 	opacity?: number,
 };
 
 export type Appearance_Serialize = {
 	tone: ToneChoice,
 	blur: Blur,
-	font: Font,
+	/**
+	 *  A font family name installed on the PC. Empty = the bar's own default (Segoe UI Variable).
+	 *  Only letters, digits, spaces, dots, dashes and underscores (it ends up in CSS), 64 at most.
+	 */
+	font: string,
 	/**  Bar text size in logical px. */
 	fontSize: number,
 	iconStyle: IconStyle,
 	background: BarBackground,
-	/**  Bar background opacity in percent (only matters while translucent). */
+	/**  Opacity of the bar's solid background in percent (only matters while `background` is solid). */
 	opacity: number,
 };
 
@@ -794,8 +803,6 @@ export type Display = {
 	level: number | null,
 };
 
-export type Font = "inter" | "system";
-
 export type General = General_Serialize | General_Deserialize;
 
 export type General_Deserialize = {
@@ -853,10 +860,10 @@ export type HourFormat =
 "auto" | "h12" | "h24";
 
 export type IconStyle = 
-/**  Every icon takes the bar's tone. */
-"mono" | 
 /**  Apps' own colours. */
-"colour";
+"colour" | 
+/**  Every app and tray icon becomes a silhouette in the bar's tone. */
+"mono";
 
 export type Item = Item_Serialize | Item_Deserialize;
 
