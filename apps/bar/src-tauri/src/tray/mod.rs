@@ -55,6 +55,7 @@ mod worker {
         match tray_host::start(tx) {
             Ok(host) => {
                 *HOST.lock().unwrap_or_else(|e| e.into_inner()) = Some(host);
+                retry_announce(registry.clone());
                 let spawned = std::thread::Builder::new()
                     .name("tray-worker".into())
                     .spawn(move || Worker::new(registry).run(rx));
@@ -64,6 +65,23 @@ mod worker {
             }
             Err(e) => eprintln!("[tray] the tray host did not start: {e}"),
         }
+    }
+
+    /// Seen once: after a start no tray app re-added its icon (the host worked, a manual broadcast
+    /// brought them all back). So if the tray is still empty a few seconds after the first broadcast,
+    /// broadcast again, at most twice. Two sleeps, not a poll; a machine with no tray apps just gets
+    /// two harmless broadcasts.
+    fn retry_announce(registry: Arc<Registry>) {
+        let _ = std::thread::Builder::new().name("tray-announce".into()).spawn(move || {
+            for wait in [4u64, 8] {
+                std::thread::sleep(std::time::Duration::from_secs(wait));
+                if registry.tray_len() > 0 {
+                    return;
+                }
+                eprintln!("[tray] no icon arrived {wait} s after start: announcing the taskbar again");
+                tray_host::announce();
+            }
+        });
     }
 
     /// Closes the host window, so messages reach Explorer alone again (on a normal quit).

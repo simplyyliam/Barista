@@ -477,6 +477,11 @@ impl Registry {
         self.changed.notify_one();
     }
 
+    /// How many tray icons we know about (hidden ones too).
+    pub fn tray_len(&self) -> usize {
+        self.lock().tray.len()
+    }
+
     /// Removes a tray icon (the app quit or took it away).
     pub fn tray_remove(&self, key: &str) {
         let mut state = self.lock();
