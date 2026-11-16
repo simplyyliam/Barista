@@ -34,6 +34,16 @@ pub struct TrayIcon {
     pub hidden: bool,
 }
 
+/// The id that survives a restart (runtime keys hold window handles, which change every run): the
+/// GUID the app registered with, else the program name and the icon's own id. Two windows of one
+/// program that use the same icon id share a stable id (they are then ordered together).
+pub fn stable_id(key: &IconKey, app_name: &str, id: u32) -> String {
+    match key {
+        IconKey::Guid(_) => format!("tray:{}", key.text()),
+        IconKey::Handle { .. } => format!("tray:{}/{id}", app_name.to_lowercase()),
+    }
+}
+
 /// What a message did, so the caller can update the registry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
@@ -348,6 +358,15 @@ mod tests {
         state.apply(&message(Action::Add, 2, 2), 5, "A", Picture::Clear);
         state.apply(&message(Action::Add, 1, 1), 6, "B", Picture::Clear);
         assert_eq!(state.windows(), vec![1, 2]);
+    }
+
+    #[test]
+    fn stable_ids_do_not_hold_window_handles() {
+        let handle = |hwnd| IconKey::Handle { hwnd, id: 7 };
+        assert_eq!(stable_id(&handle(0x1234), "Discord", 7), "tray:discord/7");
+        assert_eq!(stable_id(&handle(0x9999), "Discord", 7), "tray:discord/7");
+        let guid = IconKey::Guid([0xAB; 16]);
+        assert_eq!(stable_id(&guid, "explorer", 0), format!("tray:{}", guid.text()));
     }
 
     #[test]

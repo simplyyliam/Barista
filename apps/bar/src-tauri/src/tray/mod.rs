@@ -229,6 +229,7 @@ mod worker {
                             TrayItem {
                                 app_name: icon.app_name.clone(),
                                 pid: icon.pid,
+                                stable_id: super::state::stable_id(&key, &icon.app_name, icon.id),
                                 owner: TrayOwner {
                                     hwnd: icon.hwnd,
                                     id: icon.id,

@@ -54,6 +54,11 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::quit_bar,
             commands::get_open_menu,
             commands::set_item_bounds,
+            commands::set_pinned,
+            commands::set_order,
+            commands::set_collapsed,
+            commands::get_collapsed,
+            commands::set_item_space,
             commands::get_open_popover,
             commands::get_clock_settings,
             commands::get_battery,
@@ -118,6 +123,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
         .events(collect_events![
             events::BarChanged,
             events::ItemsChanged,
+            events::CollapsedChanged,
             events::WindowRadiusChanged,
             events::MenuOpen,
             events::MenuChanged,
@@ -232,6 +238,10 @@ pub fn run() {
                 open_radius_test_windows(app.handle())?;
             }
             let registry = Arc::new(registry::Registry::new());
+            // The saved order, pins and collapsed flag, before the first item arrives.
+            if let Some(c) = controller::get() {
+                registry.set_layout(c.settings().item_layout);
+            }
             app.manage(registry.clone());
             // Open the pipe before the windows and services are set up (they take well over a
             // second): clients that retry meanwhile reconnect that much sooner after a bar restart.

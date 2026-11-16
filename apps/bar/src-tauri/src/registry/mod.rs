@@ -6,12 +6,15 @@
 //! (see `ipc::validate`), so that key is unambiguous.
 
 pub mod anchor;
+pub mod layout;
 pub mod menu;
 
 use barista_protocol::{
     BarMessage, ErrorCode, ItemInfo, ItemSource, MenuTemplateItem, MouseButton, ScreenRect,
     MAX_ITEMS_PER_CLIENT,
 };
+use crate::settings::{ItemLayout, MAX_LAYOUT_ENTRIES};
+use layout::Placement;
 use menu::{MenuClickError, MenuEntry};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -38,6 +41,12 @@ pub struct StatusItemView {
     pub tooltip: Option<String>,
     /// `app` for items clients made, `tray` for icons from the Windows tray (v0.6).
     pub source: ItemSource,
+    /// Pinned items stay in the bar while it is collapsed (the user's choice, else the default:
+    /// client items pinned, tray icons not). Since v0.7.
+    pub pinned: bool,
+    /// `bar` or `overflow` (the list behind the arrow). The list is in display order; draw `bar`
+    /// ones in the bar and `overflow` ones in the overflow panel. Since v0.7.
+    pub placement: Placement,
 }
 
 /// Where to send a tray icon's clicks: the owner's window, the icon's id, its callback message and
@@ -56,6 +65,8 @@ pub struct TrayItem {
     pub app_name: String,
     pub pid: u32,
     pub owner: TrayOwner,
+    /// Survives a restart, for the saved layout (`tray:discord/1`).
+    pub stable_id: String,
     /// A `data:` URL.
     pub icon: Option<String>,
     pub tooltip: Option<String>,
@@ -167,6 +178,13 @@ struct State {
     items: Vec<Item>,
     /// Tray icons (no session, no menu yet), keyed without the `tray/` prefix, in arrival order.
     tray: Vec<(String, TrayItem)>,
+    /// The user's order, pins and collapsed flag, saved in settings (ADR 0028).
+    layout: ItemLayout,
+    /// Room the UI has for items, and the gap between two (logical px). `None` = unknown.
+    space: Option<(f64, f64)>,
+    /// Last width each item had in the bar, by UI key. Kept after an item moves to overflow so it
+    /// does not flip back and forth.
+    widths: HashMap<String, f64>,
     /// Source of `menu_rev`s. Registry-wide, so a removed and re-created item never reuses one.
     last_rev: u64,
 }
@@ -210,6 +228,89 @@ fn clear_if_empty(value: String) -> Option<String> {
     } else {
         Some(value)
     }
+}
+
+/// A width for an item the UI has not reported yet (logical px).
+fn guess_width(view: &StatusItemView) -> f64 {
+    let icon = if view.icon.is_some() || view.label.is_none() { 28.0 } else { 0.0 };
+    let label = view.label.as_ref().map_or(0.0, |l| 14.0 + 7.0 * l.chars().count() as f64);
+    icon + label
+}
+
+/// The layout id that survives a restart, for the item with this UI key.
+fn stable_of(state: &State, key: &str) -> Option<String> {
+    if let Some(tray_key) = key.strip_prefix("tray/") {
+        return state.tray.iter().find(|(k, _)| k == tray_key).map(|(_, t)| t.stable_id.clone());
+    }
+    let (session, id) = parse_key(key)?;
+    state.items.iter().find(|i| i.session == session && i.id == id)?;
+    Some(format!("app:{}/{}", state.sessions.get(&session)?.app_name, id))
+}
+
+/// Every visible item in display order with its pin and placement (ADR 0028).
+fn arranged(state: &State) -> Vec<StatusItemView> {
+    // Arrival order: client items, then tray icons.
+    let mut views: Vec<Option<StatusItemView>> = Vec::new();
+    let mut stables: Vec<String> = Vec::new();
+    for i in state.items.iter().filter(|i| i.visible) {
+        let Some(session) = state.sessions.get(&i.session) else { continue };
+        stables.push(format!("app:{}/{}", session.app_name, i.id));
+        views.push(Some(StatusItemView {
+            id: format!("s{}/{}", i.session, i.id),
+            app_name: session.app_name.clone(),
+            icon: i.icon.clone(),
+            label: i.label.clone(),
+            tooltip: i.tooltip.clone(),
+            source: ItemSource::App,
+            pinned: false,
+            placement: Placement::Bar,
+        }));
+    }
+    for (key, t) in state.tray.iter().filter(|(_, t)| t.visible) {
+        stables.push(t.stable_id.clone());
+        views.push(Some(StatusItemView {
+            id: format!("tray/{key}"),
+            app_name: t.app_name.clone(),
+            icon: t.icon.clone(),
+            label: None,
+            tooltip: t.tooltip.clone(),
+            source: ItemSource::Tray,
+            pinned: false,
+            placement: Placement::Bar,
+        }));
+    }
+    let entries: Vec<layout::Entry> = views
+        .iter()
+        .flatten()
+        .zip(stables)
+        .map(|(v, stable)| layout::Entry {
+            width: state.widths.get(&v.id).copied().unwrap_or_else(|| guess_width(v)),
+            source: v.source,
+            stable,
+        })
+        .collect();
+    layout::arrange(&entries, &state.layout, state.space)
+        .into_iter()
+        .filter_map(|p| {
+            let mut view = views[p.index].take()?;
+            view.pinned = p.pinned;
+            view.placement = p.placement;
+            Some(view)
+        })
+        .collect()
+}
+
+/// What the UI would redraw for: order, pins and placements (not the pictures).
+fn shape(views: &[StatusItemView]) -> Vec<(String, bool, Placement)> {
+    views.iter().map(|v| (v.id.clone(), v.pinned, v.placement)).collect()
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum LayoutError {
+    /// A key that is not an item right now.
+    NotFound,
+    /// The same item twice, or too many.
+    Invalid,
 }
 
 impl Registry {
@@ -353,37 +454,10 @@ impl Registry {
         Ok(())
     }
 
-    /// The visible items as the UI draws them: client items in arrival order, then tray icons.
+    /// The visible items as the UI draws them: in the saved order (items not in it come after, client
+    /// items first, then tray icons, in arrival order), each with `pinned` and `placement`.
     pub fn snapshot(&self) -> Vec<StatusItemView> {
-        let state = self.lock();
-        let apps = state
-            .items
-            .iter()
-            .filter(|i| i.visible)
-            .filter_map(|i| {
-                let session = state.sessions.get(&i.session)?;
-                Some(StatusItemView {
-                    id: format!("s{}/{}", i.session, i.id),
-                    app_name: session.app_name.clone(),
-                    icon: i.icon.clone(),
-                    label: i.label.clone(),
-                    tooltip: i.tooltip.clone(),
-                    source: ItemSource::App,
-                })
-            });
-        let tray = state
-            .tray
-            .iter()
-            .filter(|(_, t)| t.visible)
-            .map(|(key, t)| StatusItemView {
-                id: format!("tray/{key}"),
-                app_name: t.app_name.clone(),
-                icon: t.icon.clone(),
-                label: None,
-                tooltip: t.tooltip.clone(),
-                source: ItemSource::Tray,
-            });
-        apps.chain(tray).collect()
+        arranged(&self.lock())
     }
 
     /// Adds or updates a tray icon. Only a real change wakes the UI: some apps re-send the same
@@ -413,6 +487,111 @@ impl Registry {
         if removed {
             self.changed.notify_one();
         }
+    }
+
+    /// Loads the saved layout (once, at startup, before the first items arrive).
+    pub fn set_layout(&self, layout: ItemLayout) {
+        self.lock().layout = layout.cleaned();
+        self.changed.notify_one();
+    }
+
+    /// The layout as it is now, to save in settings.
+    pub fn layout(&self) -> ItemLayout {
+        self.lock().layout.clone()
+    }
+
+    /// Changes the layout through `edit` and wakes the UI only if what it draws changed.
+    fn edit_layout(
+        &self,
+        edit: impl FnOnce(&mut State) -> Result<(), LayoutError>,
+    ) -> Result<(), LayoutError> {
+        let mut state = self.lock();
+        let before = shape(&arranged(&state));
+        edit(&mut state)?;
+        let changed = shape(&arranged(&state)) != before;
+        drop(state);
+        if changed {
+            self.changed.notify_one();
+        }
+        Ok(())
+    }
+
+    /// Pin or unpin an item (by its UI key). Saved by the caller.
+    pub fn set_pinned(&self, key: &str, pinned: bool) -> Result<(), LayoutError> {
+        self.edit_layout(|state| {
+            let stable = stable_of(state, key).ok_or(LayoutError::NotFound)?;
+            state.layout.pinned.insert(stable, pinned);
+            state.layout = std::mem::take(&mut state.layout).cleaned();
+            Ok(())
+        })
+    }
+
+    /// The user arranged these items (UI keys, left to right). Only they move, within the slots they
+    /// held, so items that are not running keep their place.
+    pub fn set_order(&self, keys: &[String]) -> Result<(), LayoutError> {
+        if keys.len() > MAX_LAYOUT_ENTRIES {
+            return Err(LayoutError::Invalid);
+        }
+        self.edit_layout(|state| {
+            let mut seen = std::collections::HashSet::new();
+            let mut stables: Vec<String> = Vec::new();
+            for key in keys {
+                if !seen.insert(key.as_str()) {
+                    return Err(LayoutError::Invalid);
+                }
+                let stable = stable_of(state, key).ok_or(LayoutError::NotFound)?;
+                // Two items can share a stable id (same program, same icon id): order them as one.
+                if !stables.contains(&stable) {
+                    stables.push(stable);
+                }
+            }
+            state.layout.order = layout::merge_order(&state.layout.order, &stables);
+            state.layout = std::mem::take(&mut state.layout).cleaned();
+            Ok(())
+        })
+    }
+
+    /// Collapsed = only pinned items stay in the bar.
+    pub fn set_collapsed(&self, collapsed: bool) {
+        let _ = self.edit_layout(|state| {
+            state.layout.collapsed = collapsed;
+            Ok(())
+        });
+    }
+
+    pub fn collapsed(&self) -> bool {
+        self.lock().layout.collapsed
+    }
+
+    /// The room the UI has for items (logical px) and the gap between two. `None` = no limit.
+    /// Not saved: it depends on the screen.
+    pub fn set_space(&self, space: Option<(f64, f64)>) {
+        let space = space
+            .filter(|(width, gap)| width.is_finite() && gap.is_finite())
+            .map(|(width, gap)| (width.clamp(0.0, 20_000.0), gap.clamp(0.0, 100.0)));
+        let _ = self.edit_layout(|state| {
+            state.space = space;
+            Ok(())
+        });
+    }
+
+    /// Widths the UI measured (`setItemBounds`), keyed by item id. A change under half a pixel is noise.
+    pub fn note_widths(&self, widths: impl IntoIterator<Item = (String, f64)>) {
+        let _ = self.edit_layout(|state| {
+            for (id, width) in widths {
+                if !(1.0..=2000.0).contains(&width) {
+                    continue;
+                }
+                if state.widths.len() >= 512 && !state.widths.contains_key(&id) {
+                    state.widths.clear();
+                }
+                let old = state.widths.get(&id).copied();
+                if old.map_or(true, |old| (old - width).abs() > 0.5) {
+                    state.widths.insert(id, width);
+                }
+            }
+            Ok(())
+        });
     }
 
     /// Where a visible tray icon's clicks go, with its owner's pid (for `AllowSetForegroundWindow`).
@@ -921,6 +1100,7 @@ mod tests {
             app_name: "Discord".into(),
             pid: 42,
             owner: TrayOwner { hwnd: 0x1234, id: 1, callback_message: Some(0x8001), version: 0 },
+            stable_id: format!("tray:{}/1", tip.to_lowercase()),
             icon: Some("data:image/png;base64,AAAA".into()),
             tooltip: Some(tip.into()),
             visible,
@@ -1195,5 +1375,119 @@ mod tests {
         reg.create(s, "a".into(), None, None, None).unwrap();
         reg.set_menu(s, "a", menu_of(&["other"])).unwrap();
         assert_ne!(reg.menu_rev("s1/a").unwrap(), first);
+    }
+
+    // ---- layout (ADR 0028) ----
+
+    fn order_and_placement(reg: &Registry) -> Vec<(String, bool, Placement)> {
+        reg.snapshot().into_iter().map(|v| (v.id, v.pinned, v.placement)).collect()
+    }
+
+    /// One client item and three tray icons.
+    fn crowded() -> (Registry, mpsc::Receiver<BarMessage>) {
+        let reg = Registry::new();
+        let (s, rx) = session(&reg, "Timer");
+        reg.create(s, "main".into(), None, Some("25:00".into()), None).unwrap();
+        for tip in ["a", "b", "c"] {
+            reg.tray_set(tip, tray(tip, true));
+        }
+        (reg, rx)
+    }
+
+    #[test]
+    fn a_fresh_bar_is_collapsed_with_client_items_pinned() {
+        let (reg, _rx) = crowded();
+        assert_eq!(
+            order_and_placement(&reg),
+            [
+                ("s1/main".into(), true, Placement::Bar),
+                ("tray/a".into(), false, Placement::Overflow),
+                ("tray/b".into(), false, Placement::Overflow),
+                ("tray/c".into(), false, Placement::Overflow),
+            ]
+        );
+    }
+
+    #[test]
+    fn pinning_and_expanding_bring_tray_icons_into_the_bar() {
+        let (reg, _rx) = crowded();
+        reg.set_pinned("tray/b", true).unwrap();
+        let view = order_and_placement(&reg);
+        assert_eq!(view[2], ("tray/b".into(), true, Placement::Bar));
+        assert_eq!(view[1].2, Placement::Overflow);
+        reg.set_collapsed(false);
+        assert!(reg.snapshot().iter().all(|v| v.placement == Placement::Bar));
+        assert!(!reg.collapsed());
+        // A client item can be unpinned too: collapsed again, it goes to overflow.
+        reg.set_pinned("s1/main", false).unwrap();
+        reg.set_collapsed(true);
+        assert_eq!(reg.snapshot()[0].placement, Placement::Overflow);
+    }
+
+    #[test]
+    fn pins_use_stable_ids_so_a_restart_keeps_them() {
+        let (reg, _rx) = crowded();
+        reg.set_pinned("tray/b", true).unwrap();
+        let saved = reg.layout();
+        assert_eq!(saved.pinned.get("tray:b/1"), Some(&true));
+        // A new run: different session number and window handle, same stable ids.
+        let again = Registry::new();
+        again.set_layout(saved);
+        let (s, _rx2) = session(&again, "Timer");
+        again.create(s, "main".into(), None, Some("25:00".into()), None).unwrap();
+        again.tray_set("zz-9", { let mut t = tray("b", true); t.owner.hwnd = 0x7777; t });
+        let view = order_and_placement(&again);
+        assert_eq!(view[1], ("tray/zz-9".into(), true, Placement::Bar));
+    }
+
+    #[test]
+    fn set_order_moves_only_the_given_items() {
+        let (reg, _rx) = crowded();
+        reg.set_order(&["tray/c".into(), "tray/a".into(), "s1/main".into()]).unwrap();
+        let ids: Vec<_> = order_and_placement(&reg).into_iter().map(|v| v.0).collect();
+        assert_eq!(ids, ["tray/c", "tray/a", "s1/main", "tray/b"].map(String::from));
+        // Unknown or repeated keys are refused and change nothing.
+        assert_eq!(reg.set_order(&["tray/nope".into()]), Err(LayoutError::NotFound));
+        assert_eq!(reg.set_order(&["tray/a".into(), "tray/a".into()]), Err(LayoutError::Invalid));
+        let still: Vec<_> = order_and_placement(&reg).into_iter().map(|v| v.0).collect();
+        assert_eq!(still, ids);
+        assert_eq!(reg.set_pinned("tray/nope", true), Err(LayoutError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn layout_changes_wake_the_ui_only_when_something_moves() {
+        let (reg, _rx) = crowded();
+        woke(&reg).await; // drain
+        reg.set_collapsed(true); // already collapsed
+        assert!(!woke(&reg).await);
+        reg.set_collapsed(false);
+        assert!(woke(&reg).await);
+        reg.set_pinned("tray/a", false).unwrap(); // already unpinned by default, but now saved: nothing moves
+        assert!(!woke(&reg).await);
+        reg.set_pinned("tray/a", true).unwrap();
+        assert!(woke(&reg).await);
+    }
+
+    #[tokio::test]
+    async fn too_little_room_sends_unpinned_items_to_overflow() {
+        let (reg, _rx) = crowded();
+        reg.set_collapsed(false);
+        woke(&reg).await;
+        // 28 each for the three tray icons, a label item of 14 + 7 * 5 = 49: 49 + 3 * 28 + 3 * 2 = 139.
+        reg.set_space(Some((139.0, 2.0)));
+        assert!(!woke(&reg).await);
+        assert!(reg.snapshot().iter().all(|v| v.placement == Placement::Bar));
+        reg.set_space(Some((100.0, 2.0)));
+        assert!(woke(&reg).await);
+        let overflow: Vec<_> = reg.snapshot().into_iter().filter(|v| v.placement == Placement::Overflow).map(|v| v.id).collect();
+        assert_eq!(overflow, ["tray/a", "tray/b"].map(String::from));
+        // A measured width replaces the guess: the label item is really 20 wide, so one more fits.
+        reg.note_widths([("s1/main".to_string(), 20.0)]);
+        let in_bar = reg.snapshot().iter().filter(|v| v.placement == Placement::Bar).count();
+        assert_eq!(in_bar, 3);
+        // Nonsense input is ignored; no limit brings everything back.
+        reg.set_space(Some((f64::NAN, 2.0)));
+        reg.note_widths([("tray/a".to_string(), f64::INFINITY), ("tray/a".to_string(), -4.0)]);
+        assert!(reg.snapshot().iter().all(|v| v.placement == Placement::Bar));
     }
 }

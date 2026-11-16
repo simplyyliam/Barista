@@ -9,7 +9,7 @@ use crate::menu_window;
 use crate::radius::WindowRadius;
 use crate::registry::anchor::ItemBounds;
 use crate::registry::menu::MenuClickError;
-use crate::registry::{ClickError, MenuItemClickError, Registry, StatusItemView};
+use crate::registry::{ClickError, LayoutError, MenuItemClickError, Registry, StatusItemView};
 use crate::window_radius;
 use barista_protocol::MouseButton;
 use std::sync::Arc;
@@ -237,8 +237,82 @@ pub fn get_open_popover() -> Option<String> {
 /// Without it, menus open under the mouse.
 #[tauri::command]
 #[specta::specta]
-pub fn set_item_bounds(bounds: Vec<ItemBounds>) {
+pub fn set_item_bounds(registry: State<'_, Arc<Registry>>, bounds: Vec<ItemBounds>) {
+    // The widths also tell the overflow split how much room each item takes.
+    registry.note_widths(bounds.iter().map(|b| (b.id.clone(), b.width)));
     crate::placement::set_item_bounds(bounds);
+}
+
+/// Saves the registry's layout in settings, if it changed since `before`.
+fn save_layout(registry: &Registry, before: &crate::settings::ItemLayout) {
+    let layout = registry.layout();
+    if layout != *before {
+        if let Some(c) = controller::get() {
+            c.update_settings(|s| s.item_layout = layout);
+        }
+    }
+}
+
+fn layout_error(e: LayoutError) -> String {
+    match e {
+        LayoutError::NotFound => "that item is gone".to_string(),
+        LayoutError::Invalid => "that order is not valid".to_string(),
+    }
+}
+
+/// Pins or unpins an item (`id` from `getItems()`). While the bar is collapsed only pinned items
+/// stay in the bar. Saved; `itemsChanged` follows with the new `pinned` and `placement`. Client
+/// items start pinned, tray icons do not.
+#[tauri::command]
+#[specta::specta]
+pub fn set_pinned(registry: State<'_, Arc<Registry>>, id: String, pinned: bool) -> Result<(), String> {
+    let before = registry.layout();
+    registry.set_pinned(&id, pinned).map_err(layout_error)?;
+    save_layout(&registry, &before);
+    Ok(())
+}
+
+/// Saves the order the user arranged: `ids` are item ids, left to right, as many as they can see
+/// (bar and overflow). Only those items move, so items that are not running keep their place.
+/// An unknown or repeated id refuses the whole order. Saved; `itemsChanged` follows.
+#[tauri::command]
+#[specta::specta]
+pub fn set_order(registry: State<'_, Arc<Registry>>, ids: Vec<String>) -> Result<(), String> {
+    let before = registry.layout();
+    registry.set_order(&ids).map_err(layout_error)?;
+    save_layout(&registry, &before);
+    Ok(())
+}
+
+/// Collapse or expand the bar: collapsed (the default) keeps only pinned items in the bar and
+/// moves the rest to overflow. Saved; `collapsedChanged` and `itemsChanged` follow.
+#[tauri::command]
+#[specta::specta]
+pub fn set_collapsed(app: tauri::AppHandle, registry: State<'_, Arc<Registry>>, collapsed: bool) {
+    use tauri_specta::Event;
+    let before = registry.layout();
+    registry.set_collapsed(collapsed);
+    save_layout(&registry, &before);
+    if registry.layout().collapsed != before.collapsed {
+        let _ = crate::events::CollapsedChanged(collapsed).emit(&app);
+    }
+}
+
+/// Whether the bar is collapsed. Call once when the UI starts; `collapsedChanged` keeps it fresh.
+#[tauri::command]
+#[specta::specta]
+pub fn get_collapsed(registry: State<'_, Arc<Registry>>) -> bool {
+    registry.collapsed()
+}
+
+/// How much room the bar has for items, in logical px (what is left after the arrow, the clock and
+/// the system icons), and the gap between two items. Items that do not fit get `placement:
+/// "overflow"` in `itemsChanged`, the left-most unpinned ones first. Send it whenever it changes;
+/// `width: null` means no limit. Not saved.
+#[tauri::command]
+#[specta::specta]
+pub fn set_item_space(registry: State<'_, Arc<Registry>>, width: Option<f64>, gap: f64) {
+    registry.set_space(width.map(|w| (w, gap)));
 }
 
 /// How the user wants the clock shown: 12 or 24 hour, first day of the week, time zone. The time
