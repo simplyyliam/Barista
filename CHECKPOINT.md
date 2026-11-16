@@ -11,6 +11,15 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   popover in the Found on Cosmos style). UI: settings window (frameless, own titlebar, shadcn controls, dnd-kit editors for the
   menu bar and the control center), the bar and the control center follow the saved layout. **New for the UI** is all wired.
   Left for Liam: the full week of use, the 8 hour bench (`docs/perf/0.8.md`), and a look at the settings window.
+- **Release checks (2026-11-16):** `/code-review medium` (10 findings, 8 fixed: bounds of the bar's own items were dropped by
+  the new stale-bounds filter, reset and import skipped autostart and tray prefs, reset all cleared the monitor, hide-on-full-screen
+  ignored an app already in front, `item.ready` could hang; two left as noise: panic-hook doc comment, `blur_allowed` syscalls
+  under a lock), `/security-review` (no findings), end-to-end on the release bar with fresh settings (defaults, every setting
+  changed, live effect seen, clean quit, restart: settings identical; mic mute clicked through the SDK twice, monitor ticking,
+  now playing waiting hidden, all items gone when the clients were killed; a real taskbar auto-hide on and off, the Run key,
+  tray mode windows and back with 11 icons). The test found now-playing crashing on a menu id with capitals (fixed) and Node
+  clients using 58 MB too much through the icon package's index (fixed). Not tested: now playing with real music (nothing was
+  playing), a second monitor, Windows 10.
 - Bar settings window pieces: `widgets/settings`, `features/settings/*` (pages, editors, `sortable.tsx`), store
   `shared/stores/settings.ts`, `shared/hooks/use-apply-settings.ts`. Liam will rework the settings frontend himself.
 
