@@ -14,8 +14,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   client items pinned, tray icons not (Liam's choice). Tools: `scripts/tray-probe.ps1` (fake app that logs the callback messages, optional
   menu), `scripts/tray-click.ps1` (real click on the bar, then `inspect --click`, reports windows/menus that opened), `inspect --click <id> double`.
   Bench in `docs/perf/0.7.md`. Verified live with the probe (sequences, anchor, menu opens at the pointer) and over CDP (pin, order, restart keeps them).
-  **Reviews done:** `/code-review medium` (9 findings: fixed width updates from overflow, snapshot cost of `note_widths`, pins dropped at the cap, save race, failed click leaving a double pending, reorder refused for a vanished id; the rest are in Fix next), `/security-review` (no findings), end-to-end (test client item and menu, gone after kill, pin / order / restart). **Not verified:** the click runs were built from Microsoft's docs and Wine, not recorded from Explorer (UIA cannot reach the Windows 11 tray
-  buttons): Liam, click the probe's two icons in Explorer's tray once and compare the log (`scripts/tray-probe.ps1 -Log probe.log`).
+  **Reviews done:** `/code-review medium` (9 findings: fixed width updates from overflow, snapshot cost of `note_widths`, pins dropped at the cap, save race, failed click leaving a double pending, reorder refused for a vanished id; the rest are in Fix next), `/security-review` (no findings), end-to-end (test client item and menu, gone after kill, pin / order / restart). **Checked against Explorer (2026-11-16):** Liam recorded Explorer's clicks on the probe's two icons; the bar now sends the same runs (fixed: a
+  version 4 double click ends with `NIN_SELECT`; the anchor is the physical pointer position, not DPI-converted). Differences kept on purpose: one
+  `WM_MOUSEMOVE` before a click, no hover messages (ADR 0027).
 
 - **v0.6 "Tray, read" built, PR open** (branch `feature/v0.6-tray-read`, Liam reviews and merges; `UI: rust-only` in the /goal, Liam allowed the UI for it).
   Hidden `Shell_TrayWnd` host (`platform/windows/tray_host.rs`, ADR 0026) forwards every message to Explorer; `tray/` (`parse`, `state`,
@@ -160,11 +161,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
     show nothing (Raycast on a second run, SteelSeries left click): not compared with Explorer. Debug clicks are not real input, so a
     menu sometimes stays open until Escape / `WM_CANCELMODE`; the real check is once the UI calls `itemClicked`.
   - Two more rounds of the sweep (fresh bar, left / right / double each, `tray-click.ps1`): the same in both rounds: AMD Software (right = menu, double = window),
-    Medal (left and double = window), ISLC (right = its menu, double stays quiet), SteelSeries GG (right = menu, double = window), Windhawk (right = menu),
-    Explorer's own icons (menus). Nothing visible in either round: Twinkle Tray and Raycast (both reacted in the earlier sweep, so the detector or the app's
-    toggle state is involved), left on most apps (many open on double click or only toggle an existing window). "Like the real tray for 10 apps" is
-    therefore **not proven**: it needs the same clicks done in Explorer's tray, side by side, by a person.
-  - A double click on a version 4 icon sends only `WM_LBUTTONDBLCLK` + `WM_LBUTTONUP` (no `NIN_SELECT`): unknown what Explorer does; settle it with the probe.
+    Medal (left and double = window), ISLC (right = its menu), SteelSeries GG (right = menu, double = window), Windhawk (right = menu), Explorer's own icons
+    (menus). Nothing visible in either round: Twinkle Tray and Raycast (both reacted in the earlier sweep: the detector or the apps' toggle state), and left
+    on most apps (many only react to a double click or toggle an existing window). The messages themselves now match Explorer's (above), so what an app does
+    with them is the app's.
   - Stable ids: some programs use a changing number as icon id (G HUB's was `532175291`), so their saved place is lost at the next start.
     Needs a friendlier id (executable path + icon id?).
   - Explorer's own icons (Safely Remove, Bluetooth, Sonar) are listed and clickable like any other: still undecided which to hide (v0.6 note).

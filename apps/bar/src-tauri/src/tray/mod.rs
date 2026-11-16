@@ -107,7 +107,6 @@ mod worker {
             .map(|r| (r.x + r.width / 2, r.y + r.height))
             .or_else(tray_input::cursor)
             .unwrap_or((0, 0));
-        let anchor = tray_input::to_owner_coordinates(owner.hwnd, anchor);
         // The app must be allowed to take focus, or its menu would not close on an outside click.
         foreground::allow(pid);
         let mut delivered = true;
