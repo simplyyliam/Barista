@@ -338,7 +338,7 @@ fn local_app_data() -> PathBuf {
 
 pub fn mode() -> Mode {
     crate::controller::get()
-        .map(|c| c.settings().notifications_mode)
+        .map(|c| c.settings().advanced.notifications)
         .unwrap_or_default()
 }
 
@@ -521,7 +521,7 @@ pub fn app_icon(app_id: &str) -> Option<String> {
 /// Switches between our panel and Windows' own (CLAUDE.md rule 11). Saved.
 pub fn set_mode(mode: Mode) {
     if let Some(c) = crate::controller::get() {
-        c.update_settings(|s| s.notifications_mode = mode);
+        c.update_settings(|s| s.advanced.notifications = mode);
     }
     ENABLED.store(mode == Mode::Barista, Ordering::Relaxed);
     if mode == Mode::Barista {

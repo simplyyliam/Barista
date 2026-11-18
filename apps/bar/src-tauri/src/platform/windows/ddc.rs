@@ -80,6 +80,12 @@ fn pnp_id(device: &str) -> Option<String> {
     found.then(|| id.split(PATH_SEP).nth(1).map(str::to_owned)).flatten()
 }
 
+/// The PnP ids of the monitors that are part of the desktop right now. A laptop panel with the lid
+/// closed (external monitor only) is not among them, although WMI still answers for it.
+pub fn desktop_pnp_ids() -> Vec<String> {
+    monitors().into_iter().filter_map(|(_, device)| pnp_id(&device)).collect()
+}
+
 /// The physical monitors behind one HMONITOR. Destroy them with `release`.
 fn physical(h: HMONITOR) -> Vec<PHYSICAL_MONITOR> {
     let mut count = 0u32;

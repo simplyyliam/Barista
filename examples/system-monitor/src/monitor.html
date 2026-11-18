@@ -1,0 +1,277 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src data:"
+/>
+<title>System monitor</title>
+<!--
+  Look taken from the "Found on Cosmos" design (docs/design): near-black base, glossy squircle cards
+  with a glow that rises from the bottom edge, dot-matrix numerals, halftone dots, tiny muted
+  labels, a thin lime line with a round thumb, and a dark pill.
+-->
+<style>
+  :root {
+    --ink: #f4f3f8;
+    --ink-muted: rgb(244 243 248 / 0.62);
+    --lime: #b9f56b;
+    --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    font: 12px/1.35 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    background: #050507;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+    padding: 12px 14px 14px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px 0;
+  }
+  h1 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+  }
+  .live {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .live i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--lime);
+    box-shadow: 0 0 8px var(--lime);
+  }
+
+  /* The glossy squircle card: a base colour, a glow rising from the bottom, a lit top edge, grain. */
+  .card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px / 30px;
+    padding: 14px 16px;
+    isolation: isolate;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--grain);
+    opacity: 0.07;
+    mix-blend-mode: overlay;
+  }
+  .card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.32),
+      inset 0 -26px 40px -24px var(--rim, rgb(255 255 255 / 0.3));
+  }
+  .label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--ink-muted);
+  }
+  .unit {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ink-muted);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .cpu {
+    --rim: rgb(255 140 230 / 0.5);
+    height: 216px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background:
+      radial-gradient(120% 80% at 50% 118%, #ff7ad9 0%, #c23fd0 26%, #6b2ca8 52%, rgb(28 14 52 / 0) 82%),
+      linear-gradient(180deg, #1a0d33 0%, #2a1250 100%);
+    box-shadow: 0 14px 34px -14px rgb(160 60 230 / 0.55);
+  }
+  .cpu .big {
+    height: 84px;
+    margin-top: 2px;
+  }
+  .cpu .history {
+    height: 54px;
+    margin-top: auto;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 10px;
+  }
+  .ram {
+    --rim: rgb(120 150 255 / 0.5);
+    height: 150px;
+    display: flex;
+    flex-direction: column;
+    background:
+      radial-gradient(110% 90% at 18% 125%, #6f8bff 0%, #3140b8 34%, #121a5c 66%, rgb(8 11 36 / 0) 90%),
+      linear-gradient(180deg, #0a0d2b, #101640);
+    box-shadow: 0 12px 28px -14px rgb(70 90 230 / 0.55);
+  }
+  .ram .big {
+    height: 58px;
+    margin: 8px 0 2px;
+  }
+  .gauge {
+    position: relative;
+    height: 16px;
+    margin-top: auto;
+  }
+  .gauge .track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 7px;
+    height: 2px;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.16);
+  }
+  .gauge .fill {
+    position: absolute;
+    left: 0;
+    top: 7px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--lime);
+    box-shadow: 0 0 8px rgb(185 245 107 / 0.7);
+  }
+  .ready .gauge .fill {
+    transition: width 0.6s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .gauge .thumb {
+    position: absolute;
+    top: 1px;
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgb(255 255 255 / 0.18);
+  }
+  .ready .gauge .thumb {
+    transition: left 0.6s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .cores {
+    --rim: rgb(255 255 255 / 0.16);
+    height: 150px;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, #1d1d22 0%, #0d0d10 100%);
+  }
+  .cores canvas {
+    flex: 1;
+    min-height: 0;
+    margin-top: 6px;
+  }
+
+  .pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 40px;
+    padding: 0 6px 0 18px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #1c1c21, #111114);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-muted);
+  }
+  .pill b {
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .pill .dot {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #f4f3f8;
+  }
+  .pill .dot::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #111114;
+  }
+</style>
+<main>
+  <header>
+    <h1>System</h1>
+    <span class="live"><i></i>Live</span>
+  </header>
+
+  <section class="card cpu">
+    <div class="label"><span>CPU</span><span id="threads">-- threads</span></div>
+    <canvas id="cpu-big" class="big"></canvas>
+    <div class="unit">Percent</div>
+    <canvas id="cpu-history" class="history"></canvas>
+  </section>
+
+  <div class="row">
+    <section class="card ram">
+      <div class="label"><span>Memory</span><span id="ram-percent">--%</span></div>
+      <canvas id="ram-big" class="big"></canvas>
+      <div class="unit" id="ram-of">of -- GB</div>
+      <div class="gauge">
+        <div class="track"></div>
+        <div class="fill" id="ram-fill" style="width: 0"></div>
+        <div class="thumb" id="ram-thumb" style="left: 0"></div>
+      </div>
+    </section>
+    <section class="card cores">
+      <div class="label"><span>Cores</span><span id="busiest">--%</span></div>
+      <canvas id="cores"></canvas>
+    </section>
+  </div>
+
+  <div class="pill">
+    <span>Up <b id="uptime">--</b></span>
+    <span class="dot" aria-hidden="true"></span>
+  </div>
+</main>
+<script src="monitor.js"></script>

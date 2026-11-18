@@ -1,7 +1,7 @@
 // Prints the bar's item registry, or fakes a click (debug builds of the bar only).
 //   pnpm inspect                     list every item
 //   pnpm inspect --watch             list again every 250 ms until Ctrl+C
-//   pnpm inspect --click s1/counter  click an item (add "right", "middle" or "double" for another click)
+//   pnpm inspect --click s1/counter  click an item (the key `s1/counter` or `AppName/itemId`) (add "right", "middle" or "double" for another click)
 //   pnpm inspect --menu-click s1/timer sounds   pick an entry in an item's menu
 //   pnpm inspect --system [--watch]  print clock, battery, volume, brightness, Wi-Fi, Bluetooth, airplane, hotspot, outputs, user (--watch: on change)
 //   pnpm inspect --panel test s1/counter [width height]   open a system panel under an item
@@ -74,6 +74,26 @@ function print(items: ItemInfo[]): void {
   }
 }
 
+/**
+ * Item keys change on every connection (`s22/timer`, then `s48/timer`). Accept `Clock/time` too:
+ * the app name and the item id, as the app wrote them. Anything that already looks like a key is kept.
+ */
+function resolveId(raw: string): Promise<string> {
+  if (/^(s\d+|tray)\//.test(raw) || !raw.includes("/")) return Promise.resolve(raw)
+  return new Promise((resolve) => {
+    const socket = open((message, send) => {
+      if (message.type === "welcome") send({ type: "debug.listItems" })
+      else if (message.type === "debug.items") {
+        const wanted = raw.toLowerCase()
+        const found = message.items.find((item) => `${item.appName}/${item.id.split("/").slice(1).join("/")}`.toLowerCase() === wanted)
+        socket.end()
+        if (!found) console.error(`no item called ${raw}; run pnpm inspect to see them`)
+        resolve(found?.id ?? raw)
+      }
+    })
+  })
+}
+
 const args = process.argv.slice(2)
 const clickAt = args.indexOf("--click")
 const menuClickAt = args.indexOf("--menu-click")
@@ -136,20 +156,22 @@ if (args.includes("--system")) {
     `panel ${name} opened under ${anchor}`,
   )
 } else if (menuClickAt >= 0) {
-  const id = args[menuClickAt + 1]
+  const given = args[menuClickAt + 1]
   const menuItemId = args[menuClickAt + 2]
-  if (!id || !menuItemId) {
-    console.error("usage: pnpm inspect --menu-click <item id, like s1/timer> <menu entry id>")
+  if (!given || !menuItemId) {
+    console.error("usage: pnpm inspect --menu-click <item, like s1/timer or Timer/main> <menu entry id>")
     process.exit(1)
   }
+  const id = await resolveId(given)
   request({ type: "debug.menuClick", id, menuItemId }, `picked ${menuItemId} in ${id}`)
 } else if (clickAt >= 0) {
-  const id = args[clickAt + 1]
+  const given = args[clickAt + 1]
   const kind = (args[clickAt + 2] ?? "left") as "left" | "right" | "middle" | "double"
-  if (!id) {
-    console.error("usage: pnpm inspect --click <item id, like s1/counter> [left|right|middle|double]")
+  if (!given) {
+    console.error("usage: pnpm inspect --click <item, like s1/counter or Counter/main> [left|right|middle|double]")
     process.exit(1)
   }
+  const id = await resolveId(given)
   // A double click is two left clicks back to back (the bar tells them apart by time, ADR 0027).
   const button = kind === "double" ? "left" : kind
   const clicks: ClientMessage[] = Array.from({ length: kind === "double" ? 2 : 1 }, () => ({

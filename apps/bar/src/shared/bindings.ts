@@ -18,7 +18,8 @@ export const commands = {
 	setMonitor: (id: string) => typedError<BarInfo, string>(__TAURI_INVOKE("set_monitor", { id })),
 	/**
 	 *  Sets the bar height in logical pixels (clamped to 20-64), saves it and resizes the bar.
-	 *  The UI calls it with its `--menubar-height` token on start; `barChanged` follows.
+	 *  The settings window calls it; `barChanged` and `settingsChanged` follow. The bar's CSS follows
+	 *  the saved height (v0.8: Rust holds it, the UI no longer pushes its token).
 	 */
 	setBarHeight: (height: number) => typedError<BarInfo, string>(__TAURI_INVOKE("set_bar_height", { height })),
 	/**  The items in the bar right now. Call once when the UI starts; `itemsChanged` keeps it fresh. */
@@ -346,6 +347,44 @@ export const commands = {
 	mediaPrevious: () => __TAURI_INVOKE<void>("media_previous"),
 	/**  Dark or light mode right now. Call once when the UI starts; `themeModeChanged` keeps it fresh. */
 	getThemeMode: () => __TAURI_INVOKE<ThemeMode>("get_theme_mode"),
+	/**  All saved settings, grouped like the settings window's sections. */
+	getSettings: () => __TAURI_INVOKE<Settings_Serialize>("get_settings"),
+	/**  Opens the settings window (or focuses it). */
+	openSettingsWindow: () => __TAURI_INVOKE<void>("open_settings_window"),
+	/**  Start Barista when Windows starts (a value in the user's Run key). `Err` if the registry refused. */
+	setStartWithWindows: (on: boolean) => typedError<null, string>(__TAURI_INVOKE("set_start_with_windows", { on })),
+	/**  Tone, blur, font, text size, icon style and background of the bar and its menus. */
+	setAppearance: (appearance: Appearance_Deserialize) => __TAURI_INVOKE<void>("set_appearance", { appearance }),
+	/**  The bar's own items: order (the list's order), visibility and what each shows. */
+	setMenuBarItems: (items: BarItemPref_Deserialize[]) => __TAURI_INVOKE<void>("set_menu_bar_items", { items }),
+	/**  How the clock and date read. */
+	setClockPrefs: (clock: ClockPrefs_Deserialize) => __TAURI_INVOKE<void>("set_clock_prefs", { clock }),
+	/**  The control center's tiles, sliders, cards and quick actions. */
+	setControlCenterPrefs: (prefs: ControlCenterPrefs_Deserialize) => __TAURI_INVOKE<void>("set_control_center_prefs", { prefs }),
+	/**  Behaviour switches (hide on full screen). */
+	setBehavior: (behavior: Behavior_Deserialize) => __TAURI_INVOKE<void>("set_behavior", { behavior }),
+	/**  Tray options (style, hide the icons Explorer itself owns). */
+	setTrayPrefs: (prefs: TrayPrefs_Deserialize) => __TAURI_INVOKE<void>("set_tray_prefs", { prefs }),
+	/**  Windows' own taskbar auto-hides while Barista runs. Put back when switched off or on quit. */
+	setTaskbarAutoHide: (on: boolean) => __TAURI_INVOKE<void>("set_taskbar_auto_hide", { on }),
+	/**
+	 *  Switches `barista | windows` for notifications, control center and the tray together
+	 *  (the Advanced page). Each one also keeps its own command (rule 11).
+	 */
+	setAdvanced: (advanced: Advanced_Deserialize) => __TAURI_INVOKE<void>("set_advanced", { advanced }),
+	/**  Puts one section (or everything) back to its defaults. */
+	resetSettings: (section: Section) => __TAURI_INVOKE<void>("reset_settings", { section }),
+	/**
+	 *  The settings as JSON text for a backup file. Machine-specific bits (monitor id, the saved
+	 *  taskbar state) are left out.
+	 */
+	exportSettings: () => typedError<string, string>(__TAURI_INVOKE("export_settings")),
+	/**
+	 *  Replaces the settings with a backup. A file that is not settings JSON is refused as a whole;
+	 *  values that parse are cleaned and clamped like a hand-edited file. The monitor and the
+	 *  notification stamp stay as they are.
+	 */
+	importSettings: (text: string) => typedError<null, string>(__TAURI_INVOKE("import_settings", { text })),
 	/**  Switches Windows (apps and system) to dark or light mode. `themeModeChanged` follows. */
 	setDarkMode: (dark: boolean) => __TAURI_INVOKE<void>("set_dark_mode", { dark }),
 };
@@ -375,6 +414,7 @@ export const events = {
 	panelChanged: makeEvent<PanelChanged_Serialize, PanelChanged_Deserialize>("panel-changed"),
 	panelWarm: makeEvent<PanelWarm, PanelWarm>("panel-warm"),
 	popoverChanged: makeEvent<PopoverChanged_Serialize, PopoverChanged_Deserialize>("popover-changed"),
+	settingsChanged: makeEvent<SettingsChanged_Serialize, SettingsChanged_Deserialize>("settings-changed"),
 	submenuHide: makeEvent<SubmenuHide, SubmenuHide>("submenu-hide"),
 	submenuHighlight: makeEvent<SubmenuHighlight_Serialize, SubmenuHighlight_Deserialize>("submenu-highlight"),
 	submenuHovered: makeEvent<SubmenuHovered_Serialize, SubmenuHovered_Deserialize>("submenu-hovered"),
@@ -397,6 +437,29 @@ export type Action = "lock" | "sleep" | "restart" | "shutDown" | "signOut" | "sc
 export type ActionError = 
 /**  A destructive action came without `confirm: true`. */
 "needsConfirm";
+
+/**  The `barista | windows` switches (rule 11). */
+export type Advanced = Advanced_Serialize | Advanced_Deserialize;
+
+/**  The `barista | windows` switches (rule 11). */
+export type Advanced_Deserialize = {
+	/**  Notification panel: ours or the Windows notification center. */
+	notifications?: Mode,
+	/**  Control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick Settings. */
+	controlCenter?: Mode,
+	/**  Tray icons: the bar hosts the tray window or Windows keeps them (ADR 0026). */
+	tray?: Mode,
+};
+
+/**  The `barista | windows` switches (rule 11). */
+export type Advanced_Serialize = {
+	/**  Notification panel: ours or the Windows notification center. */
+	notifications: Mode,
+	/**  Control center (Wi-Fi, Bluetooth, brightness, ...): ours or Windows' Quick Settings. */
+	controlCenter: Mode,
+	/**  Tray icons: the bar hosts the tray window or Windows keeps them (ADR 0026). */
+	tray: Mode,
+};
 
 export type AirplaneMode = {
 	/**  False when Windows has no radio management here (a desktop PC): `on` means nothing then. */
@@ -471,6 +534,40 @@ export type AppVolumes_Serialize = {
 	apps: AppVolume_Serialize[],
 };
 
+export type Appearance = Appearance_Serialize | Appearance_Deserialize;
+
+export type Appearance_Deserialize = {
+	tone?: ToneChoice,
+	blur?: Blur,
+	/**
+	 *  A font family name installed on the PC. Empty = the bar's own default (Segoe UI Variable).
+	 *  Only letters, digits, spaces, dots, dashes and underscores (it ends up in CSS), 64 at most.
+	 */
+	font?: string,
+	/**  Bar text size in logical px. */
+	fontSize?: number,
+	iconStyle?: IconStyle,
+	background?: BarBackground,
+	/**  Opacity of the bar's solid background in percent (only matters while `background` is solid). */
+	opacity?: number,
+};
+
+export type Appearance_Serialize = {
+	tone: ToneChoice,
+	blur: Blur,
+	/**
+	 *  A font family name installed on the PC. Empty = the bar's own default (Segoe UI Variable).
+	 *  Only letters, digits, spaces, dots, dashes and underscores (it ends up in CSS), 64 at most.
+	 */
+	font: string,
+	/**  Bar text size in logical px. */
+	fontSize: number,
+	iconStyle: IconStyle,
+	background: BarBackground,
+	/**  Opacity of the bar's solid background in percent (only matters while `background` is solid). */
+	opacity: number,
+};
+
 /**  What the UI needs to know. `tone` is the tone of the WALLPAPER: `light` means dark content. */
 export type BarAppearance = {
 	tone: Tone,
@@ -478,6 +575,8 @@ export type BarAppearance = {
 
 /**  The wallpaper behind the bar changed from light to dark or back (or the debug override did). */
 export type BarAppearanceChanged = BarAppearance;
+
+export type BarBackground = "translucent" | "solid";
 
 /**  The bar moved, resized, changed monitor or hid/showed itself. Carries the new state. */
 export type BarChanged = BarInfo;
@@ -492,6 +591,23 @@ export type BarInfo = {
 	monitor: Monitor,
 	monitors: Monitor[],
 	hiddenForFullscreen: boolean,
+};
+
+/**  One of the bar's own items. The vector's order is the bar's order. */
+export type BarItemPref = BarItemPref_Serialize | BarItemPref_Deserialize;
+
+/**  One of the bar's own items. The vector's order is the bar's order. */
+export type BarItemPref_Deserialize = {
+	id?: string,
+	visible?: boolean,
+	display?: ItemDisplay,
+};
+
+/**  One of the bar's own items. The vector's order is the bar's order. */
+export type BarItemPref_Serialize = {
+	id: string,
+	visible: boolean,
+	display: ItemDisplay,
 };
 
 export type Battery = Battery_Serialize | Battery_Deserialize;
@@ -546,6 +662,18 @@ export type Battery_Serialize = {
 	saverControllable: boolean,
 };
 
+export type Behavior = Behavior_Serialize | Behavior_Deserialize;
+
+export type Behavior_Deserialize = {
+	/**  Hide the bar while a full-screen app has focus (v0.1). */
+	hideOnFullscreen?: boolean,
+};
+
+export type Behavior_Serialize = {
+	/**  Hide the bar while a full-screen app has focus (v0.1). */
+	hideOnFullscreen: boolean,
+};
+
 export type Bluetooth = {
 	/**  False when there is no Bluetooth radio: the other fields mean nothing then. */
 	available: boolean,
@@ -567,6 +695,12 @@ export type BluetoothDevice = {
 	connected: boolean,
 };
 
+export type Blur = 
+/**  Blur when Windows has transparency on and no battery saver. */
+"auto" | 
+/**  Menus and panels use solid theme colours. */
+"off";
+
 export type Brightness = {
 	/**  The laptop panel first, then external monitors. Empty before the first read. */
 	displays: Display[],
@@ -577,6 +711,38 @@ export type Brightness = {
  *  monitors were plugged in or out. Full snapshot, at most once per frame.
  */
 export type BrightnessChanged = Brightness;
+
+export type CcTile = CcTile_Serialize | CcTile_Deserialize;
+
+export type CcTile_Deserialize = {
+	id?: string,
+	size?: TileSize,
+	visible?: boolean,
+};
+
+export type CcTile_Serialize = {
+	id: string,
+	size: TileSize,
+	visible: boolean,
+};
+
+export type ClockPrefs = ClockPrefs_Serialize | ClockPrefs_Deserialize;
+
+export type ClockPrefs_Deserialize = {
+	hourFormat?: HourFormat,
+	seconds?: boolean,
+	weekday?: boolean,
+	date?: boolean,
+	datePosition?: DatePosition,
+};
+
+export type ClockPrefs_Serialize = {
+	hourFormat: HourFormat,
+	seconds: boolean,
+	weekday: boolean,
+	date: boolean,
+	datePosition: DatePosition,
+};
 
 export type ClockSettings = {
 	/**  True for a 24 hour clock. */
@@ -601,6 +767,30 @@ export type CollapsedChanged = boolean;
 /**  The control center is now ours or Windows' (a setting, see `setControlCenterMode`). */
 export type ControlCenterModeChanged = Mode;
 
+export type ControlCenterPrefs = ControlCenterPrefs_Serialize | ControlCenterPrefs_Deserialize;
+
+export type ControlCenterPrefs_Deserialize = {
+	tiles?: CcTile_Deserialize[],
+	userCard?: boolean,
+	brightness?: boolean,
+	volume?: boolean,
+	nowPlaying?: boolean,
+	/**  Ids from `QUICK_ACTION_IDS`, in order, at most 8. Empty hides the card. */
+	quickActions?: string[],
+};
+
+export type ControlCenterPrefs_Serialize = {
+	tiles: CcTile_Serialize[],
+	userCard: boolean,
+	brightness: boolean,
+	volume: boolean,
+	nowPlaying: boolean,
+	/**  Ids from `QUICK_ACTION_IDS`, in order, at most 8. Empty hides the card. */
+	quickActions: string[],
+};
+
+export type DatePosition = "right" | "center";
+
 export type Display = {
 	/**  Pass it back to `setBrightness` unchanged. */
 	id: string,
@@ -611,6 +801,22 @@ export type Display = {
 	supported: boolean,
 	/**  0.0 to 1.0. */
 	level: number | null,
+};
+
+export type General = General_Serialize | General_Deserialize;
+
+export type General_Deserialize = {
+	/**  Id of the monitor the bar lives on. `None` = the primary monitor. */
+	monitor?: string | null,
+	/**  Mirror of the Run key (the registry is the truth, see `platform::windows::autostart`). */
+	startWithWindows?: boolean,
+};
+
+export type General_Serialize = {
+	/**  Id of the monitor the bar lives on. `None` = the primary monitor. */
+	monitor: string | null,
+	/**  Mirror of the Run key (the registry is the truth, see `platform::windows::autostart`). */
+	startWithWindows: boolean,
 };
 
 export type Group = Group_Serialize | Group_Deserialize;
@@ -649,6 +855,16 @@ export type HotspotState = "off" | "on" |
 /**  Starting or stopping (takes a few seconds): show a spinner, ignore clicks. */
 "changing";
 
+export type HourFormat = 
+/**  What Windows uses. */
+"auto" | "h12" | "h24";
+
+export type IconStyle = 
+/**  Apps' own colours. */
+"colour" | 
+/**  Every app and tray icon becomes a silhouette in the bar's tone. */
+"mono";
+
 export type Item = Item_Serialize | Item_Deserialize;
 
 /**
@@ -662,6 +878,41 @@ export type ItemBounds = {
 	y: number | null,
 	width: number | null,
 	height: number | null,
+};
+
+/**  What a bar item shows. */
+export type ItemDisplay = "icon" | "label" | "both";
+
+/**
+ *  The user's arrangement of the bar's app and tray items (ADR 0028). Ids are stable across runs
+ *  (`app:<app>/<item>`, `tray:...`), not the per-run keys the UI sees.
+ */
+export type ItemLayout = ItemLayout_Serialize | ItemLayout_Deserialize;
+
+/**
+ *  The user's arrangement of the bar's app and tray items (ADR 0028). Ids are stable across runs
+ *  (`app:<app>/<item>`, `tray:...`), not the per-run keys the UI sees.
+ */
+export type ItemLayout_Deserialize = {
+	/**  Left to right. Items not listed go after, in arrival order. */
+	order?: string[],
+	/**  The user's pin choices. No entry = the default (client items pinned, tray icons not). */
+	pinned?: { [key in string]: boolean },
+	/**  While collapsed, only pinned items stay in the bar; the rest go to the overflow list. */
+	collapsed?: boolean,
+};
+
+/**
+ *  The user's arrangement of the bar's app and tray items (ADR 0028). Ids are stable across runs
+ *  (`app:<app>/<item>`, `tray:...`), not the per-run keys the UI sees.
+ */
+export type ItemLayout_Serialize = {
+	/**  Left to right. Items not listed go after, in arrival order. */
+	order: string[],
+	/**  The user's pin choices. No entry = the default (client items pinned, tray icons not). */
+	pinned: { [key in string]: boolean },
+	/**  While collapsed, only pinned items stay in the bar; the rest go to the overflow list. */
+	collapsed: boolean,
 };
 
 /**  Who put an item in the bar. Clients never choose this: the bar sets it (since 0.6). */
@@ -768,6 +1019,32 @@ export type MenuAnchor = {
 	scale: number | null,
 	/**  True when the window has the system acrylic backdrop. False (Windows 10): draw an opaque panel. */
 	acrylic: boolean,
+};
+
+export type MenuBar = MenuBar_Serialize | MenuBar_Deserialize;
+
+export type MenuBar_Deserialize = {
+	/**  Logical px, scaled by the monitor's DPI when applied. */
+	height?: number,
+	appearance?: Appearance_Deserialize,
+	items?: BarItemPref_Deserialize[],
+	clock?: ClockPrefs_Deserialize,
+	taskbar?: Taskbar_Deserialize,
+	tray?: TrayPrefs_Deserialize,
+	/**  Order, pinned and collapsed state of app and tray items (v0.7). */
+	layout?: ItemLayout_Deserialize,
+};
+
+export type MenuBar_Serialize = {
+	/**  Logical px, scaled by the monitor's DPI when applied. */
+	height: number,
+	appearance: Appearance_Serialize,
+	items: BarItemPref_Serialize[],
+	clock: ClockPrefs_Serialize,
+	taskbar: Taskbar_Serialize,
+	tray: TrayPrefs_Serialize,
+	/**  Order, pinned and collapsed state of app and tray items (v0.7). */
+	layout: ItemLayout_Serialize,
 };
 
 /**
@@ -1052,6 +1329,29 @@ export type Rect = {
 	bottom: number,
 };
 
+/**  The parts of the settings the reset command and the editor talk about. */
+export type Section = "general" | "menuBar" | "appearance" | "clock" | "controlCenter" | "behavior" | "advanced" | "all";
+
+export type Settings = Settings_Serialize | Settings_Deserialize;
+
+/**
+ *  Any saved setting changed. Carries the whole settings tree (small), so the settings window
+ *  and the bar just replace what they have.
+ */
+export type SettingsChanged = SettingsChanged_Serialize | SettingsChanged_Deserialize;
+
+/**
+ *  Any saved setting changed. Carries the whole settings tree (small), so the settings window
+ *  and the bar just replace what they have.
+ */
+export type SettingsChanged_Deserialize = Settings_Deserialize;
+
+/**
+ *  Any saved setting changed. Carries the whole settings tree (small), so the settings window
+ *  and the bar just replace what they have.
+ */
+export type SettingsChanged_Serialize = Settings_Serialize;
+
 /**
  *  The settings pages the UI can open. An enum, never a free string, so the UI can't make us
  *  launch an arbitrary URI.
@@ -1059,6 +1359,26 @@ export type Rect = {
 export type SettingsPage = "wifi" | "bluetooth" | "sound" | "display" | "airplaneMode" | "hotspot" | "nightLight" | "batterySaver" | "focus" | "accounts" | "power" | "location" | 
 /**  Windows Settings' start page (the gear in the control center). */
 "home";
+
+export type Settings_Deserialize = {
+	general?: General_Deserialize,
+	menuBar?: MenuBar_Deserialize,
+	controlCenter?: ControlCenterPrefs_Deserialize,
+	behavior?: Behavior_Deserialize,
+	advanced?: Advanced_Deserialize,
+	/**  Unix seconds when the notification panel was last opened (the unread dot). Not a preference. */
+	notificationsSeenAt?: number,
+};
+
+export type Settings_Serialize = {
+	general: General_Serialize,
+	menuBar: MenuBar_Serialize,
+	controlCenter: ControlCenterPrefs_Serialize,
+	behavior: Behavior_Serialize,
+	advanced: Advanced_Serialize,
+	/**  Unix seconds when the notification panel was last opened (the unread dot). Not a preference. */
+	notificationsSeenAt: number,
+};
 
 /**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
 export type StatusItemView = StatusItemView_Serialize | StatusItemView_Deserialize;
@@ -1188,6 +1508,22 @@ export type SubmenuShow_Serialize = {
 /**  Which side an open submenu goes on, so it stays on screen. */
 export type SubmenuSide = "right" | "left";
 
+export type Taskbar = Taskbar_Serialize | Taskbar_Deserialize;
+
+export type Taskbar_Deserialize = {
+	/**  Windows' own taskbar auto-hides while Barista runs (ADR 0031). */
+	autoHide?: boolean,
+	/**  The taskbar state before we changed it, kept so a crash can be undone at the next start. */
+	savedState?: number | null,
+};
+
+export type Taskbar_Serialize = {
+	/**  Windows' own taskbar auto-hides while Barista runs (ADR 0031). */
+	autoHide: boolean,
+	/**  The taskbar state before we changed it, kept so a crash can be undone at the next start. */
+	savedState: number | null,
+};
+
 export type ThemeMode = {
 	dark: boolean,
 };
@@ -1198,8 +1534,34 @@ export type ThemeMode = {
  */
 export type ThemeModeChanged = ThemeMode;
 
+export type TileSize = "small" | "wide";
+
 /**  How bright the wallpaper behind the bar is. Light wallpaper = dark content, and the other way round. */
 export type Tone = "light" | "dark";
+
+export type ToneChoice = 
+/**  Follows the wallpaper behind the bar (ADR 0009). */
+"auto" | "light" | "dark";
+
+export type TrayPrefs = TrayPrefs_Serialize | TrayPrefs_Deserialize;
+
+export type TrayPrefs_Deserialize = {
+	style?: TrayStyle,
+	/**
+	 *  Hide the icons Explorer itself puts in the tray (Safely Remove, Bluetooth, ...). Off by default:
+	 *  some of them are the only way to reach that feature.
+	 */
+	hideWindowsIcons?: boolean,
+};
+
+export type TrayPrefs_Serialize = {
+	style: TrayStyle,
+	/**
+	 *  Hide the icons Explorer itself puts in the tray (Safely Remove, Bluetooth, ...). Off by default:
+	 *  some of them are the only way to reach that feature.
+	 */
+	hideWindowsIcons: boolean,
+};
 
 /**  How the tray icons are shown in the bar (a preference, not a Windows replacement switch). */
 export type TrayStyle = 

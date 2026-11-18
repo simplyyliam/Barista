@@ -4,6 +4,44 @@ Keep this file short: where we are, the next step, and facts a new session needs
 When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Where we are (2026-11-16)
+- **v0.8 "Daily driver" built, PR open** (branch `feature/v0.8-daily-driver`, Liam reviews and merges). Rust: grouped settings with
+  migration (ADR 0029), `settingsChanged`, start with Windows and taskbar auto-hide (ADR 0031), blur / full screen / tone
+  settings, restartable tray host (ADR 0032), protocol 0.7. SDK: `item.ready`, `item.updateMenuItem`. First-party items
+  (ADR 0030): `examples/win-helper` (Rust, mic and media over JSON lines), `mic-mute`, `now-playing`, `system-monitor` (Electron,
+  popover in the Found on Cosmos style). UI: settings window (frameless, own titlebar, shadcn controls, dnd-kit editors for the
+  menu bar and the control center), the bar and the control center follow the saved layout. **New for the UI** is all wired.
+  Left for Liam: the full week of use, the 8 hour bench (`docs/perf/0.8.md`), and a look at the settings window.
+- **Release checks (2026-11-16):** `/code-review medium` (10 findings, 8 fixed: bounds of the bar's own items were dropped by
+  the new stale-bounds filter, reset and import skipped autostart and tray prefs, reset all cleared the monitor, hide-on-full-screen
+  ignored an app already in front, `item.ready` could hang; two left as noise: panic-hook doc comment, `blur_allowed` syscalls
+  under a lock), `/security-review` (no findings), end-to-end on the release bar with fresh settings (defaults, every setting
+  changed, live effect seen, clean quit, restart: settings identical; mic mute clicked through the SDK twice, monitor ticking,
+  now playing waiting hidden, all items gone when the clients were killed; a real taskbar auto-hide on and off, the Run key,
+  tray mode windows and back with 11 icons). The test found now-playing crashing on a menu id with capitals (fixed) and Node
+  clients using 58 MB too much through the icon package's index (fixed). Not tested: now playing with real music (nothing was
+  playing), a second monitor, Windows 10.
+- Bar settings window pieces: `widgets/settings`, `features/settings/*` (pages, editors, `sortable.tsx`), store
+  `shared/stores/settings.ts`, `shared/hooks/use-apply-settings.ts`. Liam will rework the settings frontend himself.
+
+- **Settings window redesign (2026-11-18, `UI: full` for the settings window, same branch):** 860x600, one 13px scale, no separators,
+  mono sidebar icons, slim sliders, sliding segments, dark shadcn selects, black scroll fades (`scroll-fade.tsx`), previews closed by
+  default with the view pills inside, About = What's New with an animated banner (`features/settings/about/`, scenes use the
+  editor's `Glyph`/`pillClass`). Also: text size and font now reach the bar (`--bar-text-size`, `--bar-font` in `tokens.css`; `@theme
+  inline` had baked the values in), tray host backs off while TaskbarX runs (guess, untested with TaskbarX), brightness list drops the
+  laptop panel with the lid closed (untested with a real lid). Bench: bar unchanged (156 MB private, 0.08% idle, `docs/perf/0.8.md`).
+  Memory flags (ADR 0033, `--in-process-gpu`, no site isolation): bar 156 to 143 MB private, the settings window costs about 28 MB on the Menu bar page, 6 MB on About, and is given back on close (148 MB);
+  `NetworkServiceInProcess` tried and dropped (no effect). Release checks 2026-11-18: `/code-review medium` (10 findings: import check,
+  bounded helper read and a comment fixed; the rest left, see below), `/security-review` (no findings), end to end (item appears, gone
+  8 s after the client is killed; menu click not exercised).
+  **Review findings, second pass (2026-11-18):** fixed the tray worker race (`set_mode(windows)` waits for it), `blur_allowed` under the
+  menu and panel locks, legacy tray-style and control-center commands now emit `settingsChanged`, the `settings.ts` listener order.
+  Left: `ids_in_bar` builds a full snapshot per bounds report (only on layout changes, not at idle; needs a registry change counter),
+  `apply()` off the UI thread (probably fine: sync Tauri commands run on the main thread).
+  **Memory decision (Liam, 2026-11-18): accept about 140 MB for v0.8.** Measured where it goes: the hidden panel window is about 53 MB of it
+  (submenu 8 MB) and it is the cost of a fourth page, not of its content (unmounting routes saved nothing; one chunk per window saved
+  about 3 MB, kept). Real savings need fewer windows (merge menu and submenu, panel with the menus): own ADR and release, see `docs/perf/0.8.md`, 8 h soak, version number still 0.7.0 while About says What's new in 0.8, blur/solid not seen
+  failing (applies on the next menu open). Liam says Barista is closed source, freemium, $5 once for Pro (memory `business-model-freemium`).
+
 - **v0.7.0 shipped** (tag `v0.7.0` on the merge of PR #42, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.7 are done; notes in `docs/release/history/` (local only, v0.7 in `v0.7-checkpoint.md`: tray clicks, pin / order / collapse, new for the UI already wired). Next: v0.8 "Daily driver" (`releases/v0.8.md`; add every new `barista | windows` switch to its list).
 
 - **v0.6.0 shipped** (tag `v0.6.0` on the merge of PR #38, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.6 are done; notes in `docs/release/history/` (local only, v0.6 in `v0.6-checkpoint.md`: tray host, `source: app | tray`, `trayMode` / `trayStyle`, new for the UI already wired). Next: v0.7 "Tray, live" (`releases/v0.7.md`).
@@ -133,90 +171,33 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 
 ## Fix next
 
-- Through the UI (2026-11-16, end-to-end with the 10 tray apps on this machine, bar expanded so each icon is a pill): the clicks were fired as DOM events on
-  the pills (the UI's own `onClick` / `onContextMenu` -> `itemClicked`), because scripted pointer input (`SetCursorPos`, error 203) stopped working halfway
-  through the session; the real-mouse checks below were done before that. Result, left / right / double: Medal window / window / window, AMD none / menu / window,
-  SteelSeries GG none / menu / window, Twinkle Tray none / window / none, ISLC none / window / none, Windhawk none / menu / none, Explorer's Safely Remove
-  menus, Bluetooth menu / none / Settings window. **No reaction** for Raycast and Sonar (Raycast reacted in the first sweep). Restart with the UI: saved order and
-  pins -> Rust -> the bar draws the two pinned icons and the panel shows the same order with the pins marked.
-  - Startup: on one start no tray app re-added its icon after the bar's `TaskbarCreated` broadcast (0 icons; the host worked: a probe appeared; a manual
-    broadcast brought 12 back; the next start was fine). **Fixed:** if the tray is still empty 4 s after the start the host broadcasts again, and once more
-    at 12 s (`tray::retry_announce`, `tray_host::announce`; two sleeps, not a poll). The failure could not be reproduced, so the retry path was not seen
-    firing live: only that a normal start is unchanged (10 icons, no retry logged).
-  - The panel: once `getOpenPanel` still said `tray` while the window was hidden and the arrow's next click toggled it shut. `panel.rs` closes on blur after
-    a short grace and clears the state then, so this was most likely that grace window; not reproduced, nothing changed.
-- From wiring the v0.7 UI (real mouse, dev bar): pin (hover shows the pin), right-click on a pinned icon in the bar opens the app's own menu under the
-  icon (AMD: "Open AMD Software / Video Profile / Hide System Tray"), drag a tile to the first place and it stayed after the event, "Show all in the bar"
-  moved all 16 icons into the bar, a tile click opened Medal and closed the panel. Not done / to look at:
-  - Pinned pills in the bar cannot be dragged (reorder is in the panel only); no way to unpin from the bar itself (open the panel).
-  - The pin only shows on hover when unpinned: not obvious. Needs Liam's eye (no design exists).
-  - With the bar expanded, 16 icons fill the right side; `setItemSpace` sends the room but it was not tested on a narrow bar.
-  - In one screenshot an editor window sat in front of the open panel (the panel is not always on top?): not investigated, may be my test setup.
-  - The panel route has no keyboard path for pin or reorder.
-- From v0.7 (tray, live), found by testing (a real afternoon with the UI is Liam's, the UI is not wired yet):
-  - Clicks were checked on 11 real tray icons through `scripts/tray-click.ps1`: most open their window or menu under the pointer
-    (Medal, Twinkle Tray, G HUB, SteelSeries GG, AMD, ISLC, Windhawk, Explorer's own icons), but results vary run to run and some icons
-    show nothing (Raycast on a second run, SteelSeries left click): not compared with Explorer. Debug clicks are not real input, so a
-    menu sometimes stays open until Escape / `WM_CANCELMODE`; the real check is once the UI calls `itemClicked`.
-  - Two more rounds of the sweep (fresh bar, left / right / double each, `tray-click.ps1`): the same in both rounds: AMD Software (right = menu, double = window),
-    Medal (left and double = window), ISLC (right = its menu), SteelSeries GG (right = menu, double = window), Windhawk (right = menu), Explorer's own icons
-    (menus). Nothing visible in either round: Twinkle Tray and Raycast (both reacted in the earlier sweep: the detector or the apps' toggle state), and left
-    on most apps (many only react to a double click or toggle an existing window). The messages themselves now match Explorer's (above), so what an app does
-    with them is the app's.
-  - Stable ids: some programs use a changing number as icon id (G HUB's was `532175291`), so their saved place is lost at the next start.
-    Needs a friendlier id (executable path + icon id?).
-  - Explorer's own icons (Safely Remove, Bluetooth, Sonar) are listed and clickable like any other: still undecided which to hide (v0.6 note).
-  - Stale item bounds: an item that moved to overflow keeps its old entry in `placement::bounds()`, so a click from the overflow panel may anchor
-    at the old bar position (only matters for apps that use the version 4 anchor). Drop bounds when the placement changes.
-  - The width guesses (28 px icon, 14 + 7 per character label) live in `registry/mod.rs`; the UI could send the real ones once.
-  - `tray_set` compares the owner fields too, so a callback change wakes the UI with an identical list (rare).
-  - Bench: worst tooltip latency 1804 ms in one run (median 19 ms), disturbed by the reviews running; re-run on a quiet machine.
-  - Once the dev bar died at startup with `0xc0000409` right after "appbar registration failed, will retry" (the known `ExplorerHooks.dll`
-    crash, see the v0.6 notes); the next four starts were fine. Not reproduced.
+v0.8 went through the old list. **Fixed:** `item.ready` (protocol 0.7 `item.created`), `item.updateMenuItem`, README notes
+(label limit, `appName`, `checked` mirrored, accelerators are text, raw SVG), `inspect` takes `AppName/itemId`, stale bounds
+of items that left the bar, `tray_set` waking the UI for owner or pid changes, the width guesses (the UI's measured widths already
+replace them: `note_widths`), `trayMode` switching while running, "hide Windows' own tray icons" (setting, off by default),
+monochrome app icons (setting). **Moved with a reason** (local release files):
+- To `v1.0.md`: pinned pills cannot be dragged or unpinned in the bar, pin discoverability, no keyboard path in the tray panel
+  (all need a design and Liam's eye); `ExplorerHooks.dll` crash, Windows 10, no monitor at launch (need a third-party app or
+  hardware); friendly owner names and stable ids for tray apps whose icon id changes (G HUB): needs the executable path and
+  the file's product name, a design question for the saved layout.
+- To `backlog.md`: hover tint stuck, startup `TaskbarCreated` retry never seen firing, `getOpenPanel` stale after blur,
+  panel behind an editor window (none reproduced, repro steps are in `history/v0.7-checkpoint.md`); messages while the Start
+  menu is open (ADR 0026, a known gap); `items-changed` carrying every icon (only if a profile shows it); Raycast and Sonar
+  not reacting (the messages match Explorer's, so it is the apps).
 
-- From v0.6 (tray, read), found by testing and by Liam's feedback:
-  - Soak (1 h, unattended, `scripts/soak.ps1`): bar alive throughout, CPU 0.004 to 0.28 %, memory 156 / 180 / 90 MB (no growth), Explorer never restarted; says nothing about daily feel, which is Liam's to judge.
-  - Not tested: Windows 10 (only Windows 11 here), no tray app clicks (v0.7).
-  - **`ExplorerHooks.dll` crash:** Windows named it as the faulting module of two `0xc0000409` aborts of `barista.exe` (once after a broadcast of
-    `TaskbarCreated`, once when Liam restarted Explorer). It belongs to the Store app "Transparent Taskbar for Windows" (2845PeroSoftware), which
-    injects it into other processes. Not confirmed whether our hidden `Shell_TrayWnd` makes it worse: the A/B (v0.5 bar, same broadcast) was
-    not run, and cannot be from here: the DLL is only in our process while that app runs, and it was not running later (checked: only
-    `windhawk.dll` is loaded in the bar). To settle it: start Transparent Taskbar, start the bar, then broadcast `TaskbarCreated` or restart
-    Explorer, once with `trayMode: windows` (no host) and once without. If it is ours: back off when that DLL is loaded in our process
-    (like `foreign_host`), or document the conflict. Checked 2026-11-14: with 14 real + 15 fake icons the default panel leaves the bar
-    exactly where it was (before/after capture), so the narrow-bar overflow is gone with the default style.
-  - Hover tint stuck after leaving the bar (Liam saw it on the bench's release bar). Could not reproduce with `SetCursorPos`, `mouse_event`,
-    panels opened and closed by Esc or a click outside; the page showed no hover and no tint when it happened to look lit. Needs a repro with
-    `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` and the DOM read at that moment (`data-hover`, `:hover`, `:focus-visible`).
-  - Windows' own icons (volume, network, Bluetooth, "Safely remove") arrive as tray icons next to the bar's own: probably hide the ones the bar draws.
-  - Full-colour icons next to monochrome ones look noisy (Liam): desaturate to the bar tone with colour on hover? Not decided.
-  - Owner names are exe names (`lghub_system_tray`, `WhatsApp.Root`, `IDMan`); a friendlier name from the file's product name.
-  - The inline style can push other items off a narrow bar (the reason `panel` is the default); cap it or drop it.
-  - Messages sent while the Start menu is open reach Explorer only (ADR 0026, known gap).
-  - `trayMode` and `tray::init` cannot be switched while running (`SINK` is set once): plan in `releases/v0.8.md`.
-  - `items-changed` carries every icon's data on each change (about 27 KB; 0.6 events/s with a real tray): diff it if it ever shows in a profile.
-
-- From dogfooding the v0.4 popovers: the open papercuts (Electron window helper, `closePopover()`, async `on("open")`,
-  stale `popover.shown` token, `setPopover` resize while open) are in `docs/release/history/v0.4-checkpoint.md`.
-  Menu latency sits at 42-46 ms against the 50 ms budget (WebView2 drift, see `docs/perf/0.4.md`).
-
-- From dogfooding the focus timer (v0.3 menus):
-  - Changing one entry (Start enabled, "Resume" label) means rebuilding the whole menu and calling `setMenu` again.
-    Want `item.updateMenuItem(id, { enabled, label, checked })` or setters on `MenuItem` that sync by themselves.
-  - `click(entry, { checked })`: `checked` is optional even for a checkbox, so apps write `checked ?? !x`.
-    `entry.checked` is already mirrored; document that and maybe drop `checked` from the event.
-  - Done in v0.4: `item.on("open")` runs right before a menu opens (the menu itself is already drawn, so a changed menu
-    redraws a moment later).
-  - `inspect` keys change every connection (`s22/timer`, `s48/timer`); accept `appName/itemId` too.
-  - Accelerators are text only; "CmdOrCtrl+Enter" next to Start suggests a hotkey that doesn't exist. Say so in docs.
-  - Fixed while dogfooding: role entries default their id to the role (`quit`), separators don't use up ids.
-
-- SDK papercuts from dogfooding `examples/clock`:
-  - Accept raw SVG markup (`<svg...`) as `icon`, maybe a file-path helper.
-  - `create()` resolves on send, not on accept (`limit_reached` arrives later as `error`); consider `await item.ready`.
-  - README: say a label over 128 chars throws `TypeError`; mention `appName` in the quick start.
-  - Done in v0.4: `item.on("click")` gives `anchor`; `item.on("open" | "close")` exists (menus and popovers).
-- Not tested on real hardware: no monitor at launch (starts on a placeholder monitor).
+From dogfooding the v0.8 items (SDK gaps, open):
+- One item cannot have a left click action and a menu: a left click always opens the menu. Mic mute wanted "click toggles, right
+  click shows the device and Quit". Maybe `setMenu(menu, { on: "right" })`.
+- No way to say "this item is hidden until I have something" at create time: now-playing creates the item and then calls
+  `setVisible(false)`, so it flashes for a frame.
+- `item.setMenu` plus `updateMenuItem` resends the whole menu for each changed entry; now-playing calls it four times per track
+  change (four messages). A batch form (`updateMenuItems({ id: changes })`) would be one.
+- The popover has no theme: `popover.show` carries `tone` (dark or light wallpaper), but a popover also wants the bar's accent
+  and its font setting; today the page cannot know them.
+- Electron apps need ~10 s to start, so their item appears late after login: nothing for the SDK to do, but `item.ready` now
+  tells the app when it is really there.
+- Not done in v0.8: the 8 hour soak with the system monitor on (hand it to `scripts/soak.ps1`), a full week of daily use
+  (Liam), `/goal` UI: the user will build the settings window frontend himself later.
 
 ## Useful facts
 

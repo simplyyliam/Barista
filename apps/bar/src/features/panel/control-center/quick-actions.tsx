@@ -10,12 +10,14 @@ import {
 import { cn } from "cn"
 import { motion } from "motion/react"
 import { PRESS, PRESS_TRANSITION } from "@/shared/motion"
+import { useSettings } from "@/shared/stores/settings"
 import { useThemeMode } from "./hooks/use-control-center"
+import { DEFAULT_CONTROL_CENTER } from "./lib/layout"
 
 /** The card holds at most 4 x 2 actions. The list is data, so a settings screen can fill it later. */
 export const MAX_QUICK_ACTIONS = 8
 
-const ACTIONS = [
+export const ACTIONS = [
   { id: "dark-mode", label: "Dark mode", icon: ContrastIcon },
   { id: "timer", label: "Timer", icon: Timer02Icon },
   { id: "calculator", label: "Calculator", icon: CalculatorIcon },
@@ -28,6 +30,13 @@ type ActionId = (typeof ACTIONS)[number]["id"]
 /** The second card: a grid of 62 px buttons for things you start now (not for things that stay on). */
 export function QuickActions() {
   const theme = useThemeMode()
+  // The user picks which actions show, and in which order (settings window).
+  const wanted = useSettings()?.controlCenter.quickActions ?? DEFAULT_CONTROL_CENTER.quickActions
+  const shown = wanted
+    .map((id) => ACTIONS.find((action) => action.id === id))
+    .filter((action) => action !== undefined)
+    .slice(0, MAX_QUICK_ACTIONS)
+  if (shown.length === 0) return null
 
   const run = (id: ActionId) => {
     switch (id) {
@@ -46,7 +55,7 @@ export function QuickActions() {
 
   return (
     <section className="grid grid-cols-4 gap-cc-gap rounded-panel bg-cc-card p-cc-pad">
-      {ACTIONS.slice(0, MAX_QUICK_ACTIONS).map((action) => {
+      {shown.map((action) => {
         const on = action.id === "dark-mode" && theme?.dark === true
         return (
           <motion.button

@@ -99,6 +99,7 @@ export class StatusBar {
   #socket: net.Socket | undefined
   #sessionId: string | undefined
   #barVersion: string | undefined
+  #acksCreates = false
   #attempts = 0
   #retryTimer: NodeJS.Timeout | undefined
   #hintTimer: NodeJS.Timeout | undefined
@@ -117,6 +118,11 @@ export class StatusBar {
    */
   get sessionId(): string | undefined {
     return this.#sessionId
+  }
+
+  /** @internal The connected bar answers `item.create` with `item.created` (protocol 0.7+). */
+  get acksCreates(): boolean {
+    return this.#acksCreates
   }
 
   /** The version of the bar you are connected to, or `undefined` while it is not there. */
@@ -391,6 +397,7 @@ export class StatusBar {
     this.#socket = socket
     this.#sessionId = welcome.sessionId
     this.#barVersion = welcome.barVersion
+    this.#acksCreates = (minorOf(welcome.protocolVersion) ?? 0) >= 7
     this.#state = "connected"
     this.#attempts = 0
     socket.on("data", (chunk) => this.#onData(socket, decoder, chunk))
@@ -399,6 +406,8 @@ export class StatusBar {
     socket.on("error", () => {})
     // After a restart the bar knows nothing about us: say it all again, in creation order.
     for (const item of this.items.values()) {
+      // A bar older than 0.7 will not answer the create: nothing to wait for.
+      if (!this.#acksCreates) item.resolveReady()
       try {
         item.replay()
       } catch (error) {
@@ -442,6 +451,8 @@ export class StatusBar {
     if (this.#state === "closed") return
     const socket = this.#socket
     this.#state = "closed"
+    // Items still waiting for the bar to accept them never will: let `await item.ready` end.
+    for (const item of this.items.values()) item.rejectReady(new Error("The connection to the bar was closed"))
     clearTimeout(this.#hintTimer)
     clearTimeout(this.#retryTimer)
     this.#retryTimer = undefined
@@ -502,6 +513,11 @@ export class StatusBar {
         // waiting. A bar that cut us off for noise would refuse the same messages again.
         if (message.reason === "too_many_errors") this.#closeForGood(false)
         break
+      case "item.created": {
+        const item = this.items.get(message.id)
+        if (item && message.requestId === item.createRequestId) item.resolveReady()
+        break
+      }
       case "item.click":
         this.items.get(message.id)?.emitClick(message.button, message.anchor)
         break
@@ -532,6 +548,7 @@ export class StatusBar {
         if (!(item?.emitError(error) ?? false)) this.#emitError(error)
         // The bar refused the create itself: the item does not exist there, so forget it.
         if (item && itemId !== undefined && message.requestId === item.createRequestId) {
+          item.rejectReady(error)
           item.markGone() // later calls throw here, instead of earning strikes at the bar
           this.items.delete(itemId)
         }
@@ -614,4 +631,10 @@ export async function connect(options: ConnectOptions = {}): Promise<StatusBar> 
   })
   sharedBar = await attempt
   return sharedBar
+}
+
+/** The minor number of `major.minor`, or undefined if it does not look like that. */
+function minorOf(version: string): number | undefined {
+  const m = /^\d+\.(\d+)$/.exec(version)
+  return m ? Number(m[1]) : undefined
 }

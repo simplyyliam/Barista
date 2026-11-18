@@ -244,6 +244,53 @@ describe("StatusItem", () => {
   })
 })
 
+describe("ready and updateMenuItem", () => {
+  it("ready resolves when the bar says item.created", async () => {
+    const { fake, bar } = await setup()
+    const item = await StatusItem.create({ id: "a", label: "x", bar })
+    let done = false
+    void item.ready.then(() => (done = true))
+    const create = (await fake.next((m) => m.type === "item.create")) as { requestId: string }
+    await new Promise((r) => setTimeout(r, 20))
+    expect(done).toBe(false)
+    fake.send({ type: "item.created", requestId: create.requestId, id: "a" })
+    await item.ready
+    expect(done).toBe(true)
+  })
+
+  it("ready rejects when the bar refuses the create", async () => {
+    const { fake, bar } = await setup()
+    const item = await StatusItem.create({ id: "a", bar })
+    const create = (await fake.next((m) => m.type === "item.create")) as { requestId: string }
+    fake.send({ type: "error", requestId: create.requestId, code: "limit_reached", message: "full" })
+    await expect(item.ready).rejects.toMatchObject({ code: "limit_reached" })
+  })
+
+  it("ready resolves at once with a bar older than 0.7", async () => {
+    fake = new FakeBar()
+    fake.onHello = () => ({ type: "welcome", sessionId: "s1", barVersion: "0.5.0", protocolVersion: "0.6" })
+    await fake.listen()
+    const bar = await StatusBar.connect({ appName: "Old", pipeName: fake.pipeName })
+    bars.push(bar)
+    const item = await StatusItem.create({ id: "a", bar })
+    await item.ready
+  })
+
+  it("updateMenuItem changes one entry and resends the menu", async () => {
+    const { fake, bar } = await setup()
+    const item = await StatusItem.create({ id: "a", bar })
+    item.setMenu([{ id: "pause", label: "Pause" }, { role: "quit" }])
+    item.updateMenuItem("pause", { label: "Resume", enabled: false })
+    await until(() => fake!.received.filter((m) => m.type === "item.setMenu").length === 2)
+    const sent = fake.received.filter((m) => m.type === "item.setMenu") as Array<{
+      menu: Array<{ id?: string; label?: string; enabled?: boolean }>
+    }>
+    expect(sent).toHaveLength(2)
+    expect(sent[1]!.menu[0]).toMatchObject({ id: "pause", label: "Resume", enabled: false })
+    expect(() => item.updateMenuItem("nope", { label: "x" })).toThrow(/No menu entry/)
+  })
+})
+
 describe("menus", () => {
   it("sends the menu and runs click callbacks with the new checked state", async () => {
     const { fake, bar } = await setup()

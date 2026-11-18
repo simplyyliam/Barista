@@ -86,6 +86,7 @@ features = [
   "Win32_System_Registry",
   "Win32_System_Services",
   "Win32_System_Shutdown",
+  "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Threading",
   "Win32_UI_Accessibility",
   "Win32_UI_Controls",

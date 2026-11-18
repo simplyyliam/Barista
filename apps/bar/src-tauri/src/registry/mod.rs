@@ -185,6 +185,8 @@ struct State {
     /// Last width each item had in the bar, by UI key. Kept after an item moves to overflow so it
     /// does not flip back and forth.
     widths: HashMap<String, f64>,
+    /// Hide the icons Explorer itself puts in the tray (Safely Remove, Bluetooth, ...).
+    hide_windows_icons: bool,
     /// Source of `menu_rev`s. Registry-wide, so a removed and re-created item never reuses one.
     last_rev: u64,
 }
@@ -266,7 +268,9 @@ fn arranged(state: &State) -> Vec<StatusItemView> {
             placement: Placement::Bar,
         }));
     }
-    for (key, t) in state.tray.iter().filter(|(_, t)| t.visible) {
+    for (key, t) in state.tray.iter().filter(|(_, t)| {
+        t.visible && !(state.hide_windows_icons && t.app_name.eq_ignore_ascii_case("explorer"))
+    }) {
         stables.push(t.stable_id.clone());
         views.push(Some(StatusItemView {
             id: format!("tray/{key}"),
@@ -460,6 +464,15 @@ impl Registry {
         arranged(&self.lock())
     }
 
+    /// Ids (as the UI sees them) of the items drawn in the bar right now.
+    pub fn ids_in_bar(&self) -> std::collections::HashSet<String> {
+        self.snapshot()
+            .into_iter()
+            .filter(|v| v.placement == Placement::Bar)
+            .map(|v| v.id)
+            .collect()
+    }
+
     /// Adds or updates a tray icon. Only a real change wakes the UI: some apps re-send the same
     /// tip every second.
     pub fn tray_set(&self, key: &str, item: TrayItem) {
@@ -469,7 +482,17 @@ impl Registry {
                 if *existing == item {
                     return;
                 }
+                // The owner and pid are for clicks; the UI never shows them. Keep them current
+                // without waking the UI when nothing visible changed.
+                let silent = existing.app_name == item.app_name
+                    && existing.stable_id == item.stable_id
+                    && existing.icon == item.icon
+                    && existing.tooltip == item.tooltip
+                    && existing.visible == item.visible;
                 *existing = item;
+                if silent {
+                    return;
+                }
             }
             None => state.tray.push((key.to_string(), item)),
         }
@@ -490,6 +513,28 @@ impl Registry {
         let removed = state.tray.len() != before;
         drop(state);
         if removed {
+            self.changed.notify_one();
+        }
+    }
+
+    /// The "hide Windows' own icons" setting. Wakes the UI only when it changes.
+    pub fn set_hide_windows_icons(&self, hide: bool) {
+        let mut state = self.lock();
+        if state.hide_windows_icons == hide {
+            return;
+        }
+        state.hide_windows_icons = hide;
+        drop(state);
+        self.changed.notify_one();
+    }
+
+    /// Drops every tray icon (the tray was switched to Windows' own).
+    pub fn tray_clear(&self) {
+        let mut state = self.lock();
+        let had = !state.tray.is_empty();
+        state.tray.clear();
+        drop(state);
+        if had {
             self.changed.notify_one();
         }
     }
@@ -1177,6 +1222,20 @@ mod tests {
         // Removing what is not there is not a change either.
         reg.tray_remove("k");
         assert!(!woke(&reg).await);
+    }
+
+    #[tokio::test]
+    async fn an_owner_change_updates_clicks_without_waking_the_ui() {
+        let reg = Registry::new();
+        reg.tray_set("k", tray("x", true));
+        assert!(woke(&reg).await);
+        let mut moved = tray("x", true);
+        moved.owner.callback_message = Some(0x400);
+        moved.pid = 99;
+        reg.tray_set("k", moved);
+        assert!(!woke(&reg).await);
+        // The click still goes to the new callback.
+        assert_eq!(reg.tray_owner("tray/k").map(|(o, pid)| (o.callback_message, pid)), Some((Some(0x400), 99)));
     }
 
     #[test]

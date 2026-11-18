@@ -1,6 +1,8 @@
 //! Tauri commands the frontend can call. Each one is listed in `specta_builder()` (lib.rs)
 //! and appears in the generated `commands` object in bindings.ts.
 
+pub mod settings;
+
 use crate::appearance::BarAppearance;
 use crate::bar::BarInfo;
 use crate::controller;
@@ -33,22 +35,27 @@ pub fn get_bar_info() -> Result<BarInfo, String> {
 }
 
 /// Sets the bar height in logical pixels (clamped to 20-64), saves it and resizes the bar.
-/// The UI calls it with its `--menubar-height` token on start; `barChanged` follows.
+/// The settings window calls it; `barChanged` and `settingsChanged` follow. The bar's CSS follows
+/// the saved height (v0.8: Rust holds it, the UI no longer pushes its token).
 #[tauri::command]
 #[specta::specta]
-pub fn set_bar_height(height: u32) -> Result<BarInfo, String> {
-    Ok(controller::get()
+pub fn set_bar_height(app: tauri::AppHandle, height: u32) -> Result<BarInfo, String> {
+    let info = controller::get()
         .ok_or("the bar is not running yet")?
-        .set_bar_height(height))
+        .set_bar_height(height);
+    settings::notify(&app);
+    Ok(info)
 }
 
 /// Moves the bar to another monitor (an id from `getBarInfo().monitors`) and remembers it.
 #[tauri::command]
 #[specta::specta]
-pub fn set_monitor(id: String) -> Result<BarInfo, String> {
-    controller::get()
+pub fn set_monitor(app: tauri::AppHandle, id: String) -> Result<BarInfo, String> {
+    let info = controller::get()
         .ok_or("the bar is not running yet")?
-        .set_monitor(&id)
+        .set_monitor(&id)?;
+    settings::notify(&app);
+    Ok(info)
 }
 
 /// The items in the bar right now. Call once when the UI starts; `itemsChanged` keeps it fresh.
@@ -241,6 +248,8 @@ pub fn set_item_bounds(registry: State<'_, Arc<Registry>>, bounds: Vec<ItemBound
     // The widths also tell the overflow split how much room each item takes.
     registry.note_widths(bounds.iter().map(|b| (b.id.clone(), b.width)));
     crate::placement::set_item_bounds(bounds);
+    // A report can arrive after an item moved to overflow: drop what is not in the bar.
+    crate::placement::retain_in_bar(&registry.ids_in_bar());
 }
 
 /// Saves the registry's layout in settings, if it changed since `before`.
@@ -249,7 +258,7 @@ fn save_layout(registry: &Registry, before: &crate::settings::ItemLayout) {
         if let Some(c) = controller::get() {
             // Read at write time, so two commands finishing together cannot save an older layout
             // over a newer one.
-            c.update_settings(|s| s.item_layout = registry.layout());
+            c.update_settings(|s| s.menu_bar.layout = registry.layout());
         }
     }
 }
@@ -752,7 +761,7 @@ pub fn set_brightness(id: String, level: f64) {
 #[specta::specta]
 pub fn get_tray_style() -> crate::settings::TrayStyle {
     crate::controller::get()
-        .map(|c| c.settings().tray_style)
+        .map(|c| c.settings().menu_bar.tray.style)
         .unwrap_or_default()
 }
 
@@ -767,8 +776,10 @@ pub fn set_tray_style(app: tauri::AppHandle, style: crate::settings::TrayStyle) 
     }
     crate::panel::close();
     if let Some(c) = crate::controller::get() {
-        c.update_settings(|s| s.tray_style = style);
+        c.update_settings(|s| s.menu_bar.tray.style = style);
     }
+    // The settings window shows this value too: it must hear about it (else its next save undoes it).
+    settings::notify(&app);
     let _ = crate::events::TrayStyleChanged(style).emit(&app);
 }
 
@@ -792,6 +803,7 @@ pub fn set_control_center_mode(app: tauri::AppHandle, mode: crate::settings::Mod
     }
     crate::panel::close();
     crate::system::set_control_center_mode(mode);
+    settings::notify(&app);
     let _ = crate::events::ControlCenterModeChanged(mode).emit(&app);
 }
 

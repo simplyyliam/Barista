@@ -41,11 +41,13 @@ struct State {
     measured: Tone,
     /// Debug builds only: a tone forced from the keyboard.
     forced: Option<Tone>,
+    /// The user's choice in the settings window (`None` = follow the wallpaper).
+    user: Option<Tone>,
 }
 
 impl State {
     fn effective(&self) -> Tone {
-        self.forced.unwrap_or(self.measured)
+        self.forced.or(self.user).unwrap_or(self.measured)
     }
 }
 
@@ -53,6 +55,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     // Light is also the page's default, so nothing flickers before the first measurement.
     measured: Tone::Light,
     forced: None,
+    user: None,
 });
 static SENDER: OnceLock<Sender<Msg>> = OnceLock::new();
 static APP: OnceLock<AppHandle> = OnceLock::new();
@@ -131,6 +134,54 @@ pub fn start(app: &AppHandle) {
     if let Err(e) = spawned {
         eprintln!("barista: could not start the appearance worker: {e}");
     }
+}
+
+/// The settings changed: applies the tone choice (`auto` follows the wallpaper again). Safe to call
+/// for any settings change; it only emits when the tone really changes.
+pub fn settings_changed(_app: &AppHandle) {
+    use crate::settings::ToneChoice as Choice;
+    let choice = crate::controller::get().map(|c| c.settings().menu_bar.appearance.tone);
+    let user = match choice {
+        Some(Choice::Light) => Some(Tone::Light),
+        Some(Choice::Dark) => Some(Tone::Dark),
+        _ => None,
+    };
+    let (before, after) = {
+        let mut s = lock();
+        let before = s.effective();
+        s.user = user;
+        (before, s.effective())
+    };
+    if before != after {
+        emit(after);
+    }
+}
+
+/// Whether menus and panels may use the blurred backdrop. `has_backdrop` is what the window got
+/// from DWM. Blur also needs the setting on `auto`, Windows' "Transparency effects" on, and no
+/// battery saver (which turns transparency off). Read each time a menu or panel opens, so no
+/// watcher is needed (ADR 0029).
+pub fn blur_allowed(has_backdrop: bool) -> bool {
+    use crate::settings::Blur;
+    if !has_backdrop {
+        return false;
+    }
+    let setting = crate::controller::get().map(|c| c.settings().menu_bar.appearance.blur);
+    if setting == Some(Blur::Off) {
+        return false;
+    }
+    #[cfg(windows)]
+    {
+        use crate::platform::windows::registry_watch::read_user_dword;
+        let key = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
+        if read_user_dword(key, "EnableTransparency") == Some(0) {
+            return false;
+        }
+        if crate::platform::windows::power::battery_saver_on() {
+            return false;
+        }
+    }
+    true
 }
 
 /// Tells the worker where the bar is. Cheap: it only sends a message.

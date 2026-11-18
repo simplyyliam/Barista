@@ -39,7 +39,14 @@ pub fn forward_changes(app: tauri::AppHandle, registry: std::sync::Arc<Registry>
             // Wait one frame, then send one snapshot: a client that updates 1000 times a
             // second makes the UI redraw at most ~60 times a second.
             tokio::time::sleep(std::time::Duration::from_millis(16)).await;
-            let _ = ItemsChanged(registry.snapshot()).emit(&app);
+            let snapshot = registry.snapshot();
+            let in_bar = snapshot
+                .iter()
+                .filter(|v| v.placement == crate::registry::layout::Placement::Bar)
+                .map(|v| v.id.clone())
+                .collect();
+            crate::placement::retain_in_bar(&in_bar);
+            let _ = ItemsChanged(snapshot).emit(&app);
             if let Some(menu) = crate::menu_window::get() {
                 menu.sync();
             }
@@ -251,3 +258,8 @@ pub struct TrayStyleChanged(pub crate::settings::TrayStyle);
 /// The control center is now ours or Windows' (a setting, see `setControlCenterMode`).
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct ControlCenterModeChanged(pub crate::settings::Mode);
+
+/// Any saved setting changed. Carries the whole settings tree (small), so the settings window
+/// and the bar just replace what they have.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct SettingsChanged(pub crate::settings::Settings);

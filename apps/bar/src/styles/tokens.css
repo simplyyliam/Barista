@@ -94,10 +94,12 @@
   /* --- Type --- */
   /* SF Pro is not licensed for Windows; Segoe UI Variable is the closest system font. One token,
      so a font setting can swap it later. */
-  --font-bar: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  /* `@theme inline` bakes the value into the class, so the settings override `--bar-font` and
+     `--bar-text-size` (set in use-apply-settings): the class then reads them at runtime. */
+  --font-bar: var(--bar-font, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
   /* macOS menu bar text is 13pt. line-height 1 + tracking -0.015em pull Segoe toward SF Pro.
      `text-bar` sets all three. */
-  --text-bar: 13px;
+  --text-bar: var(--bar-text-size, 13px);
   --text-bar--line-height: 1;
   --text-bar--letter-spacing: -0.015em;
   /* Weights: the app / brand name is bold, everything else regular (macOS). Named so they do not
@@ -186,4 +188,23 @@
   --color-menu-ring: var(--menu-ring);
   --color-menu-highlight: var(--menu-highlight);
   --color-menu-highlight-fg: var(--menu-highlight-fg);
+}
+
+/* v0.8 settings (ADR 0029). `useApplySettings` sets the data attributes and variables below. */
+
+/* Icon style "mono": every app and tray icon becomes a silhouette in the bar tone. */
+:root[data-icon-style="mono"] [data-bar-root] img {
+  filter: brightness(0) invert(1);
+}
+:root[data-icon-style="mono"][data-tone="light"] [data-bar-root] img,
+:root[data-icon-style="mono"]:not([data-tone]) [data-bar-root] img {
+  filter: brightness(0);
+}
+
+/* Background "solid": a plate in the bar tone, --bar-bg-opacity strong. */
+:root[data-bar-background="solid"] [data-bar-root] {
+  background: color-mix(in srgb, #f4f4f4 var(--bar-bg-opacity, 100%), transparent);
+}
+:root[data-bar-background="solid"][data-tone="dark"] [data-bar-root] {
+  background: color-mix(in srgb, #1c1c1e var(--bar-bg-opacity, 100%), transparent);
 }

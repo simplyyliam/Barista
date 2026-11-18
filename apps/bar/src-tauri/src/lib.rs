@@ -17,6 +17,7 @@ mod platform;
 mod radius;
 mod registry;
 mod settings;
+mod settings_window;
 mod system;
 mod tray;
 mod window_radius;
@@ -118,6 +119,20 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::media_next,
             commands::media_previous,
             commands::get_theme_mode,
+            commands::settings::get_settings,
+            commands::settings::open_settings_window,
+            commands::settings::set_start_with_windows,
+            commands::settings::set_appearance,
+            commands::settings::set_menu_bar_items,
+            commands::settings::set_clock_prefs,
+            commands::settings::set_control_center_prefs,
+            commands::settings::set_behavior,
+            commands::settings::set_tray_prefs,
+            commands::settings::set_taskbar_auto_hide,
+            commands::settings::set_advanced,
+            commands::settings::reset_settings,
+            commands::settings::export_settings,
+            commands::settings::import_settings,
             commands::set_dark_mode
         ])
         .events(collect_events![
@@ -138,6 +153,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::BatteryChanged,
             events::VolumeChanged,
             events::TrayStyleChanged,
+            events::SettingsChanged,
             events::ControlCenterModeChanged,
             events::BrightnessChanged,
             events::ThemeModeChanged,
@@ -176,7 +192,7 @@ fn open_radius_test_windows(app: &tauri::AppHandle) -> Result<(), Box<dyn std::e
     use tauri::{WebviewUrl, WebviewWindowBuilder};
     for (label, title, mode) in [
         (
-            "settings",
+            "radius-test-settings",
             "barista-test-settings",
             window_radius::Mode::Tracked,
         ),
@@ -240,7 +256,8 @@ pub fn run() {
             let registry = Arc::new(registry::Registry::new());
             // The saved order, pins and collapsed flag, before the first item arrives.
             if let Some(c) = controller::get() {
-                registry.set_layout(c.settings().item_layout);
+                registry.set_layout(c.settings().menu_bar.layout);
+                registry.set_hide_windows_icons(c.settings().menu_bar.tray.hide_windows_icons);
             }
             app.manage(registry.clone());
             // Open the pipe before the windows and services are set up (they take well over a
@@ -254,6 +271,10 @@ pub fn run() {
             system::init(app.handle());
             #[cfg(windows)]
             tray::init(registry.clone());
+            // For the memory bench: no pipe command or simulated click opens the settings window.
+            if std::env::var_os("BARISTA_OPEN_SETTINGS").is_some() {
+                settings_window::open(app.handle());
+            }
             events::forward_changes(app.handle().clone(), registry);
             Ok(())
         })

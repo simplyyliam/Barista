@@ -101,7 +101,7 @@ pub fn control_center_active() -> bool {
 
 pub fn control_center_mode() -> crate::settings::Mode {
     crate::controller::get()
-        .map(|c| c.settings().control_center_mode)
+        .map(|c| c.settings().advanced.control_center)
         .unwrap_or_default()
 }
 
@@ -109,7 +109,7 @@ pub fn control_center_mode() -> crate::settings::Mode {
 pub fn set_control_center_mode(mode: crate::settings::Mode) {
     use crate::settings::Mode;
     if let Some(c) = crate::controller::get() {
-        c.update_settings(|s| s.control_center_mode = mode);
+        c.update_settings(|s| s.advanced.control_center = mode);
     }
     let gate = GATE.lock().unwrap_or_else(|e| e.into_inner());
     CONTROL_CENTER_ACTIVE.store(mode == Mode::Barista, std::sync::atomic::Ordering::Relaxed);

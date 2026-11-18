@@ -67,12 +67,25 @@ pub fn set(id: String, percent: u8) {
     }
 }
 
+/// Is the laptop panel one of the screens in use? Unknown ids (no PnP id, nothing enumerated) count as
+/// yes, so an odd setup keeps its slider instead of losing it.
+fn internal_in_use(pnp: &str, on_desktop: &[String]) -> bool {
+    pnp.is_empty() || on_desktop.is_empty() || on_desktop.iter().any(|id| id == pnp)
+}
+
 /// Builds the list from what is known and hands it on.
 fn publish(on_change: fn(Vec<RawDisplay>)) {
     let mut list = Vec::new();
+    // Read before the lock: it asks Windows. A closed lid takes the laptop panel off the desktop, and
+    // then the slider must drive the external monitor, so the panel is left out of the list.
+    let on_desktop = ddc::desktop_pnp_ids();
     {
         let shared = SHARED.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some((percent, _)) = &shared.internal {
+        if let Some((percent, _)) = shared
+            .internal
+            .as_ref()
+            .filter(|(_, pnp)| internal_in_use(pnp, &on_desktop))
+        {
             list.push(RawDisplay {
                 id: INTERNAL_ID.into(),
                 name: "Built-in display".into(),
@@ -196,5 +209,19 @@ pub fn start(on_change: fn(Vec<RawDisplay>)) {
         });
     if let Err(e) = spawned {
         eprintln!("barista: could not start the brightness thread: {e}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::internal_in_use;
+
+    #[test]
+    fn a_closed_lid_leaves_the_panel_out() {
+        let external = vec!["DEL4321".to_string()];
+        assert!(!internal_in_use("BOE0A1B", &external));
+        assert!(internal_in_use("BOE0A1B", &["BOE0A1B".to_string(), "DEL4321".to_string()]));
+        assert!(internal_in_use("", &external));
+        assert!(internal_in_use("BOE0A1B", &[]));
     }
 }

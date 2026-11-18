@@ -27,7 +27,7 @@ Save this as `index.js` and run `node index.js`:
 ```js
 import * as BA from "@baristabar/sdk"
 
-// 1. Connect and name your app: the bar shows the name in tooltips.
+// 1. Connect and name your app (`appName`): the bar shows it in tooltips and in Settings > Connected Apps.
 await BA.connect({ appName: "Clock" })
 
 // 2. Create an item.
@@ -68,13 +68,15 @@ An icon is PNG or SVG bytes, an icon from Hugeicons or Lucide, or a `data:` URL 
 | `BA.connect(options?)`          | Connects once and shares the connection. Returns a `StatusBar`.       |
 | `BA.StatusBar.isAvailable()`    | `true` if the bar is running right now. Resolves to `false`, never throws. |
 | `BA.StatusItem.create(options)` | Adds an item. Options: `id`, `icon?`, `label?`, `tooltip?`.           |
-| `item.setIcon(icon)`            | New icon (PNG/SVG bytes or `data:` URL). `""` removes it.             |
+| `item.ready`                    | A promise: resolves when the bar accepted the item, rejects with a `BarError` if it refused it. |
+| `item.setIcon(icon)`            | New icon (PNG/SVG bytes, SVG text, an icon object or `data:` URL). `""` removes it. |
 | `item.setLabel(text)`           | New label. `""` removes it.                                           |
 | `item.setTooltip(text)`         | New tooltip. `""` removes it.                                         |
 | `item.setVisible(boolean)`      | Hide or show without removing.                                        |
 | `item.remove()`                 | Takes the item out of the bar.                                        |
 | `item.setMenu(menu \| null)`    | Gives the item a menu (a `BA.Menu` or a template). `null` removes it. |
 | `BA.Menu.fromTemplate(t)`       | Builds and checks a menu. `menu.getItemById(id)` finds an entry.      |
+| `item.updateMenuItem(id, changes)` | Changes one entry (`label`, `enabled`, `checked`, `visible`) and sends the menu again. |
 | `item.setPopover(opts \| null)` | Gives the item a popover: your own window under the icon.             |
 | `item.on("click", fn)`          | `fn({ button, anchor? })` when the user clicks (middle click, or no menu or popover). |
 | `item.on("open" \| "close", fn)` | Right before a menu or popover shows, and when it closes.            |
@@ -156,8 +158,12 @@ item.setMenu([
   leave out `label`. A `quit` entry without `click` removes your items and ends the process,
   unless you listen to `bar.on("quit")`.
 - `accelerator` is shown as text only (`CmdOrCtrl` becomes `Ctrl`); it is not a hotkey.
-- At most 3 levels deep and 50 entries in total; ids unique. Changed an entry? Call
-  `item.setMenu(menu)` again.
+- At most 3 levels deep and 50 entries in total; ids unique. Changed an entry? Give it an `id` and
+  call `item.updateMenuItem("id", { label: "Resume", enabled: true })`.
+- A `checkbox` entry's `checked` is already mirrored on the entry (`menu.getItemById("sounds")?.checked`);
+  the `{ checked }` in the click event is optional, so use `checked ?? !entry.checked` if you read it.
+- A click opens the menu on the left button, so an item cannot have a left click action and a menu at the
+  same time. Items that must toggle on one click (a mic mute) skip the menu.
 
 ## Icons
 
@@ -222,7 +228,7 @@ Electron.
 ## Rules
 
 - **Item ids**: 1 to 64 characters from `a-z 0-9 - _ .`, unique in your app.
-- **At most 8 items** per app. **Labels** up to 128 characters, **tooltips** up to 512.
+- **At most 8 items** per app. **Labels** up to 128 characters (a longer one throws a `TypeError` at the call), **tooltips** up to 512.
 - **Icons**: an icon object, PNG (at most 1024x1024 pixels) or SVG, up to 256 KB. The bar is 24 px high and icons stay within 22: see "Icons".
 - A bad argument throws right at the call (nothing is sent). Anything the bar refuses later
   arrives through `on("error")`.
