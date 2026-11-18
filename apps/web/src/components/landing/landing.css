@@ -235,12 +235,10 @@
 .sl .tour__nav button:hover,.sl .tour__close:hover{background:rgba(255,255,255,.18)}
 .sl .tour__list{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
 .sl .tour__pills{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
-.sl .tour__pill{background:rgba(255,255,255,.07);max-width:100%;overflow:hidden}
+.sl .tour__pill{background:rgba(255,255,255,.07);max-width:100%}
 .sl .tour__pill[data-active="true"]{background:rgba(255,255,255,.13);width:100%}
 .sl .tour__pillbtn{display:flex;align-items:center;gap:12px;background:none;border:0;color:#fff;font:inherit;font-size:18px;font-weight:600;letter-spacing:-.02em;padding:16px 24px 16px 18px;cursor:pointer;text-align:left}
 .sl .tour__plus{display:grid;place-items:center;opacity:.9}
-.sl .tour__reveal{overflow:hidden;display:flex;align-items:flex-start}
-.sl .tour__reveal[data-origin="bottom"]{align-items:flex-end}
 .sl .tour__text{margin:0;padding:0 24px 20px 52px;font-size:16px;line-height:1.55;color:rgba(255,255,255,.6)}
 .sl .tour__media{position:relative;aspect-ratio:16/11;border-radius:30px;overflow:hidden;background:#111}
 .sl .tour__slot{position:absolute;inset:0}

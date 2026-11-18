@@ -37,22 +37,29 @@ function PlusIcon() {
 
 export function Explorer({ onClose, modal = false }: { onClose?: () => void; modal?: boolean }) {
   const reduce = useReducedMotion()
-  const [active, setActive] = useState(0)
-  // Which edge the open pill grows from: picking a feature above the open one grows it from
-  // its bottom edge, picking one below grows it from its top edge. The first feature is always "above".
+  // `open` is the expanded pill (none at the start). `shown` is the feature whose media is on screen.
+  const [open, setOpen] = useState<number | null>(null)
+  const [shown, setShown] = useState(0)
+  // Which edge the text comes in from: picking a feature above the open one comes from the bottom,
+  // below comes from the top. The first feature always counts as "above".
   const [origin, setOrigin] = useState<"top" | "bottom">("top")
   const dir = useRef(1)
-  const current = useRef(0)
   const t = reduce ? { duration: 0 } : spring
 
-  const go = useCallback((next: number) => {
-    const n = (next + FEATURES.length) % FEATURES.length
-    if (n === current.current) return
-    dir.current = n > current.current ? 1 : -1
-    setOrigin(n < current.current ? "bottom" : "top")
-    current.current = n
-    setActive(n)
-  }, [])
+  const go = useCallback(
+    (next: number) => {
+      const n = (next + FEATURES.length) % FEATURES.length
+      if (n === open) {
+        setOpen(null)
+        return
+      }
+      dir.current = n > shown ? 1 : -1
+      setOrigin(n === 0 || (open !== null && n < open) ? "bottom" : "top")
+      setOpen(n)
+      setShown(n)
+    },
+    [open, shown],
+  )
 
   useEffect(() => {
     if (!modal || !onClose) return
@@ -61,15 +68,15 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
     return () => window.removeEventListener("keydown", onKey)
   }, [modal, onClose])
 
-  const f = FEATURES[active] as Feature
+  const f = FEATURES[shown] as Feature
   const d = dir.current
 
   return (
     <div
       className={modal ? "tour tour--modal" : "tour"}
       onKeyDown={(e) => {
-        if (e.key === "ArrowDown") { e.preventDefault(); go(active + 1) }
-        if (e.key === "ArrowUp") { e.preventDefault(); go(active - 1) }
+        if (e.key === "ArrowDown") { e.preventDefault(); go(open === null ? 0 : shown + 1) }
+        if (e.key === "ArrowUp") { e.preventDefault(); go(open === null ? FEATURES.length - 1 : shown - 1) }
       }}
     >
       {onClose && (
@@ -80,36 +87,28 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
 
       <div className="tour__side">
         <div className="tour__nav" aria-label="Step through features">
-          <button type="button" onClick={() => go(active - 1)} aria-label="Previous feature"><Chevron up /></button>
-          <button type="button" onClick={() => go(active + 1)} aria-label="Next feature"><Chevron /></button>
+          <button type="button" onClick={() => go(open === null ? FEATURES.length - 1 : shown - 1)} aria-label="Previous feature"><Chevron up /></button>
+          <button type="button" onClick={() => go(open === null ? 0 : shown + 1)} aria-label="Next feature"><Chevron /></button>
         </div>
         <div className="tour__list">
           <ul className="tour__pills">
             {FEATURES.map((x, i) => (
-              <motion.li key={x.id} layout transition={t} className="tour__pill" data-active={i === active} style={{ borderRadius: 32 }}>
-                <button type="button" className="tour__pillbtn" aria-expanded={i === active} onClick={() => go(i)}>
-                  <motion.span className="tour__plus" animate={{ rotate: i === active ? 45 : 0 }} transition={t}><PlusIcon /></motion.span>
+              <motion.li key={x.id} layout transition={t} className="tour__pill" data-active={i === open} style={{ borderRadius: 32 }}>
+                <motion.button layout="position" transition={t} type="button" className="tour__pillbtn" aria-expanded={i === open} onClick={() => go(i)}>
+                  <motion.span className="tour__plus" animate={{ rotate: i === open ? 45 : 0 }} transition={t}><PlusIcon /></motion.span>
                   {x.label}
-                </button>
+                </motion.button>
                 <AnimatePresence initial={false}>
-                  {i === active && (
-                    <motion.div
-                      className="tour__reveal"
-                      data-origin={origin}
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={reduce ? { duration: 0 } : { ...spring, opacity: { duration: 0.18 } }}
+                  {i === open && (
+                    <motion.p
+                      layout="position"
+                      className="tour__text"
+                      initial={{ opacity: 0, y: reduce ? 0 : origin === "bottom" ? 12 : -12 }}
+                      animate={{ opacity: 1, y: 0, transition: reduce ? { duration: 0 } : { ...spring, opacity: { duration: 0.2, delay: 0.05 } } }}
+                      exit={{ opacity: 0, transition: { duration: 0 } }}
                     >
-                      <motion.p
-                        className="tour__text"
-                        initial={{ y: reduce ? 0 : origin === "bottom" ? 14 : -14 }}
-                        animate={{ y: 0 }}
-                        transition={t}
-                      >
-                        {x.text}
-                      </motion.p>
-                    </motion.div>
+                      {x.text}
+                    </motion.p>
                   )}
                 </AnimatePresence>
               </motion.li>
@@ -121,7 +120,7 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
       <motion.div
         className="tour__media"
         onPanEnd={(_, info) => {
-          if (Math.abs(info.offset.y) > 50) go(current.current + (info.offset.y < 0 ? 1 : -1))
+          if (Math.abs(info.offset.y) > 50) go(shown + (info.offset.y < 0 ? 1 : -1))
         }}
         style={{ touchAction: "pan-x" }}
       >
