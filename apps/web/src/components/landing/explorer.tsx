@@ -79,9 +79,6 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
           <button type="button" onClick={() => go(active + 1)} aria-label="Next feature"><Chevron /></button>
         </div>
         <div className="tour__list">
-          <div className="tour__intro">
-            <b>Barista.</b> One bar for your tray, notifications and controls. Pick a feature to see it in action.
-          </div>
           <ul className="tour__pills">
             {FEATURES.map((x, i) => (
               <motion.li key={x.id} layout transition={t} className="tour__pill" data-active={i === active} style={{ borderRadius: 32 }}>
