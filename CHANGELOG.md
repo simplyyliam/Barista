@@ -6,6 +6,55 @@ All notable changes to the Barista app are listed here. The SDK has its own chan
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-18
+
+Barista now has a settings window, so you can shape the bar the way you like, plus first apps for mic mute, now playing and a system monitor.
+
+### Added
+
+- **A settings window.** Click the Barista logo in the bar to open it. It has pages for General, Menu bar, Connected Apps, Advanced and About (which shows what's new).
+- **Edit your bar by dragging.** The menu bar and control center previews are live: drag items to reorder them, drag one off to hide it, and add hidden ones back.
+- **Bar options.** Choose the bar height, which monitor it sits on, the text size and font, and whether icons are coloured. The bar and control center follow your choices right away.
+- **Start with Windows.** Barista can launch when you sign in.
+- **Hide the Windows taskbar.** Turn on taskbar auto-hide or hide the Windows tray from the settings.
+- **Switch back to Windows any time.** Notifications, the control center and the tray each have a switch: use Barista's version or open Windows' own.
+- **Blur and full-screen options.** Menus can be see-through or solid, and the bar can hide while an app is full screen.
+- **Mic mute, now playing and a system monitor.** Three small apps that add their own items to the bar. Mic mute toggles your microphone, now playing shows what's playing with controls, and the system monitor shows CPU and memory with a popover of live graphs.
+- **Export and import your settings.** Move your setup to another computer, or reset everything to the defaults.
+
+### Changed
+
+- **Your bar settings are kept when you update.** Older settings files are converted to the new layout on first start.
+- **Barista uses less memory.** About 140 MB now, down from about 145 MB at the end of v0.7 (and about 156 MB before this release's memory work).
+- Each window now loads only the code it needs.
+
+### Fixed
+
+- Brightness no longer moves the laptop's screen instead of your external monitor when the laptop lid is closed.
+- Tray icons no longer fight with TaskbarX: Barista waits and leaves the taskbar alone while it runs.
+- Switching the tray between Barista and Windows no longer lets old icons come back.
+- Resetting or importing settings now also applies start with Windows, the tray choices and hide on full screen. Importing a file that isn't a Barista settings file is refused instead of wiping your settings.
+
+### Known issues
+
+- Windows SmartScreen may warn that the installer is from an unknown publisher, because it isn't code-signed yet. Click "More info", then "Run anyway".
+- No automatic updates yet. To get a newer version, download its installer from the GitHub Releases page and run it.
+- Barista uses about 140 MB of memory and menus take about 45 to 55 ms to appear, because the panel and menu windows are ready in the background. A release for speed and memory is planned.
+- The mic mute, now playing and system monitor apps are separate programs you start yourself; the system monitor uses a few hundred MB while it runs.
+- Now playing hasn't been tested with a lot of different players, and settings haven't been tested with a second monitor or on Windows 10.
+- What an app does with a tray click is up to the app: some only react to a double click, and a few sometimes show nothing.
+- Some programs give their tray icon a different number each time they start, so their saved place and pin can be forgotten after a restart.
+- Tested on Windows 11 only. In testing, restarting Explorer while an app that tweaks the taskbar was running closed Barista; start it again if that happens.
+
+### Privacy
+
+- Barista sends nothing over the internet. It doesn't check for updates yet.
+- Your notifications, Wi-Fi networks, battery, volume, microphone state and what's playing are read on this computer only and never sent anywhere.
+- Apps that add items, menus or popovers talk to the bar only on this computer; nothing leaves the machine. The "are you still there" checks between the bar and apps stay on this computer too.
+- The bar looks at the wallpaper behind it only to pick light or dark text. This happens on your computer, and the wallpaper is never sent anywhere.
+- Tray icons (their picture and tooltip) are read on this computer only and never sent anywhere. Your clicks on them go straight to the app they belong to, on this computer.
+- Your settings, pins, order and collapsed state are saved in the bar's settings file on this computer. Exporting settings gives you a file; nothing is uploaded.
+
 ## [0.7.0] - 2026-11-16
 
 Tray icons now work from the bar: click them, right-click for their menu, pin your favourites and drag them into order.
