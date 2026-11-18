@@ -68,7 +68,7 @@ mod worker {
             return;
         }
         if let Some(name) = tray_host::foreign_host() {
-            eprintln!("[tray] {name} already hosts the tray window: not starting ours");
+            eprintln!("[tray] {name} already hosts the tray window or edits the taskbar: not starting ours");
             return;
         }
         let (tx, rx) = sync_channel(QUEUE);

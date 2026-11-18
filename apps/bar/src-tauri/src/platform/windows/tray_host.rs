@@ -208,9 +208,49 @@ fn tray_windows() -> Vec<HWND> {
     found
 }
 
-/// The name of another program that already acts as the tray host (StartAllBack, Seelen UI, ...),
-/// if there is one. Explorer itself does not count. We back off instead of fighting it.
+/// Programs that rewrite the taskbar's windows. They look the taskbar up with
+/// `FindWindow("Shell_TrayWnd")` and then expect its children (the task list, the tray) inside, which
+/// our hidden window does not have, so they fail or take Explorer down with them (seen with TaskbarX).
+/// Lower case, without `.exe`.
+const TASKBAR_TWEAKERS: &[&str] = &["taskbarx", "taskbarx configurator", "taskbarxi"];
+
+/// The first running program from `TASKBAR_TWEAKERS`, if any. One process snapshot, taken when the
+/// host would start (not a timer).
+fn taskbar_tweaker() -> Option<String> {
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+    };
+    // SAFETY: a plain snapshot; the entry is ours and its size is set as the API asks.
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?;
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+        let mut found = None;
+        let mut more = Process32FirstW(snapshot, &mut entry).is_ok();
+        while more {
+            let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
+            let file = String::from_utf16_lossy(&entry.szExeFile[..len]).to_lowercase();
+            let name = file.strip_suffix(".exe").unwrap_or(&file);
+            if TASKBAR_TWEAKERS.contains(&name) {
+                found = Some(name.to_string());
+                break;
+            }
+            more = Process32NextW(snapshot, &mut entry).is_ok();
+        }
+        let _ = CloseHandle(snapshot);
+        found
+    }
+}
+
+/// The name of another program that already acts as the tray host (StartAllBack, Seelen UI, ...) or
+/// that would break on our host window (TaskbarX), if there is one. Explorer itself does not count.
+/// We back off instead of fighting it.
 pub fn foreign_host() -> Option<String> {
+    if let Some(name) = taskbar_tweaker() {
+        return Some(name);
+    }
     let ours = OURS.load(Ordering::Relaxed);
     tray_windows()
         .into_iter()
