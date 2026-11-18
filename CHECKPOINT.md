@@ -29,7 +29,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   editor's `Glyph`/`pillClass`). Also: text size and font now reach the bar (`--bar-text-size`, `--bar-font` in `tokens.css`; `@theme
   inline` had baked the values in), tray host backs off while TaskbarX runs (guess, untested with TaskbarX), brightness list drops the
   laptop panel with the lid closed (untested with a real lid). Bench: bar unchanged (156 MB private, 0.08% idle, `docs/perf/0.8.md`).
-  Memory flags (ADR 0033, `--in-process-gpu`, no site isolation): bar 156 to 143 MB private, the settings window costs about 6 MB (148 MB after closing, 154 MB open);
+  Memory flags (ADR 0033, `--in-process-gpu`, no site isolation): bar 156 to 143 MB private, the settings window costs about 28 MB on the Menu bar page, 6 MB on About, and is given back on close (148 MB);
   `NetworkServiceInProcess` tried and dropped (no effect). Release checks 2026-11-18: `/code-review medium` (10 findings: import check,
   bounded helper read and a comment fixed; the rest left, see below), `/security-review` (no findings), end to end (item appears, gone
   8 s after the client is killed; menu click not exercised).

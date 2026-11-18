@@ -19,7 +19,7 @@ Add to `additionalBrowserArgs` (`tauri.conf.json`, repeated by every extra windo
 ## Consequences
 
 - Measured on the release build (private working set, same number as `pnpm bench`): bar alone 156 to 143 MB (bench, two runs
-  143 and 144), working set sum 541 to 456 MB, processes 8 to 6. The settings window itself costs about 6 MB once the bar has settled (154 MB open on About, 148.5 MB after closing).
+  143 and 144), working set sum 541 to 456 MB, processes 8 to 6. The settings window costs about 28 MB on the Menu bar page and about 6 MB on About, and gives it back on close (148.5 MB).
 - Still over the 120 MB budget; v0.4b accepted 130 MB. The next step would be fewer or lazier hidden windows, not more flags.
 - Menu click to window visible moved from 43 to 48 ms median in one run and 50 ms in another: inside the run-to-run noise
   (43 to 50 ms across builds), but worth watching.
