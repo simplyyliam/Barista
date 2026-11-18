@@ -271,6 +271,10 @@ pub fn run() {
             system::init(app.handle());
             #[cfg(windows)]
             tray::init(registry.clone());
+            // For the memory bench: no pipe command or simulated click opens the settings window.
+            if std::env::var_os("BARISTA_OPEN_SETTINGS").is_some() {
+                settings_window::open(app.handle());
+            }
             events::forward_changes(app.handle().clone(), registry);
             Ok(())
         })
