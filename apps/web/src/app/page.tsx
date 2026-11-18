@@ -1,5 +1,6 @@
 import { Footer } from "@/components/landing/footer"
 import { Nav } from "@/components/landing/nav"
+import { TourSection } from "@/components/landing/explorer"
 import { RevealController } from "@/components/landing/reveal"
 import {
   Faq, Features, FinalCta, Hero, Light, Pricing, Sdk, Statement, Twin,
@@ -13,6 +14,7 @@ export default function Home() {
         <Hero />
         <Statement />
         <Features />
+        <TourSection />
         <Sdk />
         <Light />
         <Twin />
