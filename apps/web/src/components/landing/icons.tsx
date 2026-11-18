@@ -22,6 +22,27 @@ export function Plus() {
   )
 }
 
-export function AppIcon({ large = false }: { large?: boolean }) {
-  return <span className={large ? "appicon appicon--lg" : "appicon"} aria-hidden="true" />
+// The mascot: a coffee bean with two eyes. Eyes follow the cursor (see reveal.tsx).
+export function Bean({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <span className={`bean ${className}`} style={style} aria-hidden="true">
+      <svg viewBox="0 0 140 160">
+        <ellipse cx="70" cy="82" rx="52" ry="68" transform="rotate(-14 70 82)" fill="var(--accent)" />
+        <path d="M70 18c-22 28 22 52-2 78s10 40-8 62" transform="rotate(-14 70 82)" fill="none" stroke="#fff" strokeOpacity=".28" strokeWidth="5" strokeLinecap="round" />
+        <rect x="38" y="62" width="24" height="38" rx="12" fill="#fff" />
+        <rect x="78" y="62" width="24" height="38" rx="12" fill="#fff" />
+        <circle className="pupil" cx="50" cy="84" r="6.5" fill="#0a0a0a" />
+        <circle className="pupil" cx="90" cy="84" r="6.5" fill="#0a0a0a" />
+      </svg>
+    </span>
+  )
+}
+
+export function BeanGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <ellipse cx="12" cy="12" rx="6.2" ry="9" transform="rotate(-20 12 12)" fill="#fff" />
+      <path d="M11 4.5c-3 3.5 3 6 0 9" transform="rotate(-20 12 12)" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
 }

@@ -17,8 +17,8 @@ export default function Home() {
         <Light />
         <Twin />
         <Pricing />
-        <FinalCta />
         <Faq />
+        <FinalCta />
       </main>
       <Footer />
       <RevealController />
