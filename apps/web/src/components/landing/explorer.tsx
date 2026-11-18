@@ -1,7 +1,7 @@
 "use client"
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
 // Prototype of the "highlights explorer" (v1.0 website). Built from the public pattern, no code copied.
 // Put a real clip in `video` (and a `poster`) to replace the placeholder slot.
@@ -16,6 +16,7 @@ export const FEATURES: Feature[] = [
   { id: "dev", label: "For developers", text: "Add a status item with a few lines of the SDK. Send a menu or open your own popover." },
 ]
 
+const PILL_H = 56
 const spring = { type: "spring", stiffness: 720, damping: 50, mass: 0.8 } as const
 
 function Chevron({ up }: { up?: boolean }) {
@@ -45,6 +46,16 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
   const [origin, setOrigin] = useState<"top" | "bottom">("top")
   const dir = useRef(1)
   const t = reduce ? { duration: 0 } : spring
+
+  // Closed pills hug their label, so measure each one: width and height are then animated for real
+  // (not squashed with a transform), which keeps the corners round the whole way.
+  const labels = useRef<(HTMLButtonElement | null)[]>([])
+  const [widths, setWidths] = useState<number[]>([])
+  useLayoutEffect(() => {
+    const measure = () => setWidths(labels.current.map((b) => b?.offsetWidth ?? 0))
+    measure()
+    void document.fonts?.ready.then(measure)
+  }, [])
 
   const go = useCallback(
     (next: number) => {
@@ -93,19 +104,25 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
         <div className="tour__list">
           <ul className="tour__pills">
             {FEATURES.map((x, i) => (
-              <motion.li key={x.id} layout transition={t} className="tour__pill" data-active={i === open} style={{ borderRadius: 32 }}>
-                <motion.button layout="position" transition={t} type="button" className="tour__pillbtn" aria-expanded={i === open} onClick={() => go(i)}>
+              <motion.li
+                key={x.id}
+                className="tour__pill"
+                initial={false}
+                animate={{ height: i === open ? "auto" : PILL_H, width: i === open ? "100%" : widths[i] || "auto" }}
+                transition={t}
+                style={{ borderRadius: PILL_H / 2 }}
+              >
+                <button ref={(el) => { labels.current[i] = el }} type="button" className="tour__pillbtn" aria-expanded={i === open} onClick={() => go(i)}>
                   <motion.span className="tour__plus" animate={{ rotate: i === open ? 45 : 0 }} transition={t}><PlusIcon /></motion.span>
                   {x.label}
-                </motion.button>
+                </button>
                 <AnimatePresence initial={false}>
                   {i === open && (
                     <motion.p
-                      layout="position"
                       className="tour__text"
                       initial={{ opacity: 0, y: reduce ? 0 : origin === "bottom" ? 12 : -12 }}
                       animate={{ opacity: 1, y: 0, transition: reduce ? { duration: 0 } : { ...spring, opacity: { duration: 0.2, delay: 0.05 } } }}
-                      exit={{ opacity: 0, transition: { duration: 0 } }}
+                      exit={{ opacity: 0, transition: { duration: 0.08 } }}
                     >
                       {x.text}
                     </motion.p>
