@@ -23,6 +23,15 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Bar settings window pieces: `widgets/settings`, `features/settings/*` (pages, editors, `sortable.tsx`), store
   `shared/stores/settings.ts`, `shared/hooks/use-apply-settings.ts`. Liam will rework the settings frontend himself.
 
+- **Settings window redesign (2026-11-18, `UI: full` for the settings window, same branch):** 860x600, one 13px scale, no separators,
+  mono sidebar icons, slim sliders, sliding segments, dark shadcn selects, black scroll fades (`scroll-fade.tsx`), previews closed by
+  default with the view pills inside, About = What's New with an animated banner (`features/settings/about/`, scenes use the
+  editor's `Glyph`/`pillClass`). Also: text size and font now reach the bar (`--bar-text-size`, `--bar-font` in `tokens.css`; `@theme
+  inline` had baked the values in), tray host backs off while TaskbarX runs (guess, untested with TaskbarX), brightness list drops the
+  laptop panel with the lid closed (untested with a real lid). Bench: bar unchanged (156 MB private, 0.08% idle, `docs/perf/0.8.md`).
+  **Open:** settings window memory not measured (needs a real click to open it), 8 h soak, blur/solid not seen failing (applies on
+  the next menu open). Liam says Barista is closed source, freemium, $5 once for Pro (memory `business-model-freemium`).
+
 - **v0.7.0 shipped** (tag `v0.7.0` on the merge of PR #42, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.7 are done; notes in `docs/release/history/` (local only, v0.7 in `v0.7-checkpoint.md`: tray clicks, pin / order / collapse, new for the UI already wired). Next: v0.8 "Daily driver" (`releases/v0.8.md`; add every new `barista | windows` switch to its list).
 
 - **v0.6.0 shipped** (tag `v0.6.0` on the merge of PR #38, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.6 are done; notes in `docs/release/history/` (local only, v0.6 in `v0.6-checkpoint.md`: tray host, `source: app | tray`, `trayMode` / `trayStyle`, new for the UI already wired). Next: v0.7 "Tray, live" (`releases/v0.7.md`).
