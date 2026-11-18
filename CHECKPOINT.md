@@ -11,6 +11,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **Spec departures Liam confirmed (2026-11-13), do not "fix" them:** icon-only pills are 28px wide, the battery is
   `examples/battery`'s drawing, the hover is a 999px capsule.
 
+- **Landing page built** (branch `feature/landing-page`, sheet-landing style, `apps/web/src/components/landing/`). Screenshots are labelled
+  placeholders (`shot.tsx`); `DOWNLOAD_URL` in `site.ts` points at GitHub releases. Pro list says "coming soon" (not decided).
+
 ## Facts a new session needs
 
 - New for the UI (slice B, not wired): snapshots `getBrightness`, `getWifi`, `getBluetooth`, `getAirplaneMode`, `getHotspot`, `getOutputDevices`,
