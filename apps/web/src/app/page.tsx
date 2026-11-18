@@ -1,21 +1,32 @@
-// PLACEHOLDER: Liam designs and builds the real landing page.
-import Link from "next/link"
+import { Footer } from "@/components/landing/footer"
+import { Nav } from "@/components/landing/nav"
+// Hidden for v1 ("See it at work"). Bring it back with the import and the <TourSection /> line below.
+// import { TourSection } from "@/components/landing/explorer"
+import { RevealController } from "@/components/landing/reveal"
+import { SmoothScroll } from "@/components/landing/smooth-scroll"
+import {
+  Faq, Features, FinalCta, Hero, Light, Pricing, Sdk, Statement, Twin,
+} from "@/components/landing/sections"
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <h1 className="text-4xl font-semibold">Barista</h1>
-      <p className="text-muted-foreground">Your apps, served at the top.</p>
-      <button
-        type="button"
-        disabled
-        className="rounded-md bg-primary px-4 py-2 text-primary-foreground opacity-50"
-      >
-        Download
-      </button>
-      <Link href="/docs" className="text-sm underline">
-        Docs
-      </Link>
-    </main>
+    <div className="sl">
+      <Nav />
+      <main>
+        <Hero />
+        <Statement />
+        <Features />
+        {/* <TourSection /> */}
+        <Sdk />
+        <Light />
+        <Twin />
+        <Pricing />
+        <Faq />
+        <FinalCta />
+      </main>
+      <Footer />
+      <RevealController />
+      <SmoothScroll />
+    </div>
   )
 }

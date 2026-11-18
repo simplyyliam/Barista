@@ -1,5 +1,5 @@
 // Guards the website setup: static export stays on and the two placeholder docs pages exist.
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 
@@ -8,6 +8,13 @@ const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.m
 describe("website", () => {
   it("is a static export", () => {
     expect(read("./next.config.mjs")).toMatch(/output:\s*"export"/)
+  })
+
+  it("never calls Barista open source (closed source, freemium)", () => {
+    const dir = fileURLToPath(new URL("./src/components/landing/", import.meta.url))
+    for (const file of readdirSync(dir)) {
+      expect(readFileSync(dir + file, "utf8").toLowerCase(), file).not.toContain("open source")
+    }
   })
 
   it.each([
