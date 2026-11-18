@@ -37,7 +37,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   menu and panel locks, legacy tray-style and control-center commands now emit `settingsChanged`, the `settings.ts` listener order.
   Left: `ids_in_bar` builds a full snapshot per bounds report (only on layout changes, not at idle; needs a registry change counter),
   `apply()` off the UI thread (probably fine: sync Tauri commands run on the main thread).
-  **Open:** bar still over the 120 MB budget (143 MB; 130 MB accepted). Measured where it goes: the hidden panel window is about 53 MB of it
+  **Memory decision (Liam, 2026-11-18): accept about 140 MB for v0.8.** Measured where it goes: the hidden panel window is about 53 MB of it
   (submenu 8 MB) and it is the cost of a fourth page, not of its content (unmounting routes saved nothing; one chunk per window saved
   about 3 MB, kept). Real savings need fewer windows (merge menu and submenu, panel with the menus): own ADR and release, see `docs/perf/0.8.md`, 8 h soak, version number still 0.7.0 while About says What's new in 0.8, blur/solid not seen
   failing (applies on the next menu open). Liam says Barista is closed source, freemium, $5 once for Pro (memory `business-model-freemium`).
