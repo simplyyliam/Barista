@@ -21,9 +21,9 @@ export function useApplySettings() {
     if (!look) return
     const root = document.documentElement
     // The font name is validated in Rust (letters, digits, space . - _), so quoting is enough.
-    if (look.font) root.style.setProperty("--font-bar", `"${look.font}", "Segoe UI Variable", system-ui, sans-serif`)
-    else root.style.removeProperty("--font-bar")
-    root.style.setProperty("--text-bar", `${look.fontSize}px`)
+    if (look.font) root.style.setProperty("--bar-font", `"${look.font}", "Segoe UI Variable", system-ui, sans-serif`)
+    else root.style.removeProperty("--bar-font")
+    root.style.setProperty("--bar-text-size", `${look.fontSize}px`)
     root.style.setProperty("--bar-bg-opacity", `${look.opacity}%`)
     root.dataset.iconStyle = look.iconStyle
     root.dataset.barBackground = look.background

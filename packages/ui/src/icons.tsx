@@ -45,6 +45,15 @@ export {
   GridViewIcon,
   ComputerTerminal01Icon,
   InformationCircleIcon,
+  Settings02Icon,
+  Link01Icon,
+  CodeIcon,
+  DashboardSquare01Icon,
+  ViewIcon,
+  ViewOffIcon,
+  ArrowDown01Icon,
+  Mic01Icon,
+  Activity01Icon,
 } from "@hugeicons/core-free-icons"
 
 // Lucide names clash with Hugeicons' style, so they get a "Lucide" prefix.

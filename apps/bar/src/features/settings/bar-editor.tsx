@@ -22,7 +22,7 @@ import { ActionButton, Row, Segmented } from "./ui"
 const nameOf = (id: string) => (isBuiltIn(id) ? BUILT_IN_NAMES[id] : id)
 
 /** What an item looks like in the preview: the real icons and text, with the saved clock format. */
-function Glyph({ id, pref, settings }: { id: BuiltInId; pref: BarItemPref_Serialize; settings: Settings }) {
+export function Glyph({ id, pref, settings }: { id: BuiltInId; pref: BarItemPref_Serialize; settings: Settings }) {
   switch (id) {
     case "brand":
       return <BrandLogo />
@@ -56,7 +56,7 @@ function Glyph({ id, pref, settings }: { id: BuiltInId; pref: BarItemPref_Serial
   }
 }
 
-const pillClass = (pref: BarItemPref_Serialize) => {
+export const pillClass = (pref: BarItemPref_Serialize) => {
   const iconOnly = pref.id !== "app-name" && pref.id !== "clock" && !(pref.id === "battery" && pref.display !== "icon")
   return cn(
     "flex h-[calc(var(--bar-h)-4px)] items-center gap-1.5 rounded-full text-bar-fg select-none",
@@ -125,7 +125,7 @@ function Pill({
  * change it below. Hidden items wait in a tray under the picture. Without a mouse: Tab to an item,
  * Space picks it up, arrows move it, Space drops it, Delete hides it.
  */
-export function BarEditor({ settings }: { settings: Settings }) {
+export function BarEditor({ settings, corner }: { settings: Settings; corner?: ReactNode }) {
   const bar = settings.menuBar
   const [selected, setSelected] = useState<string | null>(null)
   const strip = useRef<HTMLDivElement>(null)
@@ -203,9 +203,10 @@ export function BarEditor({ settings }: { settings: Settings }) {
             {zone(rightIds, (next) => save(leftIds, next), "gap-[2px]")}
           </div>
         </div>
-        <p className="absolute bottom-2.5 left-3.5 text-[11px] text-white/80 mix-blend-difference">
+        <p className="absolute right-3.5 bottom-2.5 text-[11px] text-white/80 mix-blend-difference">
           Drag to reorder. Drag off the bar to hide.
         </p>
+        {corner}
       </PreviewFrame>
 
       {hidden.length > 0 && (
@@ -219,7 +220,7 @@ export function BarEditor({ settings }: { settings: Settings }) {
       )}
 
       {current && isBuiltIn(current.id) && (
-        <div className="flex flex-col divide-y divide-white/[0.07] border-y border-white/[0.07]">
+        <div className="flex flex-col">
           <Row label={nameOf(current.id)} hint="Selected in the bar">
             <ActionButton onClick={() => moveSelected(-1)}>Move left</ActionButton>
             <ActionButton onClick={() => moveSelected(1)}>Move right</ActionButton>

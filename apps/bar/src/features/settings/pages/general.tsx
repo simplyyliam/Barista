@@ -10,7 +10,7 @@ export function GeneralPage({ settings }: { settings: Settings }) {
   const current = settings.general.monitor ?? info?.monitor.id ?? ""
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageTitle title="General" description="How Barista starts and where the bar lives." />
 
       <Group title="Startup">

@@ -1,5 +1,7 @@
-import { useState } from "react"
-import { AboutPage, AdvancedPage, ComingSoonPage, ConnectedAppsPage } from "@/features/settings/pages/other"
+import { useEffect, useState } from "react"
+import { ScrollFade } from "@/features/settings/scroll-fade"
+import { AboutPage } from "@/features/settings/pages/about"
+import { AdvancedPage, ComingSoonPage, ConnectedAppsPage } from "@/features/settings/pages/other"
 import { GeneralPage } from "@/features/settings/pages/general"
 import { MenuBarPage } from "@/features/settings/pages/menu-bar"
 import { pageOf, Sidebar } from "@/features/settings/sidebar"
@@ -16,16 +18,27 @@ export default function SettingsWindow() {
   const settings = useSettings()
   const [page, setPage] = useState<PageId>("menu-bar")
 
+  // Dropdowns render in a portal on <body>, outside this tree: the dark tokens must be on the root.
+  useEffect(() => {
+    document.documentElement.classList.add("dark")
+  }, [])
+
   return (
-    // `dark` gives the shadcn tokens their dark values for this window only. The window is opaque
-    // black (the bar's transparent page background does not apply here).
-    <div className="dark fixed inset-0 flex flex-col bg-black font-sans text-foreground select-none">
+    // The window is opaque black (the bar's transparent page background does not apply here).
+    <div className="fixed inset-0 flex flex-col bg-black font-sans text-foreground select-none">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <Sidebar current={page} onSelect={setPage} />
-        <main aria-label={pageOf(page).label} className="min-w-0 flex-1 overflow-y-auto px-10 pt-4 pb-12 [scrollbar-width:thin]">
-          <div className="mx-auto max-w-[820px]">{settings ? <Page id={page} settings={settings} /> : null}</div>
-        </main>
+        <ScrollFade
+          label={pageOf(page).label}
+          className="min-w-0 flex-1"
+          innerClassName="px-8 pt-2 pb-10"
+          fade="h-12"
+        >
+          <div key={page} className="mx-auto max-w-[600px]">
+            {settings ? <Page id={page} settings={settings} /> : null}
+          </div>
+        </ScrollFade>
       </div>
     </div>
   )

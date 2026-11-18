@@ -94,10 +94,12 @@
   /* --- Type --- */
   /* SF Pro is not licensed for Windows; Segoe UI Variable is the closest system font. One token,
      so a font setting can swap it later. */
-  --font-bar: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  /* `@theme inline` bakes the value into the class, so the settings override `--bar-font` and
+     `--bar-text-size` (set in use-apply-settings): the class then reads them at runtime. */
+  --font-bar: var(--bar-font, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
   /* macOS menu bar text is 13pt. line-height 1 + tracking -0.015em pull Segoe toward SF Pro.
      `text-bar` sets all three. */
-  --text-bar: 13px;
+  --text-bar: var(--bar-text-size, 13px);
   --text-bar--line-height: 1;
   --text-bar--letter-spacing: -0.015em;
   /* Weights: the app / brand name is bold, everything else regular (macOS). Named so they do not

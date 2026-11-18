@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { commands } from "@/shared/bindings"
 import { useItems } from "@/shared/hooks/use-items"
 import type { Settings } from "@/shared/stores/settings"
 import { actions } from "../actions"
-import { PageBadge } from "../sidebar"
-import { pageOf } from "../sidebar"
+import { PageIcon, pageOf } from "../sidebar"
 import type { PageId } from "../pages"
 import { ActionButton, Group, PageTitle, Row, SegmentedRow } from "../ui"
 
@@ -21,7 +20,7 @@ export function ConnectedAppsPage() {
   const tray = items.filter((item) => item.source === "tray").length
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageTitle
         title="Connected Apps"
         description="Apps that added something to the bar with the Barista SDK. They leave when the app quits."
@@ -79,7 +78,7 @@ export function AdvancedPage({ settings }: { settings: Settings }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageTitle
         title="Advanced"
         description="Let Windows do some things itself. Barista then stops its own work for that feature and opens the Windows version."
@@ -134,36 +133,16 @@ export function AdvancedPage({ settings }: { settings: Settings }) {
   )
 }
 
-export function AboutPage() {
-  const [version, setVersion] = useState("")
-  useEffect(() => {
-    void commands.getVersion().then(setVersion)
-  }, [])
-  return (
-    <div className="flex flex-col gap-6">
-      <PageTitle title="About" description="A macOS-style menu bar for Windows." />
-      <Group title="Barista">
-        <Row label="Version">
-          <span className="text-xs text-muted-foreground tabular-nums">{version || "..."}</span>
-        </Row>
-        <Row label="Open source" hint="Every library Barista uses is listed with its licence in CREDITS.md.">
-          <span />
-        </Row>
-      </Group>
-    </div>
-  )
-}
-
 /** Pages with nothing to set yet say which release brings them. */
 export function ComingSoonPage({ id }: { id: PageId }) {
   const page = pageOf(id)
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageTitle title={page.label} />
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/10 px-6 py-16 text-center">
-        <PageBadge page={page} size={44} />
-        <p className="text-[13px] text-foreground">Coming in {page.comingIn ?? "a later release"}</p>
-        <p className="max-w-80 text-xs text-muted-foreground">Nothing to set here yet.</p>
+      <div className="flex flex-col items-center gap-2 px-6 py-20 text-center text-muted-foreground/60">
+        <PageIcon page={page} size={28} />
+        <p className="text-[13px] text-foreground/80">Coming in {page.comingIn ?? "a later release"}</p>
+        <p className="max-w-80 text-xs">Nothing to set here yet.</p>
       </div>
     </div>
   )

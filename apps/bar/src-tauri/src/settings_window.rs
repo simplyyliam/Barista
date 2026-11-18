@@ -37,8 +37,8 @@ fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         // be black to the edge. The permissions are in capabilities/settings.json.
         .decorations(false)
         .background_color(tauri::window::Color(0, 0, 0, 255))
-        .inner_size(1052.0, 748.0)
-        .min_inner_size(820.0, 560.0)
+        .inner_size(860.0, 600.0)
+        .min_inner_size(720.0, 480.0)
         .center();
     // WebView2 only lets windows that share a data folder use the same browser arguments.
     if let Some(args) = app

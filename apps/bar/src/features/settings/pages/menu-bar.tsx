@@ -1,77 +1,131 @@
 import { useState } from "react"
 import { commands } from "@/shared/bindings"
-import { Input } from "@barista/ui/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@barista/ui/components/ui/tabs"
+import { AnimatePresence, motion } from "motion/react"
+import { ArrowDown01Icon, Icon, ViewIcon, ViewOffIcon } from "@barista/ui/icons"
+import { cn } from "cn"
+import { EASE_OUT, ITEM_EXIT } from "@/shared/motion"
 import type { Settings } from "@/shared/stores/settings"
 import { actions } from "../actions"
 import { BarEditor } from "../bar-editor"
 import { ControlCenterEditor } from "../control-center-editor"
-import { Group, PageTitle, Row, SegmentedRow, SliderRow, SwitchRow } from "../ui"
+import { Group, PageTitle, SegmentedRow, SelectRow, SliderRow, SwitchRow } from "../ui"
 
 type View = "bar" | "control-center"
 
 const FONTS = ["Segoe UI", "Segoe UI Variable", "Bahnschrift", "Calibri", "Cascadia Code", "Consolas", "Inter"]
 
-/** The two tabs under the picture in the design: which thing the preview shows and edits (shadcn Tabs). */
-function ViewTabs({ view, onChange }: { view: View; onChange: (view: View) => void }) {
+/** Where the preview was left (open or closed) is remembered; a blocked store just means closed. */
+const OPEN_KEY = "barista.settings.preview"
+const readOpen = () => {
+  try {
+    return localStorage.getItem(OPEN_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+/** The two pills in the picture's corner (the design): which thing the preview shows and edits. */
+function ViewPills({ view, onChange }: { view: View; onChange: (view: View) => void }) {
+  const pill = (value: View, label: string) => (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={view === value}
+      onClick={() => onChange(value)}
+      className={cn(
+        "rounded-2xl px-[8.25px] py-[6.6px] text-[11px] leading-none outline-none backdrop-blur-sm transition-colors focus-visible:ring-2 focus-visible:ring-white/60",
+        view === value ? "bg-white text-black" : "bg-black/35 text-white hover:bg-black/50",
+      )}
+    >
+      {label}
+    </button>
+  )
   return (
-    <Tabs value={view} onValueChange={(next) => onChange(next as View)}>
-      <TabsList aria-label="What to edit">
-        <TabsTrigger value="bar">Menu bar</TabsTrigger>
-        <TabsTrigger value="control-center">Control center</TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <div role="radiogroup" aria-label="What to edit" className="absolute bottom-3 left-3 z-10 flex gap-1">
+      {pill("bar", "Menu bar")}
+      {pill("control-center", "Control center")}
+    </div>
   )
 }
 
+/** Opens and closes the picture: it is big, and most visits are just for the options below. */
+function PreviewToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={onToggle}
+      className="flex h-8 w-fit items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-white/[0.04] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+    >
+      <Icon icon={open ? ViewOffIcon : ViewIcon} size={14} strokeWidth={1.5} />
+      {open ? "Hide preview" : "Show preview"}
+      <Icon icon={ArrowDown01Icon} size={12} className={cn("transition-transform duration-200", open && "rotate-180")} />
+    </button>
+  )
+}
+
+const DEFAULT_FONT = "default"
+
 function FontRow({ settings }: { settings: Settings }) {
   const saved = settings.menuBar.appearance.font
-  const [draft, setDraft] = useState<string | null>(null)
-  const commit = () => {
-    if (draft !== null && draft.trim() !== saved) actions.appearance(settings, { font: draft.trim() })
-    setDraft(null)
-  }
+  // A font typed in an older version (or imported) stays in the list so it is not lost.
+  const names = saved && !FONTS.includes(saved) ? [saved, ...FONTS] : FONTS
   return (
-    <Row label="Font" hint="Any font installed on this PC. Empty uses Segoe UI Variable.">
-      <Input
-        aria-label="Font"
-        list="barista-fonts"
-        placeholder="Segoe UI Variable"
-        maxLength={64}
-        value={draft ?? saved}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === "Enter" && commit()}
-        className="w-60"
-      />
-      <datalist id="barista-fonts">
-        {FONTS.map((f) => (
-          <option key={f} value={f} />
-        ))}
-      </datalist>
-    </Row>
+    <SelectRow
+      label="Font"
+      hint="Default is Segoe UI Variable."
+      value={saved || DEFAULT_FONT}
+      options={[{ value: DEFAULT_FONT, label: "Default" }, ...names.map((f) => ({ value: f, label: f }))]}
+      onChange={(font) => actions.appearance(settings, { font: font === DEFAULT_FONT ? "" : font })}
+    />
   )
 }
 
 export function MenuBarPage({ settings }: { settings: Settings }) {
   const [view, setView] = useState<View>("bar")
+  const [open, setOpen] = useState(readOpen)
+  const toggle = () =>
+    setOpen((was) => {
+      try {
+        localStorage.setItem(OPEN_KEY, was ? "0" : "1")
+      } catch {
+        // storage blocked: the choice just isn't remembered
+      }
+      return !was
+    })
   const bar = settings.menuBar
   const look = bar.appearance
   const clock = bar.clock
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageTitle
         title="Menu bar"
-        description="Drag things around in the picture. Everything you change shows up in your bar at once."
+        description="Everything you change shows up in your bar at once."
       />
 
-      <div className="flex flex-col gap-3">
-        {view === "bar" ? <BarEditor settings={settings} /> : <ControlCenterEditor settings={settings} />}
-        <ViewTabs view={view} onChange={setView} />
+      <div className="flex flex-col">
+        <PreviewToggle open={open} onToggle={toggle} />
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              key="preview"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1, transition: { duration: 0.28, ease: EASE_OUT } }}
+              exit={{ height: 0, opacity: 0, transition: ITEM_EXIT }}
+              className="overflow-hidden"
+            >
+              <div className="pt-2 pb-1">
+                {view === "bar" ? (
+                  <BarEditor settings={settings} corner={<ViewPills view={view} onChange={setView} />} />
+                ) : (
+                  <ControlCenterEditor settings={settings} corner={<ViewPills view={view} onChange={setView} />} />
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-
-      <h2 className="-mb-2 pt-4 text-lg font-medium tracking-tight text-foreground">Appearance</h2>
 
       <Group title="Look" onReset={() => actions.reset("appearance")}>
         <SegmentedRow

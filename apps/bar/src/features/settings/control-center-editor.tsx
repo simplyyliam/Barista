@@ -111,7 +111,7 @@ function Selectable({
  * actions to reorder them, click one to resize or remove it, and add what is missing from the tray
  * under the picture. Keyboard: focus a tile, Alt+Left / Alt+Right move it, Delete removes it.
  */
-export function ControlCenterEditor({ settings }: { settings: Settings }) {
+export function ControlCenterEditor({ settings, corner }: { settings: Settings; corner?: ReactNode }) {
   const prefs = settings.controlCenter
   const [selected, setSelected] = useState<Selection>(null)
   const tileBox = useRef<HTMLDivElement>(null)
@@ -148,7 +148,7 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <PreviewFrame settings={settings} height={560} className="grid place-items-center">
+      <PreviewFrame settings={settings} className="flex justify-center px-8 pt-8 pb-16">
         <div
           className="flex w-panel-w flex-col gap-2"
           onClick={(e) => e.target === e.currentTarget && setSelected(null)}
@@ -267,6 +267,7 @@ export function ControlCenterEditor({ settings }: { settings: Settings }) {
             </section>
           )}
         </div>
+        {corner}
       </PreviewFrame>
 
       {!nothingHidden && (

@@ -27,9 +27,9 @@ export function TitleBar() {
     <header
       data-tauri-drag-region
       onDoubleClick={() => void win.toggleMaximize()}
-      className="flex h-9 shrink-0 items-center justify-between bg-black pl-4 select-none"
+      className="flex h-8 shrink-0 items-center justify-between bg-black pl-4 select-none"
     >
-      <span data-tauri-drag-region className="text-xs text-muted-foreground">
+      <span data-tauri-drag-region className="text-xs text-muted-foreground/70">
         Barista Settings
       </span>
       <div className="flex h-full">

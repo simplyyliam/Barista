@@ -16,7 +16,8 @@ export function PreviewFrame({
   className,
 }: {
   settings: Settings
-  height: number
+  /** Fixed height, or leave it out and the frame hugs what is inside (use padding then). */
+  height?: number
   children: ReactNode
   frameRef?: Ref<HTMLDivElement>
   className?: string
@@ -24,11 +25,11 @@ export function PreviewFrame({
   const look = settings.menuBar.appearance
   const style: CSSProperties & Record<string, string> = {
     backgroundImage: `url(${wallpaper})`,
-    height: `${height}px`,
-    "--text-bar": `${look.fontSize}px`,
+    "--bar-text-size": `${look.fontSize}px`,
     "--bar-bg-opacity": `${look.opacity}%`,
   }
-  if (look.font) style["--font-bar"] = `"${look.font}", "Segoe UI Variable", system-ui, sans-serif`
+  if (height !== undefined) style.height = `${height}px`
+  if (look.font) style["--bar-font"] = `"${look.font}", "Segoe UI Variable", system-ui, sans-serif`
   return (
     <div
       ref={frameRef}

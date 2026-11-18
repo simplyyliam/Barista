@@ -1,14 +1,15 @@
-import { useState, type ReactNode } from "react"
+import { useId, useState, type KeyboardEvent, type ReactNode } from "react"
+import { motion } from "motion/react"
 import { Button } from "@barista/ui/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@barista/ui/components/ui/select"
 import { Slider } from "@barista/ui/components/ui/slider"
 import { Switch } from "@barista/ui/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@barista/ui/components/ui/toggle-group"
 import { cn } from "cn"
+import { SLIDE } from "@/shared/motion"
 
 /**
- * A titled group of rows on a page. No box around it: the rows sit on the page itself and a hairline
- * tells them apart, so the page reads as one calm column.
+ * A titled group of rows. The title is the same small muted label as the sidebar's group names, and
+ * the rows sit on the page with no lines between them.
  */
 export function Group({
   title,
@@ -24,18 +25,22 @@ export function Group({
 }) {
   return (
     <section aria-label={title} className="flex flex-col">
-      <div className="flex items-end justify-between pb-2">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-[15px] font-medium tracking-tight text-foreground">{title}</h3>
-          {description && <p className="text-[13px] text-muted-foreground">{description}</p>}
-        </div>
+      <div className="flex min-h-6 items-center justify-between pb-1">
+        <h3 className="text-[11px] text-muted-foreground/70">
+          {title}
+          {description && <span className="ml-2 text-muted-foreground/50">{description}</span>}
+        </h3>
         {onReset && (
-          <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground">
+          <button
+            type="button"
+            onClick={onReset}
+            className="rounded px-1 text-[11px] text-muted-foreground/70 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
             Reset
-          </Button>
+          </button>
         )}
       </div>
-      <div className="flex flex-col divide-y divide-white/[0.07] border-t border-white/[0.07]">{children}</div>
+      <div className="flex flex-col">{children}</div>
     </section>
   )
 }
@@ -53,10 +58,10 @@ export function Row({
   disabled?: boolean
 }) {
   return (
-    <div className={cn("flex min-h-16 items-center justify-between gap-8 py-3.5", disabled && "opacity-40")}>
+    <div className={cn("flex min-h-10 items-center justify-between gap-6 py-2", disabled && "opacity-40")}>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <div className="text-sm text-foreground">{label}</div>
-        {hint && <div className="text-[13px] leading-snug text-muted-foreground">{hint}</div>}
+        <div className="text-[13px] text-foreground">{label}</div>
+        {hint && <div className="text-xs leading-snug text-muted-foreground/70">{hint}</div>}
       </div>
       <div className="flex shrink-0 items-center gap-3">{children}</div>
     </div>
@@ -83,7 +88,10 @@ export function SwitchRow({
   )
 }
 
-/** Two to four choices side by side (a shadcn toggle group). More than that is a `SelectRow`. */
+/**
+ * Two to four choices side by side. A small dark track with a lighter pill that slides to the chosen
+ * one. More than that is a `SelectRow`. Arrow keys move the choice (a radio group).
+ */
 export function Segmented<T extends string>({
   value,
   options,
@@ -97,27 +105,51 @@ export function Segmented<T extends string>({
   label: string
   disabled?: boolean
 }) {
+  const id = useId()
+  const move = (e: KeyboardEvent, by: number) => {
+    e.preventDefault()
+    const at = options.findIndex((o) => o.value === value)
+    const next = options[(at + by + options.length) % options.length]
+    if (next) onChange(next.value)
+  }
   return (
-    <ToggleGroup
+    <div
+      role="radiogroup"
       aria-label={label}
-      variant="outline"
-      size="sm"
-      spacing={0}
-      disabled={disabled}
-      value={[value]}
-      // A group with one choice always keeps one: ignore the click that would clear it.
-      onValueChange={(next) => next[0] && onChange(next[0] as T)}
+      aria-disabled={disabled}
+      className={cn("flex h-7 rounded-lg bg-white/[0.06] p-0.5", disabled && "pointer-events-none opacity-50")}
     >
-      {options.map((option) => (
-        <ToggleGroupItem
-          key={option.value}
-          value={option.value}
-          className="px-3.5 data-pressed:bg-white data-pressed:text-black"
-        >
-          {option.label}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
+      {options.map((option) => {
+        const on = option.value === value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowDown") move(e, 1)
+              if (e.key === "ArrowLeft" || e.key === "ArrowUp") move(e, -1)
+            }}
+            className={cn(
+              "relative rounded-md px-3 text-xs whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40",
+              on ? "text-foreground" : "text-muted-foreground hover:text-foreground/80",
+            )}
+          >
+            {on && (
+              <motion.span
+                layoutId={`seg-${id}`}
+                transition={SLIDE}
+                className="absolute inset-0 rounded-md bg-white/[0.12]"
+              />
+            )}
+            <span className="relative">{option.label}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -172,11 +204,11 @@ export function SliderRow({
   return (
     <Row label={label} hint={hint} disabled={disabled}>
       {/* The slider fills its parent (`w-full` is built in), so the parent sets the length. */}
-      <div className="w-80">
+      <div className="w-44">
         <Slider
           aria-label={label}
-          // A thick track and a big round thumb you can grab. `!` because the shared slider sets its own sizes.
-          className="[&_[data-slot=slider-thumb]]:size-6! [&_[data-slot=slider-thumb]]:rounded-full! [&_[data-slot=slider-thumb]]:border-0! [&_[data-slot=slider-thumb]]:shadow-lg [&_[data-slot=slider-track]]:h-2.5! [&_[data-slot=slider-track]]:rounded-full!"
+          // A hairline track with a small white thumb. `!` because the shared slider sets its own sizes.
+          className="[&_[data-slot=slider-range]]:bg-white/85 [&_[data-slot=slider-thumb]]:size-3.5! [&_[data-slot=slider-thumb]]:rounded-full! [&_[data-slot=slider-thumb]]:border-0! [&_[data-slot=slider-thumb]]:shadow-[0_1px_4px_rgba(0,0,0,0.6)] [&_[data-slot=slider-track]]:h-1! [&_[data-slot=slider-track]]:rounded-full! [&_[data-slot=slider-track]]:bg-white/10!"
           min={min}
           max={max}
           step={step}
@@ -189,7 +221,7 @@ export function SliderRow({
           }}
         />
       </div>
-      <span className="w-16 text-right text-sm whitespace-nowrap tabular-nums text-muted-foreground">
+      <span className="w-12 text-right text-xs whitespace-nowrap tabular-nums text-muted-foreground">
         {shown}
         {unit}
       </span>
@@ -216,10 +248,11 @@ export function SelectRow({
   return (
     <Row label={label} hint={hint} disabled={disabled}>
       <Select items={options} value={value} disabled={disabled} onValueChange={(next) => next && onChange(String(next))}>
-        <SelectTrigger aria-label={label} className="w-60">
+        <SelectTrigger aria-label={label} className="h-7 w-48 border-0 bg-white/[0.06] text-xs">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        {/* Opens below the trigger, not over it like a Mac select. */}
+        <SelectContent alignItemWithTrigger={false} align="end">
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
@@ -231,11 +264,12 @@ export function SelectRow({
   )
 }
 
+/** Same size and weight as a sidebar item, and level with the first one. */
 export function PageTitle({ title, description }: { title: string; description?: string }) {
   return (
-    <header className="flex flex-col gap-1.5 pb-2">
-      <h2 className="text-2xl font-medium tracking-tight text-foreground">{title}</h2>
-      {description && <p className="max-w-xl text-sm text-muted-foreground">{description}</p>}
+    <header className="flex flex-col pb-3">
+      <h2 className="flex h-8 items-center text-[13px] font-medium text-foreground">{title}</h2>
+      {description && <p className="max-w-md text-xs text-muted-foreground/70">{description}</p>}
     </header>
   )
 }
@@ -253,7 +287,10 @@ export function ActionButton({
   disabled?: boolean
 }) {
   return (
-    <Button variant={tone === "danger" ? "destructive" : "secondary"} size="sm" disabled={disabled} onClick={onClick}>
+    <Button
+      variant={tone === "danger" ? "destructive" : "secondary"}
+      size="sm"
+      className="h-7 border-0 bg-white/[0.06] text-xs hover:bg-white/[0.1]" disabled={disabled} onClick={onClick}>
       {children}
     </Button>
   )
