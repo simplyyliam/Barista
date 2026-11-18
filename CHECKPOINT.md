@@ -37,7 +37,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   locks, `ids_in_bar` snapshot on every bounds report, legacy tray/control-center commands skip `settingsChanged`, `settings.ts`
   listener race, `apply()` off the UI thread (probably fine: sync Tauri commands run on the main thread).
   **Open:** bar still over the 120 MB budget (143 MB; 130 MB accepted). Measured where it goes: the hidden panel window is about 53 MB of it
-  (submenu 8 MB); fix idea in `docs/perf/0.8.md`: render nothing in the panel while it is closed (frontend, Liam's call), 8 h soak, version number still 0.7.0 while About says What's new in 0.8, blur/solid not seen
+  (submenu 8 MB) and it is the cost of a fourth page, not of its content (unmounting routes saved nothing; one chunk per window saved
+  about 3 MB, kept). Real savings need fewer windows (merge menu and submenu, panel with the menus): own ADR and release, see `docs/perf/0.8.md`, 8 h soak, version number still 0.7.0 while About says What's new in 0.8, blur/solid not seen
   failing (applies on the next menu open). Liam says Barista is closed source, freemium, $5 once for Pro (memory `business-model-freemium`).
 
 - **v0.7.0 shipped** (tag `v0.7.0` on the merge of PR #42, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.7 are done; notes in `docs/release/history/` (local only, v0.7 in `v0.7-checkpoint.md`: tray clicks, pin / order / collapse, new for the UI already wired). Next: v0.8 "Daily driver" (`releases/v0.8.md`; add every new `barista | windows` switch to its list).
