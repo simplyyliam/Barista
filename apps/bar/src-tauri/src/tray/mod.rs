@@ -36,6 +36,9 @@ mod worker {
     const QUEUE: usize = 1024;
 
     static HOST: Mutex<Option<Host>> = Mutex::new(None);
+    /// The worker that turns host events into registry changes. `set_mode(windows)` waits for it, so an
+    /// event still in the queue cannot put a tray icon back after the registry was emptied.
+    static WORKER: Mutex<Option<std::thread::JoinHandle<()>>> = Mutex::new(None);
     /// Kept so `set_mode` can start the host again (ADR 0032).
     static REGISTRY: std::sync::OnceLock<Arc<Registry>> = std::sync::OnceLock::new();
 
@@ -48,6 +51,7 @@ mod worker {
         match mode {
             Mode::Windows if running => {
                 shutdown();
+                wait_for_worker();
                 registry.tray_clear();
             }
             Mode::Windows => registry.tray_clear(),
@@ -79,8 +83,9 @@ mod worker {
                 let spawned = std::thread::Builder::new()
                     .name("tray-worker".into())
                     .spawn(move || Worker::new(registry).run(rx));
-                if let Err(e) = spawned {
-                    eprintln!("[tray] could not start the worker: {e}");
+                match spawned {
+                    Ok(handle) => *WORKER.lock().unwrap_or_else(|e| e.into_inner()) = Some(handle),
+                    Err(e) => eprintln!("[tray] could not start the worker: {e}"),
                 }
             }
             Err(e) => eprintln!("[tray] the tray host did not start: {e}"),
@@ -102,6 +107,21 @@ mod worker {
                 tray_host::announce();
             }
         });
+    }
+
+    /// After the host is gone the worker ends once it has drained its queue. Waits for that (at most
+    /// 2 s, so a stuck worker cannot freeze the settings switch).
+    fn wait_for_worker() {
+        let Some(handle) = WORKER.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
+        let started = std::time::Instant::now();
+        while !handle.is_finished() {
+            if started.elapsed() > std::time::Duration::from_secs(2) {
+                eprintln!("[tray] the worker did not stop in time");
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let _ = handle.join();
     }
 
     /// Closes the host window, so messages reach Explorer alone again (on a normal quit).

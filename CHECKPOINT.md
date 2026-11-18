@@ -33,9 +33,10 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `NetworkServiceInProcess` tried and dropped (no effect). Release checks 2026-11-18: `/code-review medium` (10 findings: import check,
   bounded helper read and a comment fixed; the rest left, see below), `/security-review` (no findings), end to end (item appears, gone
   8 s after the client is killed; menu click not exercised).
-  **Left from the review:** tray worker not stopped on `windows` mode (icons can reappear), `blur_allowed` under the menu and panel
-  locks, `ids_in_bar` snapshot on every bounds report, legacy tray/control-center commands skip `settingsChanged`, `settings.ts`
-  listener race, `apply()` off the UI thread (probably fine: sync Tauri commands run on the main thread).
+  **Review findings, second pass (2026-11-18):** fixed the tray worker race (`set_mode(windows)` waits for it), `blur_allowed` under the
+  menu and panel locks, legacy tray-style and control-center commands now emit `settingsChanged`, the `settings.ts` listener order.
+  Left: `ids_in_bar` builds a full snapshot per bounds report (only on layout changes, not at idle; needs a registry change counter),
+  `apply()` off the UI thread (probably fine: sync Tauri commands run on the main thread).
   **Open:** bar still over the 120 MB budget (143 MB; 130 MB accepted). Measured where it goes: the hidden panel window is about 53 MB of it
   (submenu 8 MB) and it is the cost of a fourth page, not of its content (unmounting routes saved nothing; one chunk per window saved
   about 3 MB, kept). Real savings need fewer windows (merge menu and submenu, panel with the menus): own ADR and release, see `docs/perf/0.8.md`, 8 h soak, version number still 0.7.0 while About says What's new in 0.8, blur/solid not seen

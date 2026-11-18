@@ -778,6 +778,8 @@ pub fn set_tray_style(app: tauri::AppHandle, style: crate::settings::TrayStyle) 
     if let Some(c) = crate::controller::get() {
         c.update_settings(|s| s.menu_bar.tray.style = style);
     }
+    // The settings window shows this value too: it must hear about it (else its next save undoes it).
+    settings::notify(&app);
     let _ = crate::events::TrayStyleChanged(style).emit(&app);
 }
 
@@ -801,6 +803,7 @@ pub fn set_control_center_mode(app: tauri::AppHandle, mode: crate::settings::Mod
     }
     crate::panel::close();
     crate::system::set_control_center_mode(mode);
+    settings::notify(&app);
     let _ = crate::events::ControlCenterModeChanged(mode).emit(&app);
 }
 

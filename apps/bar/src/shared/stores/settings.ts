@@ -21,13 +21,16 @@ function start() {
   if (started) return
   started = true
   let gotEvent = false
-  void events.settingsChanged.listen((e) => {
-    gotEvent = true
-    set(e.payload as Settings)
-  })
-  void commands.getSettings().then((settings) => {
+  // Listen first, then ask: a change that lands between the two is caught by the listener, and the
+  // answer only fills in when no event came.
+  void (async () => {
+    await events.settingsChanged.listen((e) => {
+      gotEvent = true
+      set(e.payload as Settings)
+    })
+    const settings = await commands.getSettings()
     if (!gotEvent) set(settings as Settings)
-  })
+  })()
 }
 
 /** The settings, or `null` until Rust has answered (a moment after the window opens). */

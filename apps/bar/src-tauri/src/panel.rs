@@ -317,6 +317,8 @@ impl PanelWindow {
         let extra = crate::menu_window::frame_extra(self.window().as_ref());
         let item = placement::item_rect(anchor, &bar, scale);
         let item = hang_rect(item, size, extra, scale, chrome);
+        // Asks Windows (registry, power): never while the lock is held.
+        let blur = crate::appearance::blur_allowed(self.lock().acrylic) && chrome == PanelChrome::Glass;
         let (open, generation) = {
             let mut inner = self.lock();
             inner.size = size;
@@ -332,7 +334,7 @@ impl PanelWindow {
                 monitor_id: crate::controller::get()
                     .map(|c| c.info().monitor.id)
                     .unwrap_or_default(),
-                acrylic: crate::appearance::blur_allowed(inner.acrylic) && chrome == PanelChrome::Glass,
+                acrylic: blur,
                 chrome,
             };
             inner.open = Some(open.clone());
