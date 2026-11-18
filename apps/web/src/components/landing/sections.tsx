@@ -1,51 +1,13 @@
-import { Bean, BeanGlyph, Plus, WindowsGlyph } from "./icons"
-import { DOWNLOAD_URL, FAQ } from "./site"
+import { Bean, BeanGlyph, Plus } from "./icons"
+import { Demo } from "./demo"
+import { FAQ } from "./site"
+import { ControlCenter, DownloadLink, MiniBar, Monitors, Notifications, Scrub, Seg, Slider, SoonButton, TrayRow } from "./interactive"
 
 function Download({ white = false }: { white?: boolean }) {
-  return (
-    <a href={DOWNLOAD_URL} className={`btn btn--lg ${white ? "btn--white" : "btn--primary"}`}>
-      <WindowsGlyph />
-      Download for Windows
-    </a>
-  )
+  return <DownloadLink white={white} />
 }
 
 /* ---- recreations of the real bar UI (no personal data) ---- */
-
-function Notifications() {
-  return (
-    <div className="ui">
-      <div className="ui__head"><span>Notifications</span><span>Clear all</span></div>
-      <div className="note"><span className="note__ic" /><div><b>Messages</b><span>You may have a new message</span></div></div>
-      <div className="note"><span className="note__ic" /><div><b>Snipping Tool</b><span>Screenshot copied to clipboard. Saved to your screenshots folder.</span></div></div>
-      <div className="note"><span className="note__ic" /><div><b>Calendar</b><span>Design review starts in 10 minutes</span></div></div>
-    </div>
-  )
-}
-
-function ControlCenter() {
-  return (
-    <div className="ui">
-      <div className="tiles">
-        <div className="tl on"><i /></div>
-        <div className="tl"><i /></div>
-        <div className="tl on"><i /></div>
-        <div className="tl"><i /></div>
-      </div>
-      <div className="slider"><b style={{ width: "62%" }} /></div>
-      <div className="slider"><b style={{ width: "38%" }} /></div>
-    </div>
-  )
-}
-
-function Seg({ on }: { on: "Barista" | "Windows" }) {
-  return (
-    <span className="seg">
-      <span className={on === "Barista" ? "on" : ""}>Barista</span>
-      <span className={on === "Windows" ? "on" : ""}>Windows</span>
-    </span>
-  )
-}
 
 /* ---- sections ---- */
 
@@ -74,7 +36,7 @@ export function Hero() {
         </div>
         <div className="split__media hero__media" style={{ position: "relative" }} data-reveal data-delay="200">
           <Bean style={{ width: 130, top: -112, right: 56, transform: "rotate(8deg)" }} />
-          <div className="scene" role="img" aria-label="The Barista bar on a desktop, with notifications and the control center open">
+          <Demo script="hero" className="scene" role="group" label="The Barista bar on a desktop, with notifications and the control center open" hint="Go on, click around. It is all live." delay={900}>
             <div className="mbar">
               <span>Explorer</span>
               <span>Sunday, 11 May</span>
@@ -84,7 +46,7 @@ export function Hero() {
               <Notifications />
               <ControlCenter />
             </div>
-          </div>
+          </Demo>
         </div>
       </div>
     </section>
@@ -94,10 +56,7 @@ export function Hero() {
 export function Statement() {
   return (
     <section className="section">
-      <p className="statement text-cut" data-reveal>
-        Windows gave you a taskbar. Barista adds a menu bar: tray icons, notifications and quick
-        controls in one quiet line at the top of every screen.
-      </p>
+      <Scrub text="Windows gave you a taskbar. Barista adds a menu bar: tray icons, notifications and quick controls in one quiet line at the top of every screen." />
     </section>
   )
 }
@@ -118,30 +77,28 @@ export function Features() {
           <div className="tile tile--wide" data-reveal>
             <h3 className="h3">Tray icons</h3>
             <p>Every app from the Windows tray lives in the bar. Click one and its own menu opens right under it.</p>
-            <div className="tile__media">
-              <div className="trayrow" aria-hidden="true"><i /><i /><i /><i /><i /><span>22:00</span></div>
-            </div>
+            <Demo script="tray" className="tile__media" hint="Click an icon. Its menu drops right under it." delay={300}>
+              <TrayRow />
+            </Demo>
           </div>
           <div className="tile tile--tall" data-reveal data-delay="80">
             <h3 className="h3">Notifications</h3>
             <p>Read, clear and open them from a panel under the clock.</p>
-            <div className="tile__media"><Notifications /></div>
+            <Demo script="notes" className="tile__media" hint="Tap a note to swipe it away." delay={600}><Notifications /></Demo>
           </div>
           <div className="tile" data-reveal data-delay="160">
             <h3 className="h3">Control center</h3>
             <p>Try the switches. They are real ones.</p>
-            <div className="tile__media toggles">
+            <Demo script="toggles" className="tile__media toggles" hint="Flip them." delay={400}>
               <label className="tg">Wi-Fi<input type="checkbox" defaultChecked /><i /></label>
               <label className="tg">Bluetooth<input type="checkbox" defaultChecked /><i /></label>
               <label className="tg">Focus<input type="checkbox" /><i /></label>
-            </div>
+            </Demo>
           </div>
           <div className="tile" data-reveal data-delay="240">
             <h3 className="h3">Every monitor</h3>
             <p>Pick the screen for the bar. It follows your display scale.</p>
-            <div className="tile__media monitors" aria-hidden="true">
-              <span className="mon" /><span className="mon mon--s" />
-            </div>
+            <Demo script="monitors" className="tile__media monitors" hint="Pick a screen for the bar." delay={500}><Monitors /></Demo>
           </div>
         </div>
       </div>
@@ -154,6 +111,7 @@ export function Sdk() {
     <section className="section" id="sdk">
       <div className="wrap split">
         <div className="split__media" data-reveal>
+          <Demo script="sdk" hint="That code is running. Click the counter." delay={400}>
           <div className="code" role="img" aria-label="Example code using the Barista SDK">
             <pre>
               <span className="c">{"// npm install @baristabar/sdk"}</span>
@@ -169,6 +127,8 @@ export function Sdk() {
               item.on({'"click"'}, () =&gt; item.setLabel({'"1"'}))
             </pre>
           </div>
+          <MiniBar />
+          </Demo>
         </div>
         <div className="split__text stack">
           <p className="eyebrow" data-reveal>An SDK for your app</p>
@@ -225,13 +185,13 @@ export function Twin() {
             <h2 className="h2">Make it yours.</h2>
             <p className="lead">Bar height, monitor, appearance and what starts with Windows, in one small window.</p>
           </div>
-          <div className="card__media" role="img" aria-label="Settings window preview">
+          <Demo script="settings" className="card__media" role="group" label="Settings window preview" hint="Drag the sliders. Tap the switch." delay={300}>
             <div className="set">
-              <div className="set__row">Bar height<span className="set__slider"><b style={{ width: "40%" }} /></span></div>
-              <div className="set__row">Window corners<span className="set__slider"><b style={{ width: "70%" }} /></span></div>
-              <div className="set__row">Start with Windows<span className="seg"><span className="on">On</span><span>Off</span></span></div>
+              <div className="set__row">Bar height<Slider className="set__slider" initial={40} label="Bar height" /></div>
+              <div className="set__row">Window corners<Slider className="set__slider" initial={70} label="Window corners" /></div>
+              <div className="set__row">Start with Windows<Seg options={["On", "Off"]} label="Start with Windows" /></div>
             </div>
-          </div>
+          </Demo>
         </div>
         <div className="card" data-reveal data-delay="120">
           <div className="stack">
@@ -239,13 +199,13 @@ export function Twin() {
             <h2 className="h2">Switch back any time.</h2>
             <p className="lead">Everything Barista replaces has a Windows mode. Flip it and the bar steps aside.</p>
           </div>
-          <div className="card__media" role="img" aria-label="Barista or Windows switches">
+          <Demo script="switches" className="card__media" role="group" label="Barista or Windows switches" hint="Flip any of them. The bar steps aside." delay={700}>
             <div className="set">
-              <div className="set__row">Notifications<Seg on="Barista" /></div>
-              <div className="set__row">Control center<Seg on="Windows" /></div>
-              <div className="set__row">Tray<Seg on="Barista" /></div>
+              <div className="set__row">Notifications<Seg options={["Barista", "Windows"]} label="Notifications" /></div>
+              <div className="set__row">Control center<Seg options={["Barista", "Windows"]} initial={1} label="Control center" /></div>
+              <div className="set__row">Tray<Seg options={["Barista", "Windows"]} label="Tray" /></div>
             </div>
-          </div>
+          </Demo>
         </div>
       </div>
     </section>
@@ -287,7 +247,7 @@ export function Pricing() {
               <div className="price-row"><span className="bignum">$5</span><span className="price-unit">one-off</span></div>
               <div className="notebox">One-time payment. No subscription.</div>
               <List items={["Everything in Free", "Pro features coming soon"]} />
-              <span className="btn btn--lg" aria-disabled="true">Coming soon</span>
+              <SoonButton />
             </div>
           </div>
         </div>

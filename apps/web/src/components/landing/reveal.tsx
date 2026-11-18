@@ -9,6 +9,23 @@ export function RevealController() {
     const root = document.querySelector<HTMLElement>(".sl")
     if (!root) return
     root.classList.add("js")
+
+    // CSS vars can't reach inside a cursor image, so rebuild it from --bean here.
+    const syncCursor = () => {
+      const bean = getComputedStyle(root).getPropertyValue("--bean").trim()
+      if (bean) {
+        const cursor = (w: number) =>
+          `url("data:image/svg+xml,${encodeURIComponent(
+            `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 160' width='${w}' height='${Math.round((w * 160) / 140)}'><ellipse cx='70' cy='82' rx='52' ry='68' transform='rotate(-14 70 82)' fill='${bean}' stroke='#fff' stroke-width='8'/><rect x='38' y='62' width='24' height='38' rx='12' fill='#fff'/><rect x='78' y='62' width='24' height='38' rx='12' fill='#fff'/><circle cx='50' cy='84' r='6.5' fill='#0a0a0a'/><circle cx='90' cy='84' r='6.5' fill='#0a0a0a'/></svg>`,
+          )}")`
+        root.style.setProperty("--cur-bean", cursor(26))
+        root.style.setProperty("--cur-bean-link", cursor(32))
+      }
+    }
+    syncCursor()
+    // CSS hot reload doesn't re-run effects, so re-sync when you come back to the tab.
+    window.addEventListener("focus", syncCursor)
+
     const io = new IntersectionObserver(
       (entries) =>
         entries.forEach((e) => {
@@ -45,6 +62,7 @@ export function RevealController() {
     }
     window.addEventListener("pointermove", look)
     return () => {
+      window.removeEventListener("focus", syncCursor)
       io.disconnect()
       window.removeEventListener("pointermove", look)
       cancelAnimationFrame(frame)

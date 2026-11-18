@@ -1,7 +1,9 @@
 import { Footer } from "@/components/landing/footer"
 import { Nav } from "@/components/landing/nav"
-import { TourSection } from "@/components/landing/explorer"
+// Hidden for v1 ("See it at work"). Bring it back with the import and the <TourSection /> line below.
+// import { TourSection } from "@/components/landing/explorer"
 import { RevealController } from "@/components/landing/reveal"
+import { SmoothScroll } from "@/components/landing/smooth-scroll"
 import {
   Faq, Features, FinalCta, Hero, Light, Pricing, Sdk, Statement, Twin,
 } from "@/components/landing/sections"
@@ -14,7 +16,7 @@ export default function Home() {
         <Hero />
         <Statement />
         <Features />
-        <TourSection />
+        {/* <TourSection /> */}
         <Sdk />
         <Light />
         <Twin />
@@ -24,6 +26,7 @@ export default function Home() {
       </main>
       <Footer />
       <RevealController />
+      <SmoothScroll />
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { WindowsGlyph } from "./icons"
+import { Wordmark } from "./wordmark"
 import { DOWNLOAD_URL, NPM_URL } from "./site"
 
 export function Footer() {
@@ -39,7 +40,7 @@ export function Footer() {
           </ul>
         </div>
       </div>
-      <div className="wordmark" aria-hidden="true">Barista</div>
+      <Wordmark />
     </footer>
   )
 }
