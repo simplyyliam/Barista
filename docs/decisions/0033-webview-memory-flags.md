@@ -4,7 +4,7 @@ Status: **proposed** (2026-11-18, v0.8; becomes accepted when Liam merges the PR
 
 ## Context
 
-The release bar measured 156 MB private (bench) and the settings window adds about 35 MB while it is open. Budget is 120 MB
+The release bar measured 156 MB private (bench). Budget is 120 MB
 (130 MB accepted in v0.4b). The bar already ran with `--disable-gpu` and `--renderer-process-limit=1`, yet it still had 8
 processes: browser, GPU, two utilities, crashpad and two renderers.
 
@@ -19,7 +19,7 @@ Add to `additionalBrowserArgs` (`tauri.conf.json`, repeated by every extra windo
 ## Consequences
 
 - Measured on the release build (private working set, same number as `pnpm bench`): bar alone 156 to 143 MB (bench, two runs
-  143 and 144), working set sum 541 to 456 MB, processes 8 to 6. With the settings window open: about 205 to 170 MB.
+  143 and 144), working set sum 541 to 456 MB, processes 8 to 6. The settings window itself costs about 6 MB once the bar has settled (154 MB open on About, 148.5 MB after closing).
 - Still over the 120 MB budget; v0.4b accepted 130 MB. The next step would be fewer or lazier hidden windows, not more flags.
 - Menu click to window visible moved from 43 to 48 ms median in one run and 50 ms in another: inside the run-to-run noise
   (43 to 50 ms across builds), but worth watching.

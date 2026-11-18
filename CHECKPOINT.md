@@ -29,14 +29,14 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   editor's `Glyph`/`pillClass`). Also: text size and font now reach the bar (`--bar-text-size`, `--bar-font` in `tokens.css`; `@theme
   inline` had baked the values in), tray host backs off while TaskbarX runs (guess, untested with TaskbarX), brightness list drops the
   laptop panel with the lid closed (untested with a real lid). Bench: bar unchanged (156 MB private, 0.08% idle, `docs/perf/0.8.md`).
-  Memory flags (ADR 0033, `--in-process-gpu`, no site isolation): bar 156 to 143 MB private, settings window open about 170 MB;
+  Memory flags (ADR 0033, `--in-process-gpu`, no site isolation): bar 156 to 143 MB private, the settings window costs about 6 MB (148 MB after closing, 154 MB open);
   `NetworkServiceInProcess` tried and dropped (no effect). Release checks 2026-11-18: `/code-review medium` (10 findings: import check,
   bounded helper read and a comment fixed; the rest left, see below), `/security-review` (no findings), end to end (item appears, gone
   8 s after the client is killed; menu click not exercised).
   **Left from the review:** tray worker not stopped on `windows` mode (icons can reappear), `blur_allowed` under the menu and panel
   locks, `ids_in_bar` snapshot on every bounds report, legacy tray/control-center commands skip `settingsChanged`, `settings.ts`
   listener race, `apply()` off the UI thread (probably fine: sync Tauri commands run on the main thread).
-  **Open:** bar still over the 120 MB budget (143 MB; 130 MB accepted), About page and open preview memory, 8 h soak, blur/solid not seen
+  **Open:** bar still over the 120 MB budget (143 MB; 130 MB accepted), 8 h soak, version number still 0.7.0 while About says What's new in 0.8, blur/solid not seen
   failing (applies on the next menu open). Liam says Barista is closed source, freemium, $5 once for Pro (memory `business-model-freemium`).
 
 - **v0.7.0 shipped** (tag `v0.7.0` on the merge of PR #42, not pushed yet: Liam runs `pnpm release`). Plan releases v0.0 to v0.7 are done; notes in `docs/release/history/` (local only, v0.7 in `v0.7-checkpoint.md`: tray clicks, pin / order / collapse, new for the UI already wired). Next: v0.8 "Daily driver" (`releases/v0.8.md`; add every new `barista | windows` switch to its list).
