@@ -505,6 +505,16 @@ impl Settings {
 
     /// Reads settings JSON, including files from before v0.8 (flat keys). `None` if it is not
     /// settings JSON at all.
+    /// Does this JSON look like a settings file at all? Every field has a default, so `{}` or a
+    /// package.json would parse as "all defaults"; an import must refuse them instead of resetting.
+    pub fn looks_like_settings(text: &str) -> bool {
+        const KEYS: &[&str] = &[
+            "general", "menuBar", "controlCenter", "behavior", "advanced",
+            "barHeight", "monitor", "notificationsMode", "controlCenterMode", "trayMode", "trayStyle", "itemLayout",
+        ];
+        matches!(serde_json::from_str::<Value>(text), Ok(Value::Object(o)) if KEYS.iter().any(|k| o.contains_key(*k)))
+    }
+
     pub fn from_json(text: &str) -> Option<Self> {
         let value: Value = serde_json::from_str(text).ok()?;
         let value = migrate(value)?;
@@ -654,6 +664,16 @@ fn migrate(value: Value) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn an_import_must_look_like_settings() {
+        assert!(!Settings::looks_like_settings("{}"));
+        assert!(!Settings::looks_like_settings(r#"{"name":"some-package","version":"1.0.0"}"#));
+        assert!(!Settings::looks_like_settings("[1,2]"));
+        assert!(!Settings::looks_like_settings("not json"));
+        assert!(Settings::looks_like_settings(r#"{"menuBar":{}}"#));
+        assert!(Settings::looks_like_settings(r#"{"barHeight":30}"#));
+    }
+
     use super::*;
 
     fn temp_file(name: &str) -> PathBuf {

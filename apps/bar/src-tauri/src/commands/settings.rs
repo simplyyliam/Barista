@@ -189,6 +189,9 @@ pub fn import_settings(app: tauri::AppHandle, text: String) -> Result<(), String
     if text.len() > 256 * 1024 {
         return Err("That file is too big to be a settings backup".into());
     }
+    if !Settings::looks_like_settings(&text) {
+        return Err("That file is not a Barista settings backup".into());
+    }
     let imported = Settings::from_json(&text).ok_or("That file is not a Barista settings backup")?;
     let before = current();
     change(&app, |s| {

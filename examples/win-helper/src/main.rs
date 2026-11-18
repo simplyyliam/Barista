@@ -15,7 +15,7 @@ mod media;
 #[cfg(windows)]
 mod mic;
 
-use std::io::{BufRead, Write};
+use std::io::Write;
 use std::sync::mpsc::Sender;
 
 /// A command line longer than this is not ours (rule 3: never trust what arrives on a pipe).
@@ -50,15 +50,36 @@ impl Out {
     }
 }
 
-/// Reads command lines until stdin closes, sending each valid one to the worker.
+/// Reads command lines until stdin closes, sending each valid one to the worker. A line is never
+/// held in memory past `MAX_LINE` bytes: the rest of an oversized line is thrown away as it arrives.
 fn read_commands(send: impl Fn(serde_json::Value)) {
-    let stdin = std::io::stdin();
-    for line in stdin.lock().lines() {
-        let Ok(line) = line else { break };
-        if line.len() > MAX_LINE {
+    use std::io::{BufRead, Read};
+    let mut stdin = std::io::stdin().lock();
+    let mut line = Vec::new();
+    loop {
+        line.clear();
+        let Ok(read) = (&mut stdin).take(MAX_LINE as u64 + 1).read_until(b'\n', &mut line) else { break };
+        if read == 0 {
+            break;
+        }
+        if !line.ends_with(b"\n") && line.len() > MAX_LINE {
+            // Too long: drop what is left of this line without keeping it.
+            loop {
+                let (skip, found) = match stdin.fill_buf() {
+                    Ok([]) | Err(_) => return,
+                    Ok(buf) => match buf.iter().position(|&b| b == b'\n') {
+                        Some(i) => (i + 1, true),
+                        None => (buf.len(), false),
+                    },
+                };
+                stdin.consume(skip);
+                if found {
+                    break;
+                }
+            }
             continue;
         }
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) {
+        if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&line) {
             send(value);
         }
     }

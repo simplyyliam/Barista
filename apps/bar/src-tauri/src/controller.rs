@@ -113,8 +113,6 @@ fn placeholder_monitor() -> Monitor {
     }
 }
 
-/// If the bar crashes, give the screen space back before the process dies.
-/// (A kill from Task Manager runs no code at all: see ADR 0002.)
 /// "No taskbar state to give back" for `TASKBAR_RESTORE`.
 const NO_RESTORE: u32 = u32::MAX;
 
@@ -130,6 +128,8 @@ fn restore_taskbar_lock_free() {
     }
 }
 
+/// If the bar crashes, give the screen space back before the process dies.
+/// (A kill from Task Manager runs no code at all: see ADR 0002.)
 fn install_panic_hook() {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
