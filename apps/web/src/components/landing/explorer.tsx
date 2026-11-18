@@ -16,7 +16,7 @@ export const FEATURES: Feature[] = [
   { id: "dev", label: "For developers", text: "Add a status item with a few lines of the SDK. Send a menu or open your own popover." },
 ]
 
-const spring = { type: "spring", stiffness: 380, damping: 36, mass: 0.9 } as const
+const spring = { type: "spring", stiffness: 720, damping: 50, mass: 0.8 } as const
 
 function Chevron({ up }: { up?: boolean }) {
   return (
@@ -38,15 +38,20 @@ function PlusIcon() {
 export function Explorer({ onClose, modal = false }: { onClose?: () => void; modal?: boolean }) {
   const reduce = useReducedMotion()
   const [active, setActive] = useState(0)
+  // Which edge the open pill grows from: picking a feature above the open one grows it from
+  // its bottom edge, picking one below grows it from its top edge. The first feature is always "above".
+  const [origin, setOrigin] = useState<"top" | "bottom">("top")
   const dir = useRef(1)
+  const current = useRef(0)
   const t = reduce ? { duration: 0 } : spring
 
   const go = useCallback((next: number) => {
     const n = (next + FEATURES.length) % FEATURES.length
-    setActive((cur) => {
-      dir.current = n >= cur ? 1 : -1
-      return n
-    })
+    if (n === current.current) return
+    dir.current = n > current.current ? 1 : -1
+    setOrigin(n < current.current ? "bottom" : "top")
+    current.current = n
+    setActive(n)
   }, [])
 
   useEffect(() => {
@@ -88,15 +93,23 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
                 </button>
                 <AnimatePresence initial={false}>
                   {i === active && (
-                    <motion.p
-                      className="tour__text"
+                    <motion.div
+                      className="tour__reveal"
+                      data-origin={origin}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={t}
+                      transition={reduce ? { duration: 0 } : { ...spring, opacity: { duration: 0.18 } }}
                     >
-                      {x.text}
-                    </motion.p>
+                      <motion.p
+                        className="tour__text"
+                        initial={{ y: reduce ? 0 : origin === "bottom" ? 14 : -14 }}
+                        animate={{ y: 0 }}
+                        transition={t}
+                      >
+                        {x.text}
+                      </motion.p>
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </motion.li>
@@ -108,7 +121,7 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
       <motion.div
         className="tour__media"
         onPanEnd={(_, info) => {
-          if (Math.abs(info.offset.y) > 50) go(active + (info.offset.y < 0 ? 1 : -1))
+          if (Math.abs(info.offset.y) > 50) go(current.current + (info.offset.y < 0 ? 1 : -1))
         }}
         style={{ touchAction: "pan-x" }}
       >
@@ -116,9 +129,9 @@ export function Explorer({ onClose, modal = false }: { onClose?: () => void; mod
           <motion.div
             key={f.id}
             className="tour__slot"
-            initial={{ opacity: 0, y: reduce ? 0 : 28 * d, scale: reduce ? 1 : 1.03 }}
+            initial={{ opacity: 0, y: reduce ? 0 : 20 * d, scale: reduce ? 1 : 1.02 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: reduce ? 0 : -28 * d, scale: reduce ? 1 : 0.98 }}
+            exit={{ opacity: 0, y: reduce ? 0 : -20 * d, scale: reduce ? 1 : 0.98 }}
             transition={reduce ? { duration: 0 } : { ...spring, opacity: { duration: 0.25 } }}
           >
             {f.video ? (
