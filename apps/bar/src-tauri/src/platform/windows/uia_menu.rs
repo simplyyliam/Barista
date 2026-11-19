@@ -286,6 +286,7 @@ pub fn read_title(hwnd: isize, index: usize) -> Option<Vec<RawItem>> {
         let (window, bar) = find_bar(automation, hwnd)?;
         let titles = bar_titles(&bar, automation);
         let title = titles.get(index)?;
+        let _veil = super::veil::Veil::start(super::app_info::pid_of(hwnd));
         let baseline = visible_items(automation, &window);
         let mut known = baseline.clone();
         let items = read_level(automation, &window, title, &mut known, 0, Instant::now() + READ_BUDGET);
@@ -305,6 +306,7 @@ pub fn invoke(hwnd: isize, path: Vec<usize>, names: Vec<String>) -> bool {
         if name_of(&current) != *names.first()? {
             return None;
         }
+        let _veil = super::veil::Veil::start(super::app_info::pid_of(hwnd));
         let mut known = visible_items(automation, &window);
         for (depth, (&choice, expected)) in path.iter().zip(names.iter()).enumerate().skip(1) {
             let items = expand_and_collect(automation, &window, &current, &known);
@@ -333,6 +335,16 @@ mod live {
     use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
 
     /// Needs a running Windows 11 Notepad. `cargo test -p barista --lib uia_menu::live -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn read_notepads_menus_in_a_loop() {
+        // SAFETY: plain lookup by class name.
+        let hwnd = unsafe { FindWindowW(w!("Notepad"), None) }.unwrap().0 as isize;
+        for _ in 0..25 {
+            assert!(read_title(hwnd, 1).is_some_and(|v| !v.is_empty()));
+        }
+    }
+
     #[test]
     #[ignore]
     fn read_notepads_menus() {
