@@ -31,6 +31,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `shell` (cmd wrote a file), `refresh`, "Disable" in the error menu, "Run scripts" off (items gone, no script process) and on (back,
   no prompt), "Open scripts folder", bar restart (trusted scripts return silently), edit asks again, settings page.
   Screenshots need a DPI-aware capture (the screen is 3840 wide, PowerShell is virtualized to 2560 unless `SetProcessDPIAware`).
+- `pnpm bench 0.9` ran (docs/perf/0.9.md): five scripts at 10 s = 0.07% CPU. The first run found 1.06%: the thread snapshot used to resume a new process cost 80 ms of bar CPU per run, now `NtResumeProcess`.
 - Gotcha: killing the dev `barista.exe` ends the whole `pnpm dev` session (vite too). The example clients (test-client, spotify, ...) from
   `pnpm dev` were not restarted.
 - Fix next (dogfooding the format):
