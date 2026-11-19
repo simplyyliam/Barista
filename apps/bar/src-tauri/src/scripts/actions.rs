@@ -74,7 +74,7 @@ mod tests {
         assert!(!valid_shell(&cmd("a\0b", &[])));
         assert!(!valid_shell(&cmd("x", &["a\0b"])));
         assert!(!valid_shell(&cmd(&"x".repeat(2000), &[])));
-        assert!(!valid_shell(&cmd("x", &vec!["a"; 21].iter().map(|s| *s).collect::<Vec<_>>())));
+        assert!(!valid_shell(&cmd("x", &["a"; 21])));
     }
 
     #[test]

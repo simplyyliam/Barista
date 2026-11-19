@@ -1,0 +1,86 @@
+---
+title: Script items
+description: Put a script's output in the Barista menu bar.
+---
+
+Drop a script into `%APPDATA%\Barista\scripts` and its output shows up in the bar. Barista runs it on a
+timer, draws the first line as the label and the rest as a menu. Delete the file and the item goes.
+
+<Callout type="warn" title="Scripts are not sandboxed">
+  A script runs with your own permissions, like any program you start yourself. Barista asks before a
+  script runs for the first time and again whenever the file changes, but that prompt, the file hash and
+  the rules below are the whole protection. Only add scripts you trust.
+</Callout>
+
+## Your first script
+
+Save this as `hello.30s.py` in the scripts folder (Settings > Script Items > Open scripts folder):
+
+```python
+import datetime
+
+print(f"Hello, {datetime.datetime.now():%H:%M}")
+print("---")
+print("Say hi back | href=mailto:hello@example.com")
+print("Refresh now | refresh=true")
+```
+
+Barista shows a prompt with the file name, the interpreter, the size and the first lines. Choose Allow and
+the item appears.
+
+## File names
+
+`name.INTERVAL.ext`, for example `cpu.10s.ps1`. The interval uses `s`, `m`, `h` or `d` and is at least one
+second (`500ms` is not allowed). Without one, the script uses its own setting, then the default of 60 seconds.
+Renaming the interval changes the timer without a restart.
+
+| Extension | Runs with |
+| --- | --- |
+| `.ps1` | `pwsh` if installed, else Windows PowerShell |
+| `.py` | the `py` launcher, else `python` |
+| `.js`, `.mjs` | `node` |
+
+A missing interpreter shows an error item ("Python not found"), never a crash.
+
+## Output
+
+The first line is the bar label. A line with `---` starts the menu, and every later `---` is a separator.
+Text between the label and the first `---` is ignored for now.
+
+```text
+CPU 12%  RAM 63%
+---
+Memory: 10.1 of 16 GB | color=orange
+Top apps
+--chrome 8%
+--code 4%
+Open Task Manager | shell=taskmgr
+Open the docs | href=https://example.com
+Refresh now | refresh=true
+```
+
+Parameters come after the last ` | `, written `key=value` and separated by spaces. Quote values that contain
+spaces (`param1="my file.txt"`).
+
+| Param | Does |
+| --- | --- |
+| `href=` | Opens a link in your browser. Only `http`, `https` and `mailto`. |
+| `shell=` with `param1=`, `param2=` ... | Starts a program with those arguments. No shell string is built, so menu text can't inject a command. |
+| `refresh=true` | Runs the script again after the click. |
+| `color=` | Colors the line: a name (`red`, `orange`, `green` ...) or `#rrggbb`. |
+| `--` before the text | A submenu. More dashes go deeper, three levels at most. |
+
+## Limits
+
+- Output over 64 KB, or text that is not UTF-8, makes the item show an error.
+- A menu holds up to 200 lines, a line up to 1000 characters.
+- A run is stopped after 10 seconds (never longer than the interval), and so is everything it started.
+- A script never runs twice at once. After failures the wait doubles, up to 5 minutes. Click the item or
+  choose "Run again" to try right away.
+- Windows PowerShell starts slowly (a second or more for a script like the system monitor). Use 5 seconds
+  or longer for `.ps1` scripts.
+
+## When something goes wrong
+
+The item shows an error mark. Its menu has "Show error", "Run again", "Open script" and "Disable". A failing
+script never affects the bar or another script.
