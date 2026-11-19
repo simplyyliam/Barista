@@ -16,6 +16,7 @@ mod popover;
 mod platform;
 mod radius;
 mod registry;
+mod scripts;
 mod settings;
 mod settings_window;
 mod system;
