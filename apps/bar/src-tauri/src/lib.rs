@@ -351,6 +351,11 @@ pub fn run() {
 /// Gives everything back: screen space, the tray messages, running scripts, and tells clients we
 /// are going. Runs on a normal quit, and before the updater's installer ends the process.
 pub(crate) fn shutdown_services() {
+    // Once only: a failed install restarts the bar, and the exit path would run this a second time.
+    static DONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if DONE.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
     if let Some(c) = controller::get() {
         c.shutdown();
     }

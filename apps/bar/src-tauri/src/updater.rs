@@ -7,6 +7,7 @@
 use crate::controller;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
@@ -36,6 +37,10 @@ pub struct UpdateAvailable(pub UpdateInfo);
 struct Pending(Mutex<Option<Update>>);
 
 const NOT_SET_UP: &str = "Updates are not set up in this build.";
+
+/// True from the moment "Update now" is accepted. A check meanwhile must not swap the update that is
+/// being downloaded, and a second click must not start a second download.
+static INSTALLING: AtomicBool = AtomicBool::new(false);
 
 /// True when tauri.conf.json carries the public key (the one-time `pnpm updater:keygen` step).
 fn has_public_key(app: &AppHandle) -> bool {
@@ -78,6 +83,9 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
     if !has_public_key(app) {
         return Err(NOT_SET_UP.into());
     }
+    if INSTALLING.load(Ordering::SeqCst) {
+        return Err("An update is being installed.".into());
+    }
     let update = app
         .updater()
         .map_err(|e| e.to_string())?
@@ -92,7 +100,14 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
         version: update.version.clone(),
         notes: update.body.clone(),
     };
-    *app.state::<Pending>().0.lock().unwrap_or_else(|e| e.into_inner()) = Some(update);
+    // The same version again (the 6 hour timer): nothing changed, so keep what is held and say nothing.
+    let state = app.state::<Pending>();
+    let mut pending = state.0.lock().unwrap_or_else(|e| e.into_inner());
+    if pending.as_ref().is_some_and(|p| p.version == update.version) {
+        return Ok(Some(info));
+    }
+    *pending = Some(update);
+    drop(pending);
     let _ = UpdateAvailable(info.clone()).emit(app);
     Ok(Some(info))
 }
@@ -110,12 +125,23 @@ pub async fn check_for_update(app: AppHandle) -> Result<Option<UpdateInfo>, Stri
 #[tauri::command]
 #[specta::specta]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
+    if INSTALLING.swap(true, Ordering::SeqCst) {
+        return Err("An update is already being installed.".into());
+    }
+    let result = run_install(&app).await;
+    // Only reached when something went wrong (a good install ends the process), so the user can try again.
+    INSTALLING.store(false, Ordering::SeqCst);
+    result
+}
+
+async fn run_install(app: &AppHandle) -> Result<(), String> {
+    // A copy: the update stays available if the download fails (offline, a dropped connection).
     let update = app
         .state::<Pending>()
         .0
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .take()
+        .clone()
         .ok_or("There is no update to install. Check for updates first.")?;
     let bytes = update
         .download(|_, _| {}, || {})

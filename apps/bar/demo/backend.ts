@@ -330,7 +330,12 @@ function setSize(which: "panel" | "menu", width: unknown, height: unknown) {
   listeners.forEach((l) => l())
 }
 
+// A tile shows one feature, so it opens only that feature's panel: the clock in the tray tile does nothing,
+// and the SDK tile opens no panel at all. The full bar (null) opens everything.
+const ALLOWED_PANELS: string[] | null = TRAY_SCENE ? ["tray"] : SDK_SCENE ? [] : null
+
 function openPanel(name: string, anchor: string, chrome: PanelOpen["chrome"]) {
+  if (ALLOWED_PANELS && !ALLOWED_PANELS.includes(name)) return
   if (panel?.name === name && panel.anchor === anchor) return closePanel()
   if (name === "notifications") {
     state.seen = true
