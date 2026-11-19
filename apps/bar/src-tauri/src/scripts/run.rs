@@ -161,11 +161,11 @@ pub async fn run(spec: RunSpec) -> Result<Vec<u8>, RunError> {
     let job = Job::new().map_err(start)?;
     let mut child = command.spawn().map_err(|e| start(e.to_string()))?;
     // Frozen at this point. Into the job first, then let it run (see job.rs).
-    let (Some(pid), Some(handle)) = (child.id(), child.raw_handle()) else {
+    let Some(handle) = child.raw_handle() else {
         return Err(start("the process ended at once".into()));
     };
     job.add(handle).map_err(start)?;
-    job::resume(pid).map_err(start)?;
+    job::resume(handle).map_err(start)?;
 
     let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
         return Err(start("no output pipes".into()));

@@ -7,18 +7,14 @@
 //!
 //! The catch: a program could start a child before we put it in the job, and that child would
 //! escape. So `spawn_suspended` + `Job::add` + `resume` is the order: the process is created
-//! frozen, goes into the job, and only then starts running.
+//! frozen, goes into the job, and only then starts running (`resume`).
 
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
-use windows::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
-};
 use windows::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject, TerminateJobObject,
     JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
     JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
-use windows::Win32::System::Threading::{OpenThread, ResumeThread, THREAD_SUSPEND_RESUME};
 
 /// `CREATE_SUSPENDED | CREATE_NO_WINDOW`: start frozen, and never flash a console window.
 pub const CREATION_FLAGS: u32 = 0x0000_0004 | 0x0800_0000;
@@ -74,31 +70,23 @@ impl Drop for Job {
     }
 }
 
-/// Unfreezes a process made with `CREATE_SUSPENDED`. Rust does not hand out the main thread's
-/// handle, so find it by listing the threads that belong to `pid`.
-pub fn resume(pid: u32) -> Result<(), String> {
-    // SAFETY: the snapshot and the thread handle are closed on every path; the entry struct has
-    // its size set as the API requires.
-    unsafe {
-        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0).map_err(|e| e.to_string())?;
-        let mut entry = THREADENTRY32 { dwSize: std::mem::size_of::<THREADENTRY32>() as u32, ..Default::default() };
-        let mut resumed = false;
-        let mut more = Thread32First(snapshot, &mut entry).is_ok();
-        while more {
-            if entry.th32OwnerProcessID == pid {
-                if let Ok(thread) = OpenThread(THREAD_SUSPEND_RESUME, false, entry.th32ThreadID) {
-                    // ResumeThread returns the old suspend count, or u32::MAX on failure.
-                    resumed |= ResumeThread(thread) != u32::MAX;
-                    let _ = CloseHandle(thread);
-                }
-            }
-            more = Thread32Next(snapshot, &mut entry).is_ok();
-        }
-        let _ = CloseHandle(snapshot);
-        if resumed {
-            Ok(())
-        } else {
-            Err("could not start the script process".into())
-        }
+// ntdll is always loaded. `NtResumeProcess` is what Process Explorer's "Resume" calls: it resumes every
+// thread of a process in one call. The documented way to find a new process's main thread is a system-wide
+// thread snapshot, which cost about 80 ms of CPU per script run (measured), so it is not used.
+#[link(name = "ntdll")]
+extern "system" {
+    fn NtResumeProcess(process: HANDLE) -> i32;
+}
+
+/// Unfreezes a process made with `CREATE_SUSPENDED` (by its raw handle, which needs the
+/// suspend/resume right: the handle `CreateProcess` returns has all rights).
+pub fn resume(process: *mut std::ffi::c_void) -> Result<(), String> {
+    // SAFETY: `process` is a live process handle owned by the caller's `Child`.
+    let status = unsafe { NtResumeProcess(HANDLE(process)) };
+    // NTSTATUS: zero or positive is success.
+    if status >= 0 {
+        Ok(())
+    } else {
+        Err(format!("could not start the script process (status {status:#x})"))
     }
 }
