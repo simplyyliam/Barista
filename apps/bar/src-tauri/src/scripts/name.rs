@@ -61,7 +61,11 @@ fn interval_of(segment: &str) -> Option<Result<u32, ()>> {
         "m" => 60,
         "h" => 3600,
         "d" => 86_400,
-        _ => return Some(Err(())),
+        // Time words that are not allowed (500ms, 2min) are an error the user should see. Anything
+        // else (`2fa`, `3rd`) is just part of the name.
+        "us" | "ms" | "sec" | "secs" | "second" | "seconds" | "min" | "mins" | "minute" | "minutes" | "hr"
+        | "hrs" | "hour" | "hours" | "day" | "days" | "w" | "week" | "weeks" => return Some(Err(())),
+        _ => return None,
     };
     // Too many digits for a u64 is just "very long": capped below.
     let secs = Some(number.parse::<u64>().unwrap_or(u64::MAX).saturating_mul(per));
@@ -155,7 +159,7 @@ mod tests {
 
     #[test]
     fn milliseconds_and_zero_are_rejected() {
-        for n in ["a.500ms.ps1", "a.0s.ps1", "a.0m.py", "a.5x.py", "a.10.py.js"] {
+        for n in ["a.500ms.ps1", "a.0s.ps1", "a.0m.py", "a.2min.py", "a.10.py.js"] {
             // "10" alone (digits only) is part of the name, not an interval.
             if n == "a.10.py.js" {
                 assert!(parse_file_name(n).is_ok());
@@ -163,6 +167,15 @@ mod tests {
             }
             assert!(matches!(parse_file_name(n), Err(NameError::BadInterval(_))), "{n}");
         }
+    }
+
+    #[test]
+    fn digits_then_letters_that_are_not_a_time_unit_are_part_of_the_name() {
+        for name in ["net.2fa.ps1", "backup.3rd.py", "v1.2b.mjs"] {
+            let n = ok(name);
+            assert_eq!(n.interval_secs, None, "{name}");
+        }
+        assert_eq!(ok("net.2fa.ps1").id, "net.2fa.ps1");
     }
 
     #[test]

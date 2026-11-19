@@ -50,7 +50,15 @@ fn separator() -> MenuEntry {
     entry(None, MenuItemType::Separator, "", None, true, vec![])
 }
 
-/// Ids are `m0`, `m1`, ... in drawing order, unique across submenus.
+/// A short hash of a line's text and actions. Only has to tell "changed" from "same", not resist an attacker.
+fn line_hash(label: &str, href: &Option<String>, shell: &Option<ShellCommand>, refresh: bool) -> u32 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    (label, href, shell.as_ref().map(|s| (&s.program, &s.args)), refresh).hash(&mut hasher);
+    hasher.finish() as u32
+}
+
+/// Ids are `m<position>-<hash>` in drawing order, unique across submenus.
 pub fn from_output(nodes: &[Node]) -> Built {
     fn walk(nodes: &[Node], next: &mut usize, actions: &mut HashMap<String, Action>) -> Vec<MenuEntry> {
         nodes
@@ -58,9 +66,12 @@ pub fn from_output(nodes: &[Node]) -> Built {
             .map(|node| match node {
                 Node::Separator => separator(),
                 Node::Item { entry: e, children } => {
-                    let id = format!("m{}", *next);
-                    *next += 1;
                     let Entry { label, color, href, shell, refresh } = e.clone();
+                    // The id includes a hash of what the line does. If the next run puts a different
+                    // line at this position, a click that was meant for the old one finds nothing
+                    // instead of running the new line's `shell` or `href`.
+                    let id = format!("m{}-{:08x}", *next, line_hash(&label, &href, &shell, refresh));
+                    *next += 1;
                     if href.is_some() || shell.is_some() || refresh {
                         actions.insert(id.clone(), Action { href, shell, refresh, builtin: None });
                     }
@@ -129,7 +140,10 @@ mod tests {
             }
         }
         collect(&b.entries, &mut ids);
-        assert_eq!(ids, vec!["m0", "m1", "m2", "m3"]);
+        let positions: Vec<&str> = ids.iter().map(|id| id.split('-').next().unwrap()).collect();
+        assert_eq!(positions, vec!["m0", "m1", "m2", "m3"]);
+        let unique: std::collections::HashSet<_> = ids.iter().collect();
+        assert_eq!(unique.len(), ids.len());
         assert_eq!(b.entries[0].kind, MenuItemType::Submenu);
         assert_eq!(b.entries[1].kind, MenuItemType::Normal);
     }
@@ -137,10 +151,27 @@ mod tests {
     #[test]
     fn only_lines_with_params_get_actions() {
         let b = build("l\n---\nplain\nweb | href=https://example.com\nrun | shell=taskmgr\nagain | refresh=true");
-        assert!(!b.actions.contains_key("m0"));
-        assert!(b.actions["m1"].href.is_some());
-        assert_eq!(b.actions["m2"].shell.as_ref().unwrap().program, "taskmgr");
-        assert!(b.actions["m3"].refresh);
+        let id = |label: &str| b.entries.iter().find(|e| e.label == label).unwrap().id.clone().unwrap();
+        assert!(!b.actions.contains_key(&id("plain")));
+        assert!(b.actions[&id("web")].href.is_some());
+        assert_eq!(b.actions[&id("run")].shell.as_ref().unwrap().program, "taskmgr");
+        assert!(b.actions[&id("again")].refresh);
+    }
+
+    #[test]
+    fn a_different_line_at_the_same_position_gets_a_different_id() {
+        // The menu reorders between two runs: a click made on the first menu must not hit the second's line.
+        let first = build("l
+---
+Open | shell=taskmgr");
+        let second = build("l
+---
+Open | shell=calc");
+        assert_ne!(first.entries[0].id, second.entries[0].id);
+        // The same menu twice keeps its ids, so an open menu doesn't redraw for nothing.
+        assert_eq!(first.entries[0].id, build("l
+---
+Open | shell=taskmgr").entries[0].id);
     }
 
     #[test]

@@ -25,12 +25,16 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Testing without the UI: set `BARISTA_SCRIPTS_DIR` (debug builds or `BARISTA_DEBUG`); trust file is `script-trust.json` next to
   settings (beside the override folder when overridden). `node examples/inspect/src/index.ts` lists `script/...` items (do NOT run
   `pnpm inspect` while `pnpm dev` runs: it rebuilds the SDK).
+- Code review (medium) fixes done: timer restart after a failed file read, stale result after stop, PowerShell UTF-8 wrapper, content-hashed menu ids, double run after "Run again", `2fa`-style names. Security review: nothing at confidence 8+.
 - Not verified live: the trust panel and settings page visually (the bar's right side rendered empty in screenshots of the dev bar,
   cause not found), "Allow" click, menu actions (href/shell/refresh), "scripts off" toggle, `pnpm bench` (needs release build, no running bar).
 - Fix next (dogfooding the format):
   - Params separated by ` | ` (xbar style) silently turn into label text.
   - Plain menu lines are clickable but do nothing (UI could draw them as inert).
-  - Windows PowerShell output is OEM code page: non-ASCII = "garbage" error; scripts must set UTF-8 themselves.
+  - Python from the Microsoft Store (no `py` launcher) reads as "Python not found": `run.rs` skips every `WindowsApps` PATH folder to avoid the Store stub.
+  - The trust preview shows only the first 12 lines (100 chars each) without saying it is cut; the hash covers the whole file.
+  - Hash check and the interpreter's read are two reads (tiny window; only someone who can already write the folder can use it).
+  - A script that prints outside data with ` | shell=` lets that data start a program on click (inherent to the format; consider a global switch for `shell=`).
   - `.ps1` is slow: the first system monitor took 4.8 s (try/catch per process, `Win32_Processor`); now 1.7 s. Needs a docs note per interpreter.
   - An error item shows only the file title, not the last good label; "Show error" is the only place the reason is visible.
   - No "last run / duration" in settings; no way to see a script's output without running it.

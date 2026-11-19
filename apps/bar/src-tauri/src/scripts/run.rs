@@ -58,6 +58,10 @@ pub struct RunSpec {
     pub cwd: PathBuf,
 }
 
+/// Run by `powershell.exe -Command`: UTF-8 stdout without a BOM, run the script, pass its exit code on.
+const POWERSHELL_WRAPPER: &str =
+    "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; & $env:BARISTA_SCRIPT; exit $LASTEXITCODE";
+
 /// Looks `name.exe` up in every PATH folder. `skip_store_stub` ignores the empty `python.exe` that
 /// Windows ships in `WindowsApps` (it opens the Microsoft Store instead of running anything).
 fn find_on_path(name: &str, skip_store_stub: bool) -> Option<PathBuf> {
@@ -81,7 +85,10 @@ pub fn command_for(interpreter: Interpreter) -> Result<(PathBuf, Vec<OsString>),
                 })
                 .ok_or_else(|| missing("PowerShell"))?;
             // Bypass: the default policy blocks every .ps1. The trust prompt is the gate here.
-            let args = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"];
+            // The script runs through a tiny wrapper that makes stdout UTF-8: Windows PowerShell would
+            // print the OEM code page, and a degree sign would look like garbage to the parser. The
+            // script's path travels in an environment variable, so it is never part of a command string.
+            let args = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", POWERSHELL_WRAPPER];
             Ok((exe, args.iter().map(OsString::from).collect()))
         }
         Interpreter::Python => {
@@ -133,9 +140,12 @@ pub async fn run(spec: RunSpec) -> Result<Vec<u8>, RunError> {
     let start = |e: String| RunError::Start(format!("Could not start the script: {e}"));
 
     let mut command = Command::new(exe);
+    command.args(lead_args);
+    match spec.interpreter {
+        Interpreter::PowerShell => command.env("BARISTA_SCRIPT", &spec.path),
+        _ => command.arg(&spec.path),
+    };
     command
-        .args(lead_args)
-        .arg(&spec.path)
         .current_dir(&spec.cwd)
         .env("BARISTA", "1")
         .env("BARISTA_VERSION", env!("CARGO_PKG_VERSION"))
@@ -233,6 +243,30 @@ mod tests {
             .output()
             .unwrap();
         String::from_utf8_lossy(&out.stdout).contains(&pid.to_string())
+    }
+
+    /// A `.ps1` in a fresh temp folder, or `None` without PowerShell.
+    fn ps_script(code: &str) -> Option<RunSpec> {
+        command_for(Interpreter::PowerShell).ok()?;
+        let dir = std::env::temp_dir().join(format!("barista-run-ps-{}-{}", std::process::id(), code.len()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("t.ps1");
+        std::fs::write(&path, code).unwrap();
+        Some(RunSpec { path, interpreter: Interpreter::PowerShell, timeout: Duration::from_secs(20), cwd: dir })
+    }
+
+    #[tokio::test]
+    async fn powershell_output_is_utf8_even_with_non_ascii() {
+        // [char]176 is the degree sign. The file stays ASCII: Windows PowerShell reads BOM-less files as ANSI.
+        let Some(spec) = ps_script("'Temp 45' + [char]176 + 'C'") else { return };
+        let out = run(spec).await.unwrap();
+        assert!(super::super::parse::parse(&out).unwrap().label.contains("45\u{b0}C"));
+    }
+
+    #[tokio::test]
+    async fn powershell_exit_codes_come_through() {
+        let Some(spec) = ps_script("[Console]::Error.WriteLine('nope'); exit 3") else { return };
+        assert!(matches!(run(spec).await, Err(RunError::Exit { code: Some(3), .. })));
     }
 
     #[tokio::test]

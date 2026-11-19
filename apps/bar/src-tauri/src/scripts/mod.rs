@@ -136,6 +136,16 @@ struct Live {
     actions: HashMap<String, Action>,
     refresh: Arc<Notify>,
     running: Arc<AtomicBool>,
+    /// `false` once the task's loop has ended on its own (it can: see `run_loop`), so `apply` starts a new one.
+    alive: Arc<AtomicBool>,
+}
+
+/// Marks a script's loop as ended when it returns, however it returns.
+struct AliveGuard(Arc<AtomicBool>);
+impl Drop for AliveGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
 }
 
 impl Live {
@@ -145,6 +155,9 @@ impl Live {
             task.abort();
         }
         self.key = None;
+        // Real generations start at 1: a result from the run that was just stopped can't match 0, so
+        // it can't put old output (or old menu actions) back on an item that is now untrusted or off.
+        self.generation = 0;
         self.running.store(false, Ordering::SeqCst);
     }
 }
@@ -319,6 +332,7 @@ impl Manager {
             actions: HashMap::new(),
             refresh: Arc::new(Notify::new()),
             running: Arc::new(AtomicBool::new(false)),
+            alive: Arc::new(AtomicBool::new(false)),
         });
         let already_asked = matches!(live.state, LiveState::NeedsTrust) && live.sha256 == found.sha256;
         live.file_name = found.file_name;
@@ -345,7 +359,7 @@ impl Manager {
             }
         } else {
             let key = RunKey { path: found.path, interval, sha: found.sha256 };
-            if live.key.as_ref() != Some(&key) || live.task.is_none() {
+            if live.key.as_ref() != Some(&key) || live.task.is_none() || !live.alive.load(Ordering::SeqCst) {
                 live.stop();
                 inner.generation += 1;
                 live.generation = inner.generation;
@@ -368,6 +382,7 @@ impl Manager {
                     );
                 }
                 if let Some(mgr) = MANAGER.get().cloned() {
+                    live.alive = Arc::new(AtomicBool::new(true));
                     live.task = Some(tauri::async_runtime::spawn(run_loop(
                         mgr,
                         id,
@@ -377,6 +392,7 @@ impl Manager {
                         name.interpreter,
                         live.refresh.clone(),
                         live.running.clone(),
+                        AliveGuard(live.alive.clone()),
                     )));
                 }
             }
@@ -506,19 +522,32 @@ async fn run_loop(
     interpreter: Interpreter,
     refresh: Arc<Notify>,
     running: Arc<AtomicBool>,
+    _alive: AliveGuard,
 ) {
     let mut failures = 0u32;
     loop {
+        // Set before the hash check too, so a click on "Run again" in that moment can't queue a second run.
+        running.store(true, Ordering::SeqCst);
         // The hash is checked again before every run: an edit since the user said yes means no run.
         let (path, expected) = (key.path.clone(), key.sha.clone());
-        let unchanged = tokio::task::spawn_blocking(move || std::fs::read(path).map(|b| sha256_hex(&b) == expected).unwrap_or(false))
+        let check = tokio::task::spawn_blocking(move || std::fs::read(path).map(|b| sha256_hex(&b) == expected))
             .await
-            .unwrap_or(false);
-        if !unchanged {
-            mgr.rescan.notify_one();
-            return;
+            .unwrap_or_else(|_| Err(std::io::Error::other("check failed")));
+        match check {
+            Ok(true) => {}
+            Ok(false) => {
+                running.store(false, Ordering::SeqCst);
+                mgr.rescan.notify_one();
+                return;
+            }
+            Err(_) => {
+                // Unreadable for a moment (an editor, a sync or a virus scan has it). Not an edit:
+                // try again soon instead of ending this script's timer for good.
+                running.store(false, Ordering::SeqCst);
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                continue;
+            }
         }
-        running.store(true, Ordering::SeqCst);
         let result = run::run(RunSpec {
             path: key.path.clone(),
             interpreter,
