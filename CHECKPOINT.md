@@ -42,6 +42,8 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `app_info.rs` (app name), `foreground::watch_window`. Registry keys `appmenu/<n>` (not in the item list). UI: `features/menubar/app-menus.tsx`, app name follows the app in
   front, new built-in item `app-menus` (bar editor can hide it). New for the UI (wired): `getAppMenus`, event `appMenusChanged`.
   Verified live: System Information (classic) and Windows 11 Notepad (UIA), including picking entries. Chromium/Electron/GPU apps expose nothing: name only.
+  Apps with no readable menu get a generic Edit + Window menu (SendInput chords, WM_SYSCOMMAND), only for normal app windows (`is_normal_window`). Zed, Figma, Zen verified.
+  App name comes from the exe's FileDescription, read up to the first NUL (Spotify fix).
   Not done: keyboard access (Alt), item icons, hover-switching between UIA titles, a faster UIA read (about 0.8 s: one cache request per item would cut it).
 
 ## Facts a new session needs
