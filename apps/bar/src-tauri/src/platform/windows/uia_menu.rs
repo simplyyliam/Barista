@@ -96,14 +96,32 @@ fn control_type_condition(
     unsafe { automation.CreatePropertyCondition(UIA_ControlTypePropertyId, &VARIANT::from(id.0)).ok() }
 }
 
-/// The window's menu bar element, if the app exposes one.
+/// Windows exposes the title bar's system menu (Restore, Move, Close) as a `MenuBar` with one item,
+/// "System", on every window. That is not the app's menu.
+fn is_system_bar(automation: &IUIAutomation, bar: &IUIAutomationElement) -> bool {
+    // SAFETY: plain COM calls.
+    let id = unsafe { bar.CurrentAutomationId().map(|b| b.to_string()).unwrap_or_default() };
+    if id == "SystemMenuBar" {
+        return true;
+    }
+    let titles = bar_titles(bar, automation);
+    titles.len() == 1 && unsafe { titles[0].CurrentAutomationId().map(|b| b.to_string()).unwrap_or_default() } == "System"
+}
+
+/// The window's own menu bar element (not the title bar's system menu), if the app exposes one.
 fn find_bar(automation: &IUIAutomation, hwnd: isize) -> Option<(IUIAutomationElement, IUIAutomationElement)> {
     let cond = control_type_condition(automation, UIA_MenuBarControlTypeId)?;
     // SAFETY: plain COM calls.
     unsafe {
         let window = automation.ElementFromHandle(HWND(hwnd as *mut _)).ok()?;
-        let bar = window.FindFirst(TreeScope_Descendants, &cond).ok()?;
-        Some((window, bar))
+        let bars = window.FindAll(TreeScope_Descendants, &cond).ok()?;
+        for i in 0..bars.Length().unwrap_or(0).min(8) {
+            let Ok(bar) = bars.GetElement(i) else { continue };
+            if !is_system_bar(automation, &bar) && !bar_titles(&bar, automation).is_empty() {
+                return Some((window, bar));
+            }
+        }
+        None
     }
 }
 
