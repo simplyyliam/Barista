@@ -15,6 +15,8 @@ export function UpdatesGroup({ settings }: { settings: Settings }) {
   // The bar checks by itself every few hours and tells us when it finds one.
   useEffect(() => {
     const off = events.updateAvailable.listen((e) => setUpdate(e.payload))
+    // One may have been found before this window opened.
+    void commands.getPendingUpdate().then((found) => found && setUpdate(found))
     return () => void off.then((f) => f())
   }, [])
 

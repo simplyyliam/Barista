@@ -112,6 +112,19 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
     Ok(Some(info))
 }
 
+/// The update an earlier check found, if any, so a Settings window opened later can still offer it
+/// (the `updateAvailable` event only reaches windows that are open when it is sent).
+#[tauri::command]
+#[specta::specta]
+pub fn get_pending_update(app: AppHandle) -> Option<UpdateInfo> {
+    let state = app.state::<Pending>();
+    let pending = state.0.lock().unwrap_or_else(|e| e.into_inner());
+    pending.as_ref().map(|update| UpdateInfo {
+        version: update.version.clone(),
+        notes: update.body.clone(),
+    })
+}
+
 /// Asks the releases repo whether a newer version exists. `None` = you are up to date.
 #[tauri::command]
 #[specta::specta]

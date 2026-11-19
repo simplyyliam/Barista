@@ -148,6 +148,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::settings::import_settings,
             commands::set_dark_mode,
             commands::open_logs_folder,
+            updater::get_pending_update,
             updater::check_for_update,
             updater::install_update
         ])

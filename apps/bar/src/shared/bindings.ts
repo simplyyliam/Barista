@@ -421,6 +421,11 @@ export const commands = {
 	setDarkMode: (dark: boolean) => __TAURI_INVOKE<void>("set_dark_mode", { dark }),
 	/**  Opens the folder with the log files in Explorer (for bug reports). Logs stay on this PC. */
 	openLogsFolder: () => __TAURI_INVOKE<void>("open_logs_folder"),
+	/**
+	 *  The update an earlier check found, if any, so a Settings window opened later can still offer it
+	 *  (the `updateAvailable` event only reaches windows that are open when it is sent).
+	 */
+	getPendingUpdate: () => __TAURI_INVOKE<UpdateInfo_Serialize | null>("get_pending_update"),
 	/**  Asks the releases repo whether a newer version exists. `None` = you are up to date. */
 	checkForUpdate: () => typedError<UpdateInfo_Serialize | null, string>(__TAURI_INVOKE("check_for_update")),
 	/**
