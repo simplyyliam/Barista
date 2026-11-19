@@ -30,8 +30,6 @@ pub const LABEL: &str = "menu";
 pub const SUB_LABEL: &str = "menu-sub";
 
 /// If the UI never reports its size (it should within a frame), show the window anyway.
-/// How long an app menu stays closed before the next one opens (the window's own fade-out).
-const APP_MENU_CLOSE_WAIT: Duration = Duration::from_millis(160);
 const REVEAL_FALLBACK: Duration = Duration::from_millis(80);
 
 /// Size guess (logical px) until the UI reports the real one.
@@ -454,28 +452,7 @@ impl MenuWindow {
         match action {
             Action::Nothing => {}
             Action::Open(key) => self.show(&key, false),
-            Action::Swap(key) => {
-                let previous = self.lock().shown.clone();
-                // App menus close fully first and the next one opens after: swapping in place made the
-                // window jump between menus of different sizes.
-                if previous.as_deref().is_some_and(|p| p.starts_with("appmenu/")) && key.starts_with("appmenu/") {
-                    self.hide(&previous.unwrap_or_default());
-                    tauri::async_runtime::spawn(async move {
-                        tokio::time::sleep(APP_MENU_CLOSE_WAIT).await;
-                        if let Some(menu) = get() {
-                            let still_wanted = {
-                                let inner = menu.lock();
-                                inner.shown.is_none() && inner.machine.open.as_deref() == Some(key.as_str())
-                            };
-                            if still_wanted {
-                                menu.show(&key, false);
-                            }
-                        }
-                    });
-                } else {
-                    self.show(&key, true);
-                }
-            }
+            Action::Swap(key) => self.show(&key, true),
             // The machine already forgot which key; the event names the last one we showed.
             Action::Close => {
                 let key = self.lock().shown.clone().unwrap_or_default();
