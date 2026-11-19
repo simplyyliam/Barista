@@ -43,6 +43,11 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **Update, second run (builds that include `get_pending_update`):** the background check found 0.10.2 on its own; Settings, opened
   afterwards for the first time, already said "Barista 0.10.2 is ready" with "Update now" (no manual check); one click and the installed and
   running exe were 0.10.2.
+- **Third run, on builds from the final commit (5e75af6):** scripted end to end: install 0.10.1, the bar found 0.10.2 by itself, a second launch
+  handed over to the running bar (still one process) and opened Settings, General said "Barista 0.10.2 is ready" with "Update now", one click
+  updated and restarted into 0.10.2, then uninstall left no bar and no registry entry.
+- **Not exercised (needs your repo, secrets and a tag push, which I must not do):** the release Action itself (signed installer + `latest.json` into a draft in
+  `barista-releases`, `sdk-v*` npm publish) and an update served from a real GitHub release instead of my local server.
 - **Clean checkout:** a fresh `git clone` of the pushed branch: `pnpm install --frozen-lockfile` 145 s, typecheck, 157 tests and eslint pass,
   `pnpm web:build` 107 s and `out/demo` is in the output.
 - **README to working item:** `npm install` took 24 s; the README snippet put a ticking `Clock` item in the bar and removed it when stopped.
