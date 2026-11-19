@@ -332,6 +332,16 @@ importers:
         specifier: npm:@typescript/typescript6@~6.0.2
         version: '@typescript/typescript6@6.0.2'
 
+  examples/getting-started:
+    dependencies:
+      '@baristabar/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      typescript:
+        specifier: npm:@typescript/typescript6@~6.0.2
+        version: '@typescript/typescript6@6.0.2'
+
   examples/inspect:
     dependencies:
       '@baristabar/sdk':

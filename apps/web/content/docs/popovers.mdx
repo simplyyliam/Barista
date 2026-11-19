@@ -1,0 +1,40 @@
+---
+title: Popovers
+description: Show your own window right under an item.
+---
+
+A popover is your own window, shown right under the icon. The bar decides **when** (a left click) and **where**
+(it sends the final position). Your app only moves and shows its window.
+
+## Menu or popover?
+
+| You want | Use |
+|---|---|
+| A short list of actions (start, pause, open, quit) | `setMenu`: the bar draws it |
+| Checkboxes or a radio group | `setMenu` |
+| Your own layout: a form, a chart, a player | `setPopover`: you draw it |
+| Live content you update while it is open | `setPopover` |
+| Both | Popover on left click, menu on right click |
+
+Start with a menu. It matches the bar, needs no window and works in any Node app. A popover needs a window
+framework such as [Electron](/docs/electron).
+
+## How it works
+
+```ts
+item.setPopover({ window: myWindow, width: 320, height: 380 })
+```
+
+- `window` is anything that can show and hide itself (`BA.PopoverWindow`: `show(placement)`, `hide()`,
+  `onClose(fn)`). `placement` is in physical pixels, already placed and kept on screen.
+- `width` and `height` are logical pixels, from 48 to 1024.
+- Click rule: **left** opens the popover (else the menu, else `on("click")`), **right** opens the menu (else
+  `on("click")`), **middle** always fires `on("click")`.
+- The bar hides the popover when the user clicks the icon again, another item, or anywhere else. Do not hide
+  it on blur yourself. Esc is handled by your window.
+- The SDK confirms after `show` returns. If your window never does, the bar hides it after 1.5 seconds.
+- If the bar goes away while your popover is open, the SDK hides your window and runs `close`.
+- `item.on("open")` and `item.on("close")` fire right before it shows and when it closes. Use `open` to refresh
+  what the window shows.
+
+For Electron there is a ready-made adapter. Read on.

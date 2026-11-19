@@ -1,0 +1,47 @@
+---
+title: Install and update
+description: Installing Barista, how it updates itself, and what it keeps on your PC.
+---
+
+## Install
+
+Download the installer from the [releases page](https://github.com/simplyyliam/barista-releases/releases/latest) and run it.
+
+- It installs for **your user only**. No admin rights, and nothing outside your user folders.
+- The bar appears at the top of the screen and reserves its own space, like the bar on a Mac. Maximized windows
+  stop under it.
+- It needs Windows 11. If the WebView2 runtime is missing, the installer fetches it.
+
+### "Windows protected your PC"
+
+Windows may show a blue SmartScreen window the first time. That is because the installer is not signed with a
+paid code-signing certificate yet, not because anything is wrong with it. Choose **More info**, then
+**Run anyway**. Signing is planned.
+
+## Updates
+
+Barista checks for a new version a little after it starts and then every few hours. When there is one, Settings >
+General shows **Update now**. Nothing installs until you press it. The bar restarts for a moment.
+
+- Switch the check off in Settings > General > Updates.
+- Every update is signed. Barista refuses one that does not match its built-in key.
+- The only thing sent is a request for a small file on the releases page. GitHub sees it like any other download; Barista adds no account and no identifier.
+
+## Start with Windows
+
+Settings > General > Start Barista when Windows starts. It adds one entry to your startup apps, and Windows'
+Task Manager can switch it off too.
+
+## Uninstall
+
+Remove Barista in Settings > Apps. The uninstaller stops the bar, gives the Windows taskbar back (if you had
+Barista hide it) and removes the startup entry. Your settings and scripts stay in `%APPDATA%\Barista` and
+`%APPDATA%\dev.barista.app`, so a reinstall picks up where you left off. Delete those folders for a clean slate.
+
+## Privacy
+
+- No telemetry, no accounts, nothing is sent about you or your PC.
+- The log files stay on your PC: Settings > General > Log files > Open folder. They hold errors and
+  start-up notes, not what you do. If you report a bug, you decide whether to attach them.
+- Script items run with your own permissions and are **not sandboxed**. Barista asks before a script runs the
+  first time and again whenever the file changes.

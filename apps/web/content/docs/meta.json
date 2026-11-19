@@ -1,0 +1,16 @@
+{
+  "title": "Barista",
+  "pages": [
+    "index",
+    "install",
+    "---Build an item---",
+    "menus",
+    "popovers",
+    "electron",
+    "---More ways in---",
+    "script-items",
+    "app-menus",
+    "---Reference---",
+    "protocol"
+  ]
+}

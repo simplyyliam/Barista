@@ -1,5 +1,6 @@
 // One place for links and copy that Liam will want to change.
-export const DOWNLOAD_URL = "https://github.com/simplyyliam/Barista/releases/latest"
+// The public releases-only repo (the code repo is private, ADR 0038).
+export const DOWNLOAD_URL = "https://github.com/simplyyliam/barista-releases/releases/latest"
 export const NPM_URL = "https://www.npmjs.com/package/@baristabar/sdk"
 
 export const NAV_LINKS = [

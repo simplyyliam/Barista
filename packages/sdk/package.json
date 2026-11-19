@@ -8,9 +8,9 @@
     "url": "git+https://github.com/simplyyliam/Barista.git",
     "directory": "packages/sdk"
   },
-  "homepage": "https://github.com/simplyyliam/Barista/tree/main/packages/sdk#readme",
+  "homepage": "https://github.com/simplyyliam/barista-releases#readme",
   "bugs": {
-    "url": "https://github.com/simplyyliam/Barista/issues"
+    "url": "https://github.com/simplyyliam/barista-releases/issues"
   },
   "keywords": [
     "barista",
