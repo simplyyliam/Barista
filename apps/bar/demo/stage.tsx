@@ -24,7 +24,7 @@ function WindowBox({ which, className, children }: { which: "panel" | "menu"; cl
 }
 
 /** A pretend desktop: the real bar on top, and the real panel and menu where their windows would be. */
-export default function Stage({ scene }: { scene: string }) {
+export default function Stage({ scene, bare = false }: { scene: string; bare?: boolean }) {
   const open = useOpenPanel()
 
   // What is already open when the page loads, so a still frame on the landing page is not empty.
@@ -35,15 +35,17 @@ export default function Stage({ scene }: { scene: string }) {
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950"
+      className="relative h-full w-full overflow-hidden bg-slate-900 bg-cover bg-center"
+      style={{ backgroundImage: `url(${import.meta.env.BASE_URL}wallpaper.jpg)` }}
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) void commands.closePanel()
       }}
     >
-      <div className="h-[28px] w-full bg-black/30 backdrop-blur-md">
+      {/* bare: only the panel, for the small tiles on the landing page */}
+      <div className={bare ? "sr-only" : "h-[28px] w-full bg-black/75 backdrop-blur-xl"}>
         <Menubar />
       </div>
-      <WindowBox which="panel" className="top-[34px] right-2">
+      <WindowBox which="panel" className={bare ? "top-2 left-2" : "top-[34px] right-2"}>
         <Motion>
           <PanelFrame acrylic chrome="glass" openKey={open ? `${open.name}|${open.anchor}` : null}>
             <PanelBody name={open?.name ?? null} />

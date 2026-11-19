@@ -14,42 +14,12 @@ export type Ghost = {
 }
 
 const SCRIPTS = {
-  hero: async (g) => {
-    await g.tap(g.q('.note-wrap[data-gone="false"] .note'))
-    await g.wait(700)
-    await g.tap(g.q(".ui__clear:not(:disabled)"))
-    await g.wait(3800)
-    await g.tap(g.q(".tl", 1))
-    await g.wait(300)
-    await g.tap(g.q(".tl", 3))
-    await g.wait(500)
-    await g.drag(g.q(".slider", 0), 0.2)
-    await g.wait(250)
-    await g.drag(g.q(".slider", 0), 0.85)
-  },
-  notes: async (g) => {
-    await g.tap(g.q('.note-wrap[data-gone="false"] .note'))
-    await g.wait(500)
-    await g.tap(g.q('.note-wrap[data-gone="false"] .note'))
-    await g.wait(600)
-    await g.tap(g.q(".ui__clear:not(:disabled)"))
-    await g.wait(3600)
-  },
   tray: async (g) => {
     await g.tap(g.q(".tray__icon", 1))
     await g.wait(1500)
     await g.tap(g.q(".tray__icon", 3))
     await g.wait(1500)
     await g.tap(g.q(".tray__icon", 3))
-  },
-  toggles: async (g) => {
-    for (let round = 0; round < 2; round++) {
-      for (const i of [0, 1, 2]) {
-        await g.tap(g.q(".tg", i))
-        await g.wait(350)
-      }
-      await g.wait(700)
-    }
   },
   monitors: async (g) => {
     await g.tap(g.q(".mon", 1))
@@ -73,12 +43,6 @@ const SCRIPTS = {
         await g.wait(400)
       }
       await g.wait(600)
-    }
-  },
-  sdk: async (g) => {
-    for (let i = 0; i < 3; i++) {
-      await g.tap(g.q(".minibar__item"))
-      await g.wait(900)
     }
   },
 } satisfies Record<string, (g: Ghost) => Promise<void>>

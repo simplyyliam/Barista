@@ -1,7 +1,8 @@
 import { Bean, BeanGlyph, Plus } from "./icons"
 import { Demo } from "./demo"
 import { FAQ } from "./site"
-import { ControlCenter, DownloadLink, MiniBar, Monitors, Notifications, Scrub, Seg, Slider, SoonButton, TrayRow } from "./interactive"
+import { BarDemo } from "./bar-demo"
+import { DownloadLink, Monitors, Scrub, Seg, Slider, SoonButton, TrayRow } from "./interactive"
 
 function Download({ white = false }: { white?: boolean }) {
   return <DownloadLink white={white} />
@@ -36,17 +37,8 @@ export function Hero() {
         </div>
         <div className="split__media hero__media" style={{ position: "relative" }} data-reveal data-delay="200">
           <Bean style={{ width: 130, top: -112, right: 56, transform: "rotate(8deg)" }} />
-          <Demo script="hero" className="scene" role="group" label="The Barista bar on a desktop, with notifications and the control center open" hint="Go on, click around. It is all live." delay={900}>
-            <div className="mbar">
-              <span>Explorer</span>
-              <span>Sunday, 11 May</span>
-              <span style={{ display: "flex", alignItems: "center" }}><i /><i className="sq" /><i />&nbsp;&nbsp;22:00</span>
-            </div>
-            <div className="scene__body">
-              <Notifications />
-              <ControlCenter />
-            </div>
-          </Demo>
+          <BarDemo scene="notifications" label="The Barista bar on a desktop, with the notifications panel open" />
+          <p className="hint small center">This is the real bar. Click the icons.</p>
         </div>
       </div>
     </section>
@@ -84,16 +76,12 @@ export function Features() {
           <div className="tile tile--tall" data-reveal data-delay="80">
             <h3 className="h3">Notifications</h3>
             <p>Read, clear and open them from a panel under the clock.</p>
-            <Demo script="notes" className="tile__media" hint="Tap a note to swipe it away." delay={600}><Notifications /></Demo>
+            <BarDemo scene="notifications" size="panel" label="The notifications panel" className="tile__media" />
           </div>
           <div className="tile" data-reveal data-delay="160">
             <h3 className="h3">Control center</h3>
-            <p>Try the switches. They are real ones.</p>
-            <Demo script="toggles" className="tile__media toggles" hint="Flip them." delay={400}>
-              <label className="tg">Wi-Fi<input type="checkbox" defaultChecked /><i /></label>
-              <label className="tg">Bluetooth<input type="checkbox" defaultChecked /><i /></label>
-              <label className="tg">Focus<input type="checkbox" /><i /></label>
-            </Demo>
+            <p>Try the switches. They are the real ones.</p>
+            <BarDemo scene="control" size="panel" label="The control center" className="tile__media" />
           </div>
           <div className="tile" data-reveal data-delay="240">
             <h3 className="h3">Every monitor</h3>
@@ -111,7 +99,6 @@ export function Sdk() {
     <section className="section" id="sdk">
       <div className="wrap split">
         <div className="split__media" data-reveal>
-          <Demo script="sdk" hint="That code is running. Click the counter." delay={400}>
           <div className="code" role="img" aria-label="Example code using the Barista SDK">
             <pre>
               <span className="c">{"// npm install @baristabar/sdk"}</span>
@@ -124,11 +111,13 @@ export function Sdk() {
               {"\n"}
               {"})"}
               {"\n\n"}
-              item.on({'"click"'}, () =&gt; item.setLabel({'"1"'}))
+              <span className="k">let</span> n = 0
+              {"\n"}
+              item.on({'"click"'}, () =&gt; item.setLabel(String(++n)))
             </pre>
           </div>
-          <MiniBar />
-          </Demo>
+          <BarDemo scene="sdk" size="bar" label="The real Barista bar with one item from the SDK example: a counter" className="sdk-bar" />
+          <p className="hint small">That is the real bar, with just this item. Click the counter.</p>
         </div>
         <div className="split__text stack">
           <p className="eyebrow" data-reveal>An SDK for your app</p>

@@ -8,6 +8,7 @@ import { handle } from "./backend"
 mockWindows("main")
 mockIPC(handle, { shouldMockEvents: true })
 
+const params = new URLSearchParams(location.search)
 const { default: Stage } = await import("./stage")
 const { startBarTone } = await import("../src/shared/stores/bar-tone")
 await import("./demo.css")
@@ -15,6 +16,6 @@ void startBarTone()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <Stage scene={new URLSearchParams(location.search).get("scene") ?? "hero"} />
+    <Stage scene={params.get("scene") ?? "notifications"} bare={params.has("bare")} />
   </StrictMode>,
 )

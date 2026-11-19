@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "pnpm --filter @barista/bar build:demo && next dev",
+    "build": "pnpm --filter @barista/bar build:demo && next build",
     "typecheck": "next typegen && tsc6 --noEmit"
   },
   "dependencies": {

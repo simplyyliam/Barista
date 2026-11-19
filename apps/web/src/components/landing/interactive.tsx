@@ -7,58 +7,6 @@ import { DOWNLOAD_URL } from "./site"
 
 // Small interactive pieces for the landing page. Each one mirrors something the real bar does.
 
-const NOTES = [
-  { b: "Messages", t: "You may have a new message" },
-  { b: "Snipping Tool", t: "Screenshot copied to clipboard. Saved to your screenshots folder." },
-  { b: "Calendar", t: "Design review starts in 10 minutes" },
-]
-
-// Click a note to swipe it away, or "Clear all". They come back after a moment so the demo loops.
-export function Notifications() {
-  const [gone, setGone] = useState<number[]>([])
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const box = useRef<HTMLDivElement>(null)
-  const empty = gone.length === NOTES.length
-
-  useEffect(() => {
-    if (!empty) return
-    const r = box.current?.getBoundingClientRect()
-    if (r) burst(r.left + r.width / 2, r.top + r.height / 2, 10)
-    timer.current = setTimeout(() => setGone([]), 2400)
-    return () => clearTimeout(timer.current)
-  }, [empty])
-
-  const clearAll = () => {
-    NOTES.forEach((_, i) => setTimeout(() => setGone((g) => (g.includes(i) ? g : [...g, i])), i * 70))
-  }
-
-  return (
-    <div className="ui">
-      <div className="ui__head">
-        <span>Notifications</span>
-        <button type="button" className="ui__clear" onClick={clearAll} disabled={empty}>Clear all</button>
-      </div>
-      <div className="notes" data-empty={empty} ref={box}>
-        {NOTES.map((n, i) => (
-          <div className="note-wrap" data-gone={gone.includes(i)} key={n.b}>
-            <div>
-              <button type="button" className="note" tabIndex={gone.includes(i) ? -1 : 0} onClick={() => setGone((g) => [...g, i])}>
-                <span className="note__ic" />
-                <span className="note__txt"><b>{n.b}</b><span>{n.t}</span></span>
-              </button>
-            </div>
-          </div>
-        ))}
-        <p className="notes__empty" aria-live="polite">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8.5 3.2 3.2L13 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          {empty ? "You're all caught up" : ""}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// Exact while held (no transition), keyboard with arrows.
 export function Slider({ initial, label, className }: { initial: number; label: string; className: string }) {
   const [v, setV] = useState(initial)
   const ref = useRef<HTMLDivElement>(null)
@@ -98,31 +46,6 @@ export function Slider({ initial, label, className }: { initial: number; label: 
       }}
     >
       <b style={{ width: `${v}%` }} />
-    </div>
-  )
-}
-
-export function ControlCenter() {
-  const [on, setOn] = useState([true, false, true, false])
-  const names = ["Wi-Fi", "Bluetooth", "Focus", "Night light"]
-  return (
-    <div className="ui">
-      <div className="tiles">
-        {on.map((v, i) => (
-          <button
-            type="button"
-            key={names[i]}
-            className={`tl${v ? " on" : ""}`}
-            aria-pressed={v}
-            aria-label={names[i]}
-            onClick={() => setOn((s) => s.map((x, j) => (j === i ? !x : x)))}
-          >
-            <i />
-          </button>
-        ))}
-      </div>
-      <Slider className="slider" initial={62} label="Volume" />
-      <Slider className="slider" initial={38} label="Brightness" />
     </div>
   )
 }
@@ -208,32 +131,6 @@ export function TrayRow() {
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-// The SDK example, alive: the item in the bar counts when you click it, like the code says.
-export function MiniBar() {
-  const [n, setN] = useState(0)
-  return (
-    <div className="minibar">
-      <span className="minibar__name">Explorer</span>
-      <span className="minibar__sp" />
-      <button
-        type="button"
-        className="minibar__item"
-        aria-label={`counter, ${n}. Click to add one`}
-        onClick={(e) => {
-          setN((x) => x + 1)
-          if ((n + 1) % 5 === 0) {
-            const r = e.currentTarget.getBoundingClientRect()
-            burst(r.left + r.width / 2, r.top + r.height / 2, 10)
-          }
-        }}
-      >
-        <span key={n} className="roll">{n}</span>
-      </button>
-      <span className="minibar__time">22:00</span>
     </div>
   )
 }
