@@ -14,6 +14,14 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **Landing page built** (branch `feature/landing-page`, sheet-landing style, `apps/web/src/components/landing/`). Screenshots are labelled
   placeholders (`shot.tsx`); `DOWNLOAD_URL` in `site.ts` points at GitHub releases. Pro list says "coming soon" (not decided).
 
+## v0.9 Script items (in progress, branch `feature/v0.9-script-items`)
+- Plan file: `~/.claude/plans/sequential-forging-snowglobe.md`. Liam chose: build the CLAUDE (UI) list too; folder watching
+  reuses `platform/windows/folder_watch.rs` + rescan (no `notify`, ADR 0034).
+- Done: ADRs 0034/0035, `scripts/parse.rs` + `scripts/name.rs` (41 tests).
+- Next: Job Object runner (`platform/windows/job.rs`, `scripts/run.rs`), manager, registry script items, actions, settings, commands, examples, UI, bench.
+- Liam also asked (2026-11-19) for application menus (File/Edit/View) that really work: noted in `docs/release/releases/backlog.md` (local file), needs a research spike first. Not in v0.9.
+- Fix next (dogfooding): Windows PowerShell prints in the OEM code page, so non-ASCII output is "garbage": scripts must set UTF-8 themselves.
+
 ## Facts a new session needs
 
 - New for the UI (slice B, not wired): snapshots `getBrightness`, `getWifi`, `getBluetooth`, `getAirplaneMode`, `getHotspot`, `getOutputDevices`,
