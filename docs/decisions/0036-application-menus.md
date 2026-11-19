@@ -34,8 +34,11 @@ So no approach reaches every app. Two providers cover the apps that do have menu
   collapsed again (a brief flash of the app's own popup, accepted). A pick expands the same path again and
   invokes the item. All UIA calls run on one worker thread with timeouts, never on the bar's threads, so a
   slow or hung app cannot freeze the bar (rule 3).
-- Provider 1 is tried first; if the window has no `HMENU` the UIA bar is tried; if neither, the bar shows
-  only the app name.
+- Provider 1 is tried first; if the window has no `HMENU` the UIA bar is tried; if neither, **a fallback**: an
+  Edit menu (Undo, Cut, Copy, Paste, Select All, sent as the standard shortcuts to the app) and a Window menu
+  (Minimize, Zoom, Close Window, via `WM_SYSCOMMAND`). The fallback is offered only for normal app windows (top-level, visible, no tool
+  or no-activate style, not the shell's own windows), so Close Window can never be aimed at the Start menu or
+  the taskbar.
 - The menu is drawn by the bar's existing menu window (`MenuEntry`), keys `appmenu/<n>`, like script items.
   Menu content from another process is untrusted text, so it goes through the same limits as script menus
   (entry and depth caps, control characters stripped) and is only ever rendered as text.
@@ -66,4 +69,7 @@ So no approach reaches every app. Two providers cover the apps that do have menu
   is never minimized); some browsers put the window's **system menu** (Restore, Move, Close) in the menu bar
   slot, which is filtered out (its commands are all `SC_*`, 0xF000 and up); the first UIA read must wait for
   the popup to appear (polling, up to 0.6 s).
+- Found after Liam asked why no menus showed (2026-11-19): his everyday apps (Zed, Zen, Figma, Spotify) are
+  Chromium or GPU-drawn, so providers 1 and 2 give nothing; that is why the fallback was added. Also: Windows
+  exposes the title bar's system menu as a UIA `MenuBar` named "System" on every window, which is skipped.
 

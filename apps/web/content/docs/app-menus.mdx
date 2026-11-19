@@ -16,9 +16,17 @@ Windows has no single way to read another app's menus, so Barista reads the two 
 | Classic Windows menu bar | System Information, Registry Editor, Notepad++, 7-Zip | Instant. Check marks and greyed-out entries are the app's real state. |
 | Modern menu bar exposed to accessibility (UI Automation) | Windows 11 Notepad | About a second to open, and the app's own menu flashes for a moment while Barista reads it. Hovering from one title to the next does not switch menus. |
 
-Apps that draw their own menus without exposing them (most browsers and Electron apps such as Figma or
-Spotify) show only their name. An app running as administrator while Barista is not cannot be controlled
-(Windows blocks it), so it shows no menus either.
+Apps that draw their own menus without exposing them (most browsers and Electron apps such as Figma,
+Spotify or Zed) have nothing to read. For those, and for any other normal app window, the bar shows two
+standard menus instead, the same for every app so it is clear what they are:
+
+- **Edit**: Undo, Cut, Copy, Paste and Select All. Each types the usual shortcut (Ctrl+Z, Ctrl+X, Ctrl+C,
+  Ctrl+V, Ctrl+A) into the app, so it works wherever the shortcut does.
+- **Window**: Minimize, Zoom (maximize and restore) and Close Window, which do what the window's own
+  title bar buttons do.
+
+The desktop, the taskbar, the Start menu and other shell windows show no menus. An app running as
+administrator while Barista is not cannot be controlled (Windows blocks it), so its menus do nothing.
 
 ## Turning it off
 

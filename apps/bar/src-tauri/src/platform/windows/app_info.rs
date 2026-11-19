@@ -73,10 +73,58 @@ fn file_description(path: &str) -> Option<String> {
     }
 }
 
+/// A window a user would call "an app window": top-level (no owner), visible, not a tool window and not one
+/// that never takes the focus. The shell's popups (Start, search, flyouts) are none of these.
+pub fn is_normal_window(hwnd: isize) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindow, GetWindowLongPtrW, GET_WINDOW_CMD, GWL_EXSTYLE, GWL_STYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_VISIBLE,
+    };
+    let window = HWND(hwnd as *mut _);
+    // SAFETY: plain calls on a window handle; a dead window gives zeros and an error.
+    unsafe {
+        let style = GetWindowLongPtrW(window, GWL_STYLE) as u32;
+        let ex_style = GetWindowLongPtrW(window, GWL_EXSTYLE) as u32;
+        // GW_OWNER is 4.
+        let owner = GetWindow(window, GET_WINDOW_CMD(4)).map(|h| !h.0.is_null()).unwrap_or(false);
+        style & WS_VISIBLE.0 != 0 && ex_style & (WS_EX_TOOLWINDOW.0 | WS_EX_NOACTIVATE.0) == 0 && !owner
+    }
+}
+
+/// Programs whose windows are the shell itself (Start, search, the text input flyout, the lock screen), and
+/// Explorer's non-folder windows (the desktop, the taskbar). File Explorer's own windows (`CabinetWClass`) are fine.
+pub fn is_shell_window(exe_stem: &str, class: &str) -> bool {
+    const SHELL_HOSTS: [&str; 6] =
+        ["shellexperiencehost", "startmenuexperiencehost", "searchhost", "textinputhost", "lockapp", "searchapp"];
+    let stem = exe_stem.to_ascii_lowercase();
+    SHELL_HOSTS.contains(&stem.as_str()) || (stem == "explorer" && class != "CabinetWClass")
+}
+
 /// "Notepad", "Windows Command Processor", or the exe stem.
 pub fn display_name(pid: u32) -> Option<String> {
     let path = exe_path(pid)?;
     file_description(&path).or_else(|| {
         std::path::Path::new(&path).file_stem().map(|s| s.to_string_lossy().into_owned())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shell_windows_are_told_from_app_windows() {
+        assert!(is_shell_window("StartMenuExperienceHost", "Windows.UI.Core.CoreWindow"));
+        assert!(is_shell_window("SearchHost", "Windows.UI.Core.CoreWindow"));
+        assert!(is_shell_window("explorer", "Shell_TrayWnd"));
+        assert!(is_shell_window("explorer", "XamlExplorerHostIslandWindow"));
+        // A File Explorer folder window is an app window.
+        assert!(!is_shell_window("explorer", "CabinetWClass"));
+        assert!(!is_shell_window("notepad", "Notepad"));
+        assert!(!is_shell_window("Zed", "Zed::Window"));
+    }
+
+    #[test]
+    fn a_missing_window_is_not_a_normal_window() {
+        assert!(!is_normal_window(0));
+    }
 }

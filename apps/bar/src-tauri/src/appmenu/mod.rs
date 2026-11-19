@@ -262,7 +262,12 @@ fn classify(hwnd: isize) -> Target {
     if pid == 0 || pid == std::process::id() {
         return Target::Ignore;
     }
-    if SHELL_CLASSES.contains(&app_info::class_name(root).as_str()) {
+    let class = app_info::class_name(root);
+    let stem = app_info::exe_path(pid)
+        .and_then(|p| std::path::Path::new(&p).file_stem().map(|s| s.to_string_lossy().into_owned()))
+        .unwrap_or_default();
+    // The shell's own windows and tool or popup windows get no menus (and no Close Window to click by mistake).
+    if SHELL_CLASSES.contains(&class.as_str()) || app_info::is_shell_window(&stem, &class) || !app_info::is_normal_window(root) {
         return Target::Desktop;
     }
     Target::App(root, pid)
