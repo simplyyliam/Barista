@@ -14,6 +14,39 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **Landing page built** (branch `feature/landing-page`, sheet-landing style, `apps/web/src/components/landing/`). Screenshots are labelled
   placeholders (`shot.tsx`); `DOWNLOAD_URL` in `site.ts` points at GitHub releases. Pro list says "coming soon" (not decided).
 
+## v0.9 Script items (done, PR open, branch `feature/v0.9-script-items`)
+- Liam chose: build the CLAUDE (UI) list too; folder watching reuses `platform/windows/folder_watch.rs` + rescan (no `notify`, ADR 0034).
+- Rust: `src-tauri/src/scripts/` (`parse`, `name`, `run`, `scan`, `trust`, `menu`, `actions`, manager in `mod.rs`),
+  `platform/windows/job.rs` (Job Object). Registry holds script items (`script/<id>`). UI: trust panel (`script-trust`),
+  label/menu color, error/lock mark, "Script Items" settings page.
+- New for the UI (all wired): commands `getScripts`, `getScriptTrustRequests`, `setScriptsEnabled`, `setScriptsDefaultInterval`,
+  `setScriptEnabled`, `setScriptInterval`, `answerScriptTrust(id, sha256, allow)`, `openScriptsFolder`; events `scriptsChanged`,
+  `scriptTrustRequested`; `StatusItemView.color/script`, `MenuEntry.color`; settings `scripts`.
+- Testing without the UI: set `BARISTA_SCRIPTS_DIR` (debug builds or `BARISTA_DEBUG`); trust file is `script-trust.json` next to
+  settings (beside the override folder when overridden). `node examples/inspect/src/index.ts` lists `script/...` items (do NOT run
+  `pnpm inspect` while `pnpm dev` runs: it rebuilds the SDK).
+- Code review (medium) fixes done: timer restart after a failed file read, stale result after stop, PowerShell UTF-8 wrapper, content-hashed menu ids, double run after "Run again", `2fa`-style names. Security review: nothing at confidence 8+.
+- Verified live on the real UI (dev bar with `--remote-debugging-port=9222`, driven over CDP, real mouse clicks, screenshots): trust
+  panel shows and Allow works ("1 of 3" cycling), items go live, label/menu color, error marks, submenu, `href` (browser opened),
+  `shell` (cmd wrote a file), `refresh`, "Disable" in the error menu, "Run scripts" off (items gone, no script process) and on (back,
+  no prompt), "Open scripts folder", bar restart (trusted scripts return silently), edit asks again, settings page.
+  Screenshots need a DPI-aware capture (the screen is 3840 wide, PowerShell is virtualized to 2560 unless `SetProcessDPIAware`).
+- `pnpm bench 0.9` ran (docs/perf/0.9.md): five scripts at 10 s = 0.07% CPU. The first run found 1.06%: the thread snapshot used to resume a new process cost 80 ms of bar CPU per run, now `NtResumeProcess`.
+- Gotcha: killing the dev `barista.exe` ends the whole `pnpm dev` session (vite too). The example clients (test-client, spotify, ...) from
+  `pnpm dev` were not restarted.
+- Fix next (dogfooding the format):
+  - Params separated by ` | ` (xbar style) silently turn into label text.
+  - Plain menu lines are clickable but do nothing (UI could draw them as inert).
+  - Python from the Microsoft Store (no `py` launcher) reads as "Python not found": `run.rs` skips every `WindowsApps` PATH folder to avoid the Store stub.
+  - The trust preview shows only the first 12 lines (100 chars each) without saying it is cut; the hash covers the whole file.
+  - Hash check and the interpreter's read are two reads (tiny window; only someone who can already write the folder can use it).
+  - A script that prints outside data with ` | shell=` lets that data start a program on click (inherent to the format; consider a global switch for `shell=`).
+  - `.ps1` is slow: the first system monitor took 4.8 s (try/catch per process, `Win32_Processor`); now 1.7 s. Needs a docs note per interpreter.
+  - An error item shows only the file title, not the last good label; "Show error" is the only place the reason is visible.
+  - No "last run / duration" in settings; no way to see a script's output without running it.
+  - Duplicate ids (`a.5s.py` + `a.10s.py`) only show as "invalid" in settings.
+- Liam also asked (2026-11-19) for application menus (File/Edit/View) that really work: in `docs/release/releases/backlog.md` (local file), needs a research spike first. Not in v0.9.
+
 ## Facts a new session needs
 
 - New for the UI (slice B, not wired): snapshots `getBrightness`, `getWifi`, `getBluetooth`, `getAirplaneMode`, `getHotspot`, `getOutputDevices`,

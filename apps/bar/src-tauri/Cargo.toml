@@ -23,10 +23,12 @@ tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.26", features = ["derive"] }
 specta-typescript = "=0.0.13"
 serde_json = "1"
+# SHA-256 of a script file: trust is per exact content (ADR 0034). Already in the tree through Tauri.
+sha2 = "0.10"
 # The messages shared with the SDK (crates/protocol is our own crate).
 barista-protocol = { path = "../../../crates/protocol" }
 # Async runtime for the pipe server. Tauri already runs on tokio, so this adds no second copy.
-tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "macros"] }
+tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "macros", "process"] }
 # Decodes icon data URLs so their size and file type can be checked.
 base64 = "0.23"
 # Reads the toast XML (title, images, buttons) from Windows' notification database.
@@ -87,6 +89,7 @@ features = [
   "Win32_System_Services",
   "Win32_System_Shutdown",
   "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_JobObjects",
   "Win32_System_Threading",
   "Win32_UI_Accessibility",
   "Win32_UI_Controls",

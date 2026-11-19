@@ -418,6 +418,69 @@ pub struct Advanced {
     pub tray: Mode,
 }
 
+// ---------------------------------------------------------------- Script items (v0.9)
+
+pub const DEFAULT_SCRIPT_INTERVAL_SECS: u32 = 60;
+pub const MAX_SCRIPT_INTERVAL_SECS: u32 = 30 * 86_400;
+/// More entries than this in `per_script` is a hand-edited file, not a user.
+pub const MAX_SCRIPT_PREFS: usize = 500;
+
+/// What the user chose for one script. The trust decision is not here: it lives in
+/// `script-trust.json`, so importing settings can never trust a script.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ScriptPref {
+    pub enabled: bool,
+    /// Used only when the file name has no interval (`clock.10s.mjs` always wins).
+    pub interval_secs: Option<u32>,
+}
+
+impl Default for ScriptPref {
+    fn default() -> Self {
+        Self { enabled: true, interval_secs: None }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ScriptsPrefs {
+    pub enabled: bool,
+    pub default_interval_secs: u32,
+    /// By script id (`clock.mjs`).
+    pub per_script: BTreeMap<String, ScriptPref>,
+}
+
+impl Default for ScriptsPrefs {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            default_interval_secs: DEFAULT_SCRIPT_INTERVAL_SECS,
+            per_script: BTreeMap::new(),
+        }
+    }
+}
+
+impl ScriptsPrefs {
+    pub fn cleaned(mut self) -> Self {
+        self.default_interval_secs = self.default_interval_secs.clamp(1, MAX_SCRIPT_INTERVAL_SECS);
+        let valid = |id: &str| {
+            !id.is_empty()
+                && id.len() <= 80
+                && id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_' | '.'))
+        };
+        self.per_script = std::mem::take(&mut self.per_script)
+            .into_iter()
+            .filter(|(id, _)| valid(id))
+            .take(MAX_SCRIPT_PREFS)
+            .map(|(id, mut pref)| {
+                pref.interval_secs = pref.interval_secs.map(|n| n.clamp(1, MAX_SCRIPT_INTERVAL_SECS));
+                (id, pref)
+            })
+            .collect();
+        self
+    }
+}
+
 // ---------------------------------------------------------------- Root
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -428,6 +491,8 @@ pub struct Settings {
     pub control_center: ControlCenterPrefs,
     pub behavior: Behavior,
     pub advanced: Advanced,
+    /// Script items (v0.9). Not a Windows replacement, so no `barista | windows` switch.
+    pub scripts: ScriptsPrefs,
     /// Unix seconds when the notification panel was last opened (the unread dot). Not a preference.
     pub notifications_seen_at: u32,
 }
@@ -443,6 +508,7 @@ pub enum Section {
     ControlCenter,
     Behavior,
     Advanced,
+    Scripts,
     All,
 }
 
@@ -456,6 +522,7 @@ impl Settings {
         bar.appearance.opacity = bar.appearance.opacity.clamp(MIN_OPACITY, 100);
         bar.appearance.font = clean_font(std::mem::take(&mut bar.appearance.font));
         bar.items = clean_bar_items(std::mem::take(&mut bar.items));
+        self.scripts = std::mem::take(&mut self.scripts).cleaned();
         self.control_center.tiles = clean_tiles(std::mem::take(&mut self.control_center.tiles));
         self.control_center.quick_actions =
             clean_quick_actions(std::mem::take(&mut self.control_center.quick_actions));
@@ -482,6 +549,7 @@ impl Settings {
             Section::ControlCenter => self.control_center = ControlCenterPrefs::default(),
             Section::Behavior => self.behavior = Behavior::default(),
             Section::Advanced => self.advanced = Advanced::default(),
+            Section::Scripts => self.scripts = ScriptsPrefs::default(),
             Section::All => {
                 let seen = self.notifications_seen_at;
                 *self = Settings::default();
@@ -509,7 +577,7 @@ impl Settings {
     /// package.json would parse as "all defaults"; an import must refuse them instead of resetting.
     pub fn looks_like_settings(text: &str) -> bool {
         const KEYS: &[&str] = &[
-            "general", "menuBar", "controlCenter", "behavior", "advanced",
+            "general", "menuBar", "controlCenter", "behavior", "advanced", "scripts",
             "barHeight", "monitor", "notificationsMode", "controlCenterMode", "trayMode", "trayStyle", "itemLayout",
         ];
         matches!(serde_json::from_str::<Value>(text), Ok(Value::Object(o)) if KEYS.iter().any(|k| o.contains_key(*k)))
@@ -675,6 +743,41 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn script_prefs_default_to_on_with_a_minute() {
+        let s = Settings::default().scripts;
+        assert!(s.enabled);
+        assert_eq!(s.default_interval_secs, 60);
+        assert!(s.per_script.is_empty());
+        // An old settings file without the key gets the same.
+        assert_eq!(Settings::from_json(r#"{"menuBar":{}}"#).unwrap().scripts, s);
+    }
+
+    #[test]
+    fn script_prefs_are_clamped_and_cleaned() {
+        let mut prefs = ScriptsPrefs { default_interval_secs: 0, ..Default::default() };
+        prefs.per_script.insert("ok.ps1".into(), ScriptPref { enabled: false, interval_secs: Some(0) });
+        prefs.per_script.insert("big.py".into(), ScriptPref { enabled: true, interval_secs: Some(u32::MAX) });
+        prefs.per_script.insert("../evil".into(), ScriptPref::default());
+        prefs.per_script.insert("UPPER.py".into(), ScriptPref::default());
+        prefs.per_script.insert(String::new(), ScriptPref::default());
+        let clean = prefs.cleaned();
+        assert_eq!(clean.default_interval_secs, 1);
+        assert_eq!(clean.per_script.len(), 2);
+        assert_eq!(clean.per_script["ok.ps1"].interval_secs, Some(1));
+        assert_eq!(clean.per_script["big.py"].interval_secs, Some(MAX_SCRIPT_INTERVAL_SECS));
+    }
+
+    #[test]
+    fn resetting_scripts_leaves_the_rest() {
+        let mut s = Settings::default();
+        s.scripts.enabled = false;
+        s.behavior.hide_on_fullscreen = false;
+        s.reset(Section::Scripts);
+        assert!(s.scripts.enabled);
+        assert!(!s.behavior.hide_on_fullscreen);
+    }
 
     fn temp_file(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("barista-test-{}-{name}", std::process::id()))

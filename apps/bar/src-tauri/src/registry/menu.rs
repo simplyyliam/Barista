@@ -26,6 +26,8 @@ pub struct MenuEntry {
     pub role: Option<MenuRole>,
     /// A small `data:` URL, drawn at 16 px.
     pub icon: Option<String>,
+    /// A CSS color the UI draws the label in (script items, v0.9). Never set for SDK menus.
+    pub color: Option<String>,
     /// Entries of a `submenu` entry; empty for the others.
     pub submenu: Vec<MenuEntry>,
 }
@@ -129,6 +131,7 @@ pub fn view(items: &[MenuTemplateItem], app_name: &str) -> Vec<MenuEntry> {
             accelerator: item.accelerator.clone(),
             role: item.role,
             icon: item.icon.clone(),
+            color: None,
             submenu: item
                 .submenu
                 .as_deref()

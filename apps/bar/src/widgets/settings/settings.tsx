@@ -4,6 +4,7 @@ import { AboutPage } from "@/features/settings/pages/about"
 import { AdvancedPage, ComingSoonPage, ConnectedAppsPage } from "@/features/settings/pages/other"
 import { GeneralPage } from "@/features/settings/pages/general"
 import { MenuBarPage } from "@/features/settings/pages/menu-bar"
+import { ScriptsPage } from "@/features/settings/pages/scripts"
 import { pageOf, Sidebar } from "@/features/settings/sidebar"
 import { TitleBar } from "@/features/settings/titlebar"
 import type { PageId } from "@/features/settings/pages"
@@ -52,6 +53,8 @@ function Page({ id, settings }: { id: PageId; settings: NonNullable<ReturnType<t
       return <MenuBarPage settings={settings} />
     case "connected-apps":
       return <ConnectedAppsPage />
+    case "script-items":
+      return <ScriptsPage settings={settings} />
     case "advanced":
       return <AdvancedPage settings={settings} />
     case "about":

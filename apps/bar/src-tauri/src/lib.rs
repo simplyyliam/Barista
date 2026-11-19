@@ -16,6 +16,7 @@ mod popover;
 mod platform;
 mod radius;
 mod registry;
+mod scripts;
 mod settings;
 mod settings_window;
 mod system;
@@ -36,6 +37,14 @@ fn specta_builder() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new()
         .commands(collect_commands![
             commands::get_version,
+            commands::scripts::get_scripts,
+            commands::scripts::get_script_trust_requests,
+            commands::scripts::set_scripts_enabled,
+            commands::scripts::set_scripts_default_interval,
+            commands::scripts::set_script_enabled,
+            commands::scripts::set_script_interval,
+            commands::scripts::answer_script_trust,
+            commands::scripts::open_scripts_folder,
             commands::get_bar_info,
             commands::set_monitor,
             commands::set_bar_height,
@@ -170,7 +179,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::NotificationModeChanged,
             events::PanelChanged,
             events::PanelWarm,
-            appearance::BarAppearanceChanged
+            appearance::BarAppearanceChanged,
+            scripts::ScriptsChanged,
+            scripts::ScriptTrustRequested
         ])
 }
 
@@ -271,6 +282,7 @@ pub fn run() {
             system::init(app.handle());
             #[cfg(windows)]
             tray::init(registry.clone());
+            scripts::init(app.handle(), registry.clone());
             // For the memory bench: no pipe command or simulated click opens the settings window.
             if std::env::var_os("BARISTA_OPEN_SETTINGS").is_some() {
                 settings_window::open(app.handle());
@@ -286,6 +298,7 @@ pub fn run() {
                 if let Some(c) = controller::get() {
                     c.shutdown();
                 }
+                scripts::shutdown();
                 // Let Explorer have the tray messages alone again.
                 #[cfg(windows)]
                 tray::shutdown();

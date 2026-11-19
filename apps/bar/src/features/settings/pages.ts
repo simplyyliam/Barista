@@ -46,7 +46,7 @@ export const SIDEBAR: { title?: string; pages: Page[] }[] = [
     title: "Apps & Scripts",
     pages: [
       { id: "connected-apps", label: "Connected Apps", icon: Link01Icon },
-      { id: "script-items", label: "Script Items", icon: CodeIcon, comingIn: "v0.9" },
+      { id: "script-items", label: "Script Items", icon: CodeIcon },
       { id: "script-gallery", label: "Script Gallery", icon: DashboardSquare01Icon, comingIn: "v1.1" },
     ],
   },

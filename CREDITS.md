@@ -23,6 +23,7 @@ The first column must be the exact package or crate name.
 | windows-collections | 0.3       | MIT OR Apache-2.0 | https://github.com/microsoft/windows-rs       |
 | roxmltree         | 0.21        | MIT OR Apache-2.0 | https://github.com/RazrFalcon/roxmltree       |
 | rusqlite          | 0.40        | MIT               | https://github.com/rusqlite/rusqlite          |
+| sha2              | 0.10        | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes          |
 
 ## JavaScript and TypeScript
 

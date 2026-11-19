@@ -10,6 +10,31 @@ export const commands = {
 	/**  The bar's version, from Cargo.toml. A sample command that proves the bridge works. */
 	getVersion: () => __TAURI_INVOKE<string>("get_version"),
 	/**
+	 *  Every script in the folder with its state. Call once when the page opens; `scriptsChanged`
+	 *  keeps it fresh.
+	 */
+	getScripts: () => __TAURI_INVOKE<ScriptInfo_Serialize[]>("get_scripts"),
+	/**  The scripts waiting for the user's yes, oldest file name first. `scriptTrustRequested` keeps it fresh. */
+	getScriptTrustRequests: () => __TAURI_INVOKE<TrustRequest[]>("get_script_trust_requests"),
+	/**  Turns every script item on or off. Off stops all runs and removes the items. */
+	setScriptsEnabled: (on: boolean) => __TAURI_INVOKE<void>("set_scripts_enabled", { on }),
+	/**  The interval for scripts whose file name has none (1 s to 30 days). */
+	setScriptsDefaultInterval: (secs: number) => __TAURI_INVOKE<void>("set_scripts_default_interval", { secs }),
+	/**  Turns one script on or off. Turning on a script the user said no to asks again. */
+	setScriptEnabled: (id: string, on: boolean) => typedError<null, string>(__TAURI_INVOKE("set_script_enabled", { id, on })),
+	/**
+	 *  A script's own interval in seconds, or `null` for the default. Has no effect when the file
+	 *  name sets one (`clock.10s.mjs`).
+	 */
+	setScriptInterval: (id: string, secs: number | null) => typedError<null, string>(__TAURI_INVOKE("set_script_interval", { id, secs })),
+	/**
+	 *  The user answered a trust request. `sha256` is the hash from the request: the answer only
+	 *  counts if the file still has it. `allow = false` switches the script off.
+	 */
+	answerScriptTrust: (id: string, sha256: string, allow: boolean) => typedError<null, string>(__TAURI_INVOKE("answer_script_trust", { id, sha256, allow })),
+	/**  Opens `%APPDATA%\Barista\scripts` in Explorer. */
+	openScriptsFolder: () => __TAURI_INVOKE<void>("open_scripts_folder"),
+	/**
 	 *  Where the bar is: height, monitor, DPI scale, all monitors, and whether it is hidden
 	 *  because a full-screen app is in front.
 	 */
@@ -414,6 +439,8 @@ export const events = {
 	panelChanged: makeEvent<PanelChanged_Serialize, PanelChanged_Deserialize>("panel-changed"),
 	panelWarm: makeEvent<PanelWarm, PanelWarm>("panel-warm"),
 	popoverChanged: makeEvent<PopoverChanged_Serialize, PopoverChanged_Deserialize>("popover-changed"),
+	scriptTrustRequested: makeEvent<ScriptTrustRequested, ScriptTrustRequested>("script-trust-requested"),
+	scriptsChanged: makeEvent<ScriptsChanged_Serialize, ScriptsChanged_Deserialize>("scripts-changed"),
 	settingsChanged: makeEvent<SettingsChanged_Serialize, SettingsChanged_Deserialize>("settings-changed"),
 	submenuHide: makeEvent<SubmenuHide, SubmenuHide>("submenu-hide"),
 	submenuHighlight: makeEvent<SubmenuHighlight_Serialize, SubmenuHighlight_Deserialize>("submenu-highlight"),
@@ -1093,6 +1120,8 @@ export type MenuEntry_Deserialize = {
 	role?: MenuRole | null,
 	/**  A small `data:` URL, drawn at 16 px. */
 	icon?: string | null,
+	/**  A CSS color the UI draws the label in (script items, v0.9). Never set for SDK menus. */
+	color?: string | null,
 	/**  Entries of a `submenu` entry; empty for the others. */
 	submenu: MenuEntry_Deserialize[],
 };
@@ -1111,6 +1140,8 @@ export type MenuEntry_Serialize = {
 	role: MenuRole | null,
 	/**  A small `data:` URL, drawn at 16 px. */
 	icon: string | null,
+	/**  A CSS color the UI draws the label in (script items, v0.9). Never set for SDK menus. */
+	color: string | null,
 	/**  Entries of a `submenu` entry; empty for the others. */
 	submenu: MenuEntry_Serialize[],
 };
@@ -1329,8 +1360,114 @@ export type Rect = {
 	bottom: number,
 };
 
+export type ScriptInfo = ScriptInfo_Serialize | ScriptInfo_Deserialize;
+
+export type ScriptInfo_Deserialize = {
+	id: string,
+	fileName: string,
+	title: string,
+	interpreter: string,
+	/**  How often it runs now (file name, else its setting, else the default). */
+	intervalSecs: number,
+	/**  The file name sets the interval, so the setting has no effect. */
+	intervalFromName: boolean,
+	/**  This script's own switch (not counting the global one). */
+	enabled: boolean,
+	state: ScriptListState,
+	/**  The error, or why the file is not usable. */
+	message?: string | null,
+};
+
+export type ScriptInfo_Serialize = {
+	id: string,
+	fileName: string,
+	title: string,
+	interpreter: string,
+	/**  How often it runs now (file name, else its setting, else the default). */
+	intervalSecs: number,
+	/**  The file name sets the interval, so the setting has no effect. */
+	intervalFromName: boolean,
+	/**  This script's own switch (not counting the global one). */
+	enabled: boolean,
+	state: ScriptListState,
+	/**  The error, or why the file is not usable. */
+	message: string | null,
+};
+
+export type ScriptListState = 
+/**  Trusted and running on its timer (or about to). */
+"running" | 
+/**  Its last run failed. */
+"error" | 
+/**  Waiting for the user's yes. */
+"needsTrust" | 
+/**  Switched off here, or scripts are off. */
+"disabled" | 
+/**  Not usable (bad file name, too big, same name as another file). */
+"invalid";
+
+/**
+ *  What the user chose for one script. The trust decision is not here: it lives in
+ *  `script-trust.json`, so importing settings can never trust a script.
+ */
+export type ScriptPref = ScriptPref_Serialize | ScriptPref_Deserialize;
+
+/**
+ *  What the user chose for one script. The trust decision is not here: it lives in
+ *  `script-trust.json`, so importing settings can never trust a script.
+ */
+export type ScriptPref_Deserialize = {
+	enabled?: boolean,
+	/**  Used only when the file name has no interval (`clock.10s.mjs` always wins). */
+	intervalSecs?: number | null,
+};
+
+/**
+ *  What the user chose for one script. The trust decision is not here: it lives in
+ *  `script-trust.json`, so importing settings can never trust a script.
+ */
+export type ScriptPref_Serialize = {
+	enabled: boolean,
+	/**  Used only when the file name has no interval (`clock.10s.mjs` always wins). */
+	intervalSecs: number | null,
+};
+
+/**  What a script item is doing, for the UI's badge. */
+export type ScriptState = "ok" | "error" | "untrusted";
+
+/**
+ *  The scripts waiting for a yes changed. Carries all of them, oldest file name first; an empty
+ *  list means nothing is waiting any more (close the dialog).
+ */
+export type ScriptTrustRequested = TrustRequest[];
+
+/**  The list of scripts changed. Carries the whole list. */
+export type ScriptsChanged = ScriptsChanged_Serialize | ScriptsChanged_Deserialize;
+
+/**  The list of scripts changed. Carries the whole list. */
+export type ScriptsChanged_Deserialize = ScriptInfo_Deserialize[];
+
+/**  The list of scripts changed. Carries the whole list. */
+export type ScriptsChanged_Serialize = ScriptInfo_Serialize[];
+
+export type ScriptsPrefs = ScriptsPrefs_Serialize | ScriptsPrefs_Deserialize;
+
+export type ScriptsPrefs_Deserialize = {
+	enabled?: boolean,
+	defaultIntervalSecs?: number,
+	/**  By script id (`clock.mjs`). */
+	perScript?: { [key in string]: ScriptPref_Deserialize },
+};
+
+export type ScriptsPrefs_Serialize = {
+	enabled: boolean,
+	defaultIntervalSecs: number,
+	/**  By script id (`clock.mjs`). */
+	perScript: { [key in string]: ScriptPref_Serialize },
+};
+
 /**  The parts of the settings the reset command and the editor talk about. */
-export type Section = "general" | "menuBar" | "appearance" | "clock" | "controlCenter" | "behavior" | "advanced" | "all";
+export type Section = "general" | "menuBar" | "appearance" | "clock" | "controlCenter" | "behavior" | "advanced" | "scripts" | "all";
 
 export type Settings = Settings_Serialize | Settings_Deserialize;
 
@@ -1366,6 +1503,8 @@ export type Settings_Deserialize = {
 	controlCenter?: ControlCenterPrefs_Deserialize,
 	behavior?: Behavior_Deserialize,
 	advanced?: Advanced_Deserialize,
+	/**  Script items (v0.9). Not a Windows replacement, so no `barista | windows` switch. */
+	scripts?: ScriptsPrefs_Deserialize,
 	/**  Unix seconds when the notification panel was last opened (the unread dot). Not a preference. */
 	notificationsSeenAt?: number,
 };
@@ -1376,6 +1515,8 @@ export type Settings_Serialize = {
 	controlCenter: ControlCenterPrefs_Serialize,
 	behavior: Behavior_Serialize,
 	advanced: Advanced_Serialize,
+	/**  Script items (v0.9). Not a Windows replacement, so no `barista | windows` switch. */
+	scripts: ScriptsPrefs_Serialize,
 	/**  Unix seconds when the notification panel was last opened (the unread dot). Not a preference. */
 	notificationsSeenAt: number,
 };
@@ -1403,6 +1544,10 @@ export type StatusItemView_Deserialize = {
 	 *  ones in the bar and `overflow` ones in the overflow panel. Since v0.7.
 	 */
 	placement: Placement,
+	/**  A CSS color for the label (script items, v0.9). */
+	color?: string | null,
+	/**  Set for script items: `ok`, `error` (draw the error mark) or `untrusted` (waiting for the user). */
+	script?: ScriptState | null,
 };
 
 /**  An item as the UI draws it. `id` is the joined `"<session>/<id>"` key. */
@@ -1425,6 +1570,10 @@ export type StatusItemView_Serialize = {
 	 *  ones in the bar and `overflow` ones in the overflow panel. Since v0.7.
 	 */
 	placement: Placement,
+	/**  A CSS color for the label (script items, v0.9). */
+	color: string | null,
+	/**  Set for script items: `ok`, `error` (draw the error mark) or `untrusted` (waiting for the user). */
+	script: ScriptState | null,
 };
 
 /**  The submenu closed (the main menu draws nothing for it any more). */
@@ -1575,6 +1724,17 @@ export type TrayStyle =
 
 /**  The tray icons are now shown in a panel or inline (a setting, see `setTrayStyle`). */
 export type TrayStyleChanged = TrayStyle;
+
+/**  What the trust dialog shows. Internal: not part of the SDK or the protocol. */
+export type TrustRequest = {
+	id: string,
+	fileName: string,
+	interpreter: string,
+	size: number,
+	/**  Hex SHA-256. Send it back with the answer: it only counts for this exact file. */
+	sha256: string,
+	preview: string[],
+};
 
 export type User = User_Serialize | User_Deserialize;
 

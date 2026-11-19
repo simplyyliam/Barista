@@ -210,6 +210,12 @@ pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Resul
             #[cfg(not(windows))]
             Err(ClickError::NotFound)
         }
+        ClickTarget::Script => {
+            crate::popover::close();
+            crate::panel::close();
+            crate::scripts::item_click(key);
+            Ok(())
+        }
         ClickTarget::App => {
             // A click on an item without a popover must not leave another item's popover up.
             crate::popover::close();
@@ -251,7 +257,12 @@ pub fn menu_item_clicked(
     key: &str,
     menu_item_id: &str,
 ) -> Result<(), MenuItemClickError> {
-    let result = registry.menu_click(key, menu_item_id);
+    let result = if key.starts_with("script/") {
+        crate::scripts::menu_click(key, menu_item_id);
+        Ok(())
+    } else {
+        registry.menu_click(key, menu_item_id)
+    };
     if matches!(result, Ok(()) | Err(MenuItemClickError::Unreachable)) {
         if let Some(menu) = get() {
             menu.close_if(key);
@@ -788,6 +799,7 @@ mod tests {
             accelerator: None,
             role: None,
             icon: None,
+            color: None,
             submenu: vec![],
         };
         let snap = MenuSnapshot {

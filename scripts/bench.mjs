@@ -7,9 +7,13 @@
 // (Window visible and focused needs a real window and real input: scripts/popover-latency.ps1.)
 // Since v0.6 it runs scripts/tray-icons.ps1 (15 fake tray icons, one tooltip changing every 2 s) and
 // measures CPU and memory with them, how fast a change shows up, and how fast a killed app's icons go.
+// Since v0.9 it also runs five script items at 10 s (node scripts in a temp folder, trusted up front) and
+// measures the bar's own CPU and memory with them. The scripts' short-lived child processes are not in
+// that number (they are gone before the second snapshot): their cost per run is in docs/perf/0.9.md.
 // BENCH_SECONDS changes the sampling time of each CPU measurement (default 60).
 import { execFileSync, spawn } from "node:child_process"
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import net from "node:net"
 import os from "node:os"
 import { createInterface } from "node:readline"
@@ -59,11 +63,36 @@ function snapshot(barPid) {
   return JSON.parse(out)
 }
 
+// Five script items for the v0.9 measurement. Trust is stored per id + file hash and read when the bar
+// starts, so it is written now for files that only appear later: until they do, the bar has no scripts
+// and the idle numbers are the "no scripts" numbers.
+const scriptBase = `${os.tmpdir()}/barista-bench-scripts`
+const scriptDir = `${scriptBase}/scripts`
+rmSync(scriptBase, { recursive: true, force: true })
+mkdirSync(scriptDir, { recursive: true })
+const benchScripts = [1, 2, 3, 4, 5].map((n) => ({
+  file: `bench${n}.10s.mjs`,
+  text: `console.log("bench ${n}")
+console.log("---")
+console.log("Refresh now | refresh=true")
+`,
+  id: `bench${n}.mjs`,
+}))
+writeFileSync(
+  `${scriptBase}/script-trust.json`,
+  JSON.stringify({
+    trusted: Object.fromEntries(
+      benchScripts.map((b) => [b.id, createHash("sha256").update(b.text).digest("hex")]),
+    ),
+  }),
+)
+
 // BARISTA_DEBUG turns on the debug.* messages in a release bar, which the latency probe needs.
+// BARISTA_SCRIPTS_DIR (allowed because BARISTA_DEBUG is set) points the scripts folder at the temp one.
 const bar = spawn(exe, [], {
   stdio: "ignore",
   detached: false,
-  env: { ...process.env, BARISTA_DEBUG: "1" },
+  env: { ...process.env, BARISTA_DEBUG: "1", BARISTA_SCRIPTS_DIR: scriptDir },
 })
 const stop = () => {
   // Ask nicely first (WM_CLOSE) so the bar gives its screen space back, then force.
@@ -381,6 +410,11 @@ const client = spawn(process.execPath, [`${root}examples/test-client/src/index.t
 await sleep(2000) // let it connect before sampling
 const ticking = await sampleCpu()
 client.kill()
+
+console.log(`Dropping five trusted script items (10 s each), sampling CPU ${seconds}s...`)
+for (const b of benchScripts) writeFileSync(`${scriptDir}/${b.file}`, b.text)
+await sleep(4000) // the folder watcher notices, each script runs once
+const withScripts = await sampleCpu()
 stop()
 
 const last = idle.last
@@ -428,6 +462,12 @@ const rows = [
     `${median(menus.pick).toFixed(1)} / ${Math.max(...menus.pick).toFixed(1)} ms`,
     "< 20 ms",
     Math.max(...menus.pick) < 20,
+  ],
+  [
+    "CPU with five script items at 10 s (bar + WebView2, not the scripts' own processes)",
+    `${withScripts.percent.toFixed(2)}%`,
+    "< 0.5%",
+    withScripts.percent < 0.5,
   ],
   ...(popovers
     ? [
@@ -484,6 +524,12 @@ const rows = [
       ]
     : [["Tray icons", "not measured (the fake tray icons never showed up)", "", false]]),
   ["Memory, private (bar + WebView2)", `${privateMb.toFixed(0)} MB`, "< 120 MB", privateMb < 120],
+  [
+    "Memory, private with five script items",
+    `${(withScripts.last.private / 1024 / 1024).toFixed(0)} MB`,
+    "< 150 MB",
+    withScripts.last.private / 1024 / 1024 < 150,
+  ],
   ["Memory, working set sum (reference)", `${memoryMb.toFixed(0)} MB`, "counts shared pages", true],
 ]
 const table = [

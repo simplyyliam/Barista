@@ -2,6 +2,7 @@ import { useBattery, useClockSettings, useVolume } from "@/shared/hooks/use-syst
 import { BatteryPanel } from "./battery-panel"
 import { ControlCenterPanel } from "./control-center/control-center-panel"
 import { NotificationsPanel } from "./notifications-panel"
+import { ScriptTrustPanel } from "./script-trust-panel"
 import { TrayPanel } from "./tray-panel"
 import { VolumePanel } from "./volume-panel"
 import { WifiPanel } from "./wifi-panel"
@@ -18,6 +19,7 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
   const battery = name === "battery"
   const volume = name === "volume"
   const tray = name === "tray"
+  const scriptTrust = name === "script-trust"
   return (
     <>
       <div
@@ -63,7 +65,11 @@ export function PanelBody({ name, warm = false }: { name: string | null; warm?: 
       >
         <TrayPanel active={tray} />
       </div>
-      {name !== null && !active && !controlCenter && !wifi && !battery && !volume && !tray && <SystemValues name={name} />}
+      {/* Only drawn while open: it asks about the script that is waiting right now. */}
+      {scriptTrust && <ScriptTrustPanel active={scriptTrust} />}
+      {name !== null && !active && !controlCenter && !wifi && !battery && !volume && !tray && !scriptTrust && (
+        <SystemValues name={name} />
+      )}
     </>
   )
 }
