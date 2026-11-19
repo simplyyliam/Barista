@@ -14,13 +14,28 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **Landing page built** (branch `feature/landing-page`, sheet-landing style, `apps/web/src/components/landing/`). Screenshots are labelled
   placeholders (`shot.tsx`); `DOWNLOAD_URL` in `site.ts` points at GitHub releases. Pro list says "coming soon" (not decided).
 
-## v0.9 Script items (in progress, branch `feature/v0.9-script-items`)
-- Plan file: `~/.claude/plans/sequential-forging-snowglobe.md`. Liam chose: build the CLAUDE (UI) list too; folder watching
-  reuses `platform/windows/folder_watch.rs` + rescan (no `notify`, ADR 0034).
-- Done: ADRs 0034/0035, `scripts/parse.rs` + `scripts/name.rs` (41 tests).
-- Next: Job Object runner (`platform/windows/job.rs`, `scripts/run.rs`), manager, registry script items, actions, settings, commands, examples, UI, bench.
-- Liam also asked (2026-11-19) for application menus (File/Edit/View) that really work: noted in `docs/release/releases/backlog.md` (local file), needs a research spike first. Not in v0.9.
-- Fix next (dogfooding): Windows PowerShell prints in the OEM code page, so non-ASCII output is "garbage": scripts must set UTF-8 themselves.
+## v0.9 Script items (done, PR open, branch `feature/v0.9-script-items`)
+- Liam chose: build the CLAUDE (UI) list too; folder watching reuses `platform/windows/folder_watch.rs` + rescan (no `notify`, ADR 0034).
+- Rust: `src-tauri/src/scripts/` (`parse`, `name`, `run`, `scan`, `trust`, `menu`, `actions`, manager in `mod.rs`),
+  `platform/windows/job.rs` (Job Object). Registry holds script items (`script/<id>`). UI: trust panel (`script-trust`),
+  label/menu color, error/lock mark, "Script Items" settings page.
+- New for the UI (all wired): commands `getScripts`, `getScriptTrustRequests`, `setScriptsEnabled`, `setScriptsDefaultInterval`,
+  `setScriptEnabled`, `setScriptInterval`, `answerScriptTrust(id, sha256, allow)`, `openScriptsFolder`; events `scriptsChanged`,
+  `scriptTrustRequested`; `StatusItemView.color/script`, `MenuEntry.color`; settings `scripts`.
+- Testing without the UI: set `BARISTA_SCRIPTS_DIR` (debug builds or `BARISTA_DEBUG`); trust file is `script-trust.json` next to
+  settings (beside the override folder when overridden). `node examples/inspect/src/index.ts` lists `script/...` items (do NOT run
+  `pnpm inspect` while `pnpm dev` runs: it rebuilds the SDK).
+- Not verified live: the trust panel and settings page visually (the bar's right side rendered empty in screenshots of the dev bar,
+  cause not found), "Allow" click, menu actions (href/shell/refresh), "scripts off" toggle, `pnpm bench` (needs release build, no running bar).
+- Fix next (dogfooding the format):
+  - Params separated by ` | ` (xbar style) silently turn into label text.
+  - Plain menu lines are clickable but do nothing (UI could draw them as inert).
+  - Windows PowerShell output is OEM code page: non-ASCII = "garbage" error; scripts must set UTF-8 themselves.
+  - `.ps1` is slow: the first system monitor took 4.8 s (try/catch per process, `Win32_Processor`); now 1.7 s. Needs a docs note per interpreter.
+  - An error item shows only the file title, not the last good label; "Show error" is the only place the reason is visible.
+  - No "last run / duration" in settings; no way to see a script's output without running it.
+  - Duplicate ids (`a.5s.py` + `a.10s.py`) only show as "invalid" in settings.
+- Liam also asked (2026-11-19) for application menus (File/Edit/View) that really work: in `docs/release/releases/backlog.md` (local file), needs a research spike first. Not in v0.9.
 
 ## Facts a new session needs
 
