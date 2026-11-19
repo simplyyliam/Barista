@@ -2,7 +2,6 @@
 
 import { useTheme } from "fumadocs-ui/provider/base"
 import { useEffect, useState } from "react"
-import { flushSync } from "react-dom"
 
 // One theme switch for the landing page and the docs. A click does not snap the colours: the new theme
 // spreads out from the button with a soft edge (View Transitions + a feathered mask), slowly enough to
@@ -12,15 +11,28 @@ import { flushSync } from "react-dom"
 const DURATION = 1300
 const EASE = "cubic-bezier(0.45, 0, 0.2, 1)" // eases in and out: no sudden start, no sudden stop
 
+/**
+ * The page's colours depend only on the class on <html>, so that is all the click changes, inside the
+ * view transition's callback. Re-rendering the React tree there (what `setTheme` does) blocked the click for
+ * over 100 ms and made the first frames of the animation stutter. The theme provider is told afterwards,
+ * when nothing is moving, so its state and the saved choice catch up.
+ */
+function paint(theme: "light" | "dark") {
+  const root = document.documentElement
+  root.classList.remove("light", "dark")
+  root.classList.add(theme)
+  root.style.colorScheme = theme
+}
+
 export function ThemeToggle({ className = "" }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme()
   // The server does not know the theme: render the same markup there, then fill in on the client.
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  const dark = mounted && resolvedTheme === "dark"
+  const [dark, setDark] = useState(false)
+  useEffect(() => setDark(resolvedTheme === "dark"), [resolvedTheme])
 
   function toggle(event: React.MouseEvent<HTMLButtonElement>) {
     const next = dark ? "light" : "dark"
+    setDark(next === "dark") // only this button re-renders now: its icon turns at once
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches
     if (reduced || !document.startViewTransition) return setTheme(next)
 
@@ -32,14 +44,29 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
     // big enough that the opaque part covers the farthest corner when it is done.
     const size = radius * 3.6
 
-    const transition = document.startViewTransition(() => flushSync(() => setTheme(next)))
+    // During a view transition the page is two still pictures, so the button's own icon animation would
+    // freeze and then jump. Naming the button gives it a layer of its own that stays live above the reveal
+    // (see global.css). Only while it runs: two toggles on a page must never share the name.
+    const button = event.currentTarget
+    button.style.viewTransitionName = "theme-toggle"
+    // Colour transitions would run inside the new picture and blur the reveal's edge, so they pause meanwhile.
+    document.documentElement.classList.add("theme-switching")
+    const transition = document.startViewTransition(() => paint(next))
+    void transition.finished.finally(() => {
+      button.style.viewTransitionName = ""
+      document.documentElement.classList.remove("theme-switching")
+      const later = window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 50))
+      later(() => setTheme(next))
+    })
     void transition.ready.then(() =>
       document.documentElement.animate(
         {
           maskSize: ["0px 0px", `${size}px ${size}px`],
           maskPosition: [`${x}px ${y}px`, `${x - size / 2}px ${y - size / 2}px`],
         },
-        { duration: DURATION, easing: EASE, pseudoElement: "::view-transition-new(root)" },
+        // fill: the last frame must hold until the transition ends, or the mask falls back to its resting
+        // state (a vignette) for a frame and the page flashes.
+        { duration: DURATION, easing: EASE, fill: "forwards", pseudoElement: "::view-transition-new(root)" },
       ),
     )
   }

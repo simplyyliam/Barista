@@ -331,6 +331,7 @@ function setSize(which: "panel" | "menu", width: unknown, height: unknown) {
 }
 
 function openPanel(name: string, anchor: string, chrome: PanelOpen["chrome"]) {
+  if (panel?.name === name && panel.anchor === anchor) return closePanel()
   if (name === "notifications") {
     state.seen = true
     notifications.unread = false
@@ -348,6 +349,10 @@ function closePanel() {
 }
 
 let openMenuId = TIMER
+/** The item whose menu is open, or null: an outside click must not close a menu its own item is about to toggle. */
+export const getOpenMenuItem = () => (sizes.menu ? openMenuId : null)
+/** The item the open panel hangs from, or null. */
+export const getOpenPanelItem = () => panel?.anchor ?? null
 function closeMenu() {
   setSize("menu", null, null)
   send("menu-close", { itemId: openMenuId })
@@ -441,6 +446,11 @@ export function handle(cmd: string, payload?: InvokeArgs): unknown {
         }
       }
       const id = String(args?.id)
+      // A second click on the item whose menu is open closes it, like the real bar.
+      if (sizes.menu && openMenuId === id) {
+        closeMenu()
+        return null
+      }
       const menu = id === TIMER ? timerMenu() : trayMenu(id)
       if (menu) {
         openMenuId = id

@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             hotkey "d"). The landing page sets its own light colours on .sl, so it does not change. */}
         <RootProvider
           search={{ enabled: false }}
-          theme={{ attribute: "class", defaultTheme: "system", enableSystem: true, disableTransitionOnChange: true }}
+          theme={{ attribute: "class", defaultTheme: "system", enableSystem: true }}
         >
           {children}
         </RootProvider>

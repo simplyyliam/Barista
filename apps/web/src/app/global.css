@@ -81,3 +81,23 @@
     transition: none;
   }
 }
+
+/* While the theme reveals, colour transitions pause (the toggle itself keeps its own): they would run inside the new picture and blur its edge.
+   (The theme provider's own "disable transitions" trick forced a full-page reflow on every click.) */
+.theme-switching :not(.theme-toggle, .theme-toggle *),
+.theme-switching :not(.theme-toggle, .theme-toggle *)::before,
+.theme-switching :not(.theme-toggle, .theme-toggle *)::after {
+  transition: none !important;
+}
+
+/* The toggle is its own layer while the theme reveals: no cross-fade, no old picture, just the live button. */
+::view-transition-group(theme-toggle) {
+  animation: none;
+}
+::view-transition-old(theme-toggle) {
+  display: none;
+}
+::view-transition-new(theme-toggle) {
+  animation: none;
+  mix-blend-mode: normal;
+}

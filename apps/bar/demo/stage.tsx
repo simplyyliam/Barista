@@ -4,7 +4,7 @@ import { PanelBody, PanelFrame, useOpenPanel } from "@/features/panel"
 import RootMenu from "@/widgets/menu/root-menu"
 import Menubar from "@/widgets/menubar/menubar"
 import { Motion } from "@/shared/motion"
-import { getAnchor, getSize, subscribeSizes } from "./backend"
+import { getAnchor, getOpenMenuItem, getOpenPanelItem, getSize, subscribeSizes } from "./backend"
 
 const EDGE = 8
 const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), Math.max(min, max))
@@ -47,6 +47,7 @@ function WindowBox({
     : null
   return (
     <div
+      data-demo-window={which}
       className={`absolute transform-gpu ${placed ? "" : fallback}`}
       style={{ width: size.width, height: size.height, ...placed }}
     >
@@ -83,6 +84,30 @@ export default function Stage({ scene, bare = false }: { scene: string; bare?: b
 
   // What is already open when the page loads, so a still frame on the landing page is not empty.
   useEffect(() => openStart(scene), [scene])
+
+  // Like the real bar: a click or a key press outside an open menu or panel dismisses it. A click on the item
+  // that opened it is left alone, because that click toggles it.
+  useEffect(() => {
+    if (bare) return
+    const onDown = (e: PointerEvent) => {
+      const target = e.target instanceof Element ? e.target : null
+      const item = target?.closest("[data-item-id]")?.getAttribute("data-item-id") ?? null
+      const inside = (which: string) => Boolean(target?.closest(`[data-demo-window="${which}"]`))
+      if (getSize("menu") && !inside("menu") && item !== getOpenMenuItem()) void commands.closeMenu()
+      if (getSize("panel") && !inside("panel") && item !== getOpenPanelItem()) void commands.closePanel()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      if (getSize("menu")) void commands.closeMenu()
+      if (getSize("panel")) void commands.closePanel()
+    }
+    document.addEventListener("pointerdown", onDown, true)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [bare])
 
   // The small tiles have no bar to reopen a panel with, so their panel always comes back (Esc, say).
   useEffect(() => {
