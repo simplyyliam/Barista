@@ -17,7 +17,7 @@ describe("website", () => {
     }
   })
 
-  it("lists every docs page in meta.json, in the sidebar order", () => {
+  it("lists every docs page in meta.json", () => {
     const meta = JSON.parse(read("./content/docs/meta.json")) as { pages: string[] }
     const listed = meta.pages.filter((page) => !page.startsWith("---"))
     const files = readdirSync(fileURLToPath(new URL("./content/docs/", import.meta.url)))
