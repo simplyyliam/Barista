@@ -1,7 +1,7 @@
 //! What to call the program that owns a window: its description from the file's version info
 //! ("Notepad"), else the exe name without `.exe`. Used for the app name next to the menus.
 
-use windows::core::{HSTRING, PCWSTR, PWSTR};
+use windows::core::{HSTRING, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, HWND, MAX_PATH};
 use windows::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
 use windows::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION};
@@ -41,6 +41,13 @@ pub fn exe_path(pid: u32) -> Option<String> {
     }
 }
 
+/// Text up to the first NUL. The length `VerQueryValueW` reports isn't a char count for every exe
+/// (Spotify's "Spotify" came back as 16), so the terminator is the only thing to trust.
+fn text_until_nul(chars: &[u16]) -> String {
+    let end = chars.iter().position(|c| *c == 0).unwrap_or(chars.len());
+    String::from_utf16_lossy(&chars[..end]).trim().to_string()
+}
+
 /// `FileDescription` from the exe's version info (the first language it lists).
 fn file_description(path: &str) -> Option<String> {
     let wide = HSTRING::from(path);
@@ -67,8 +74,7 @@ fn file_description(path: &str) -> Option<String> {
             return None;
         }
         let chars = std::slice::from_raw_parts(text as *const u16, text_len as usize);
-        let name = String::from_utf16_lossy(chars).trim_end_matches('\0').trim().to_string();
-        let _ = PCWSTR::null();
+        let name = text_until_nul(chars);
         (!name.is_empty()).then_some(name)
     }
 }
@@ -121,6 +127,15 @@ mod tests {
         assert!(!is_shell_window("explorer", "CabinetWClass"));
         assert!(!is_shell_window("notepad", "Notepad"));
         assert!(!is_shell_window("Zed", "Zed::Window"));
+    }
+
+    #[test]
+    fn version_text_stops_at_the_first_nul() {
+        let spotify: Vec<u16> = "Spotify\0FileV".encode_utf16().collect();
+        assert_eq!(text_until_nul(&spotify), "Spotify");
+        assert_eq!(text_until_nul(&[]), "");
+        let plain: Vec<u16> = " Notepad ".encode_utf16().collect();
+        assert_eq!(text_until_nul(&plain), "Notepad");
     }
 
     #[test]
