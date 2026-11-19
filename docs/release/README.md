@@ -50,7 +50,7 @@ through a `release/v0.X.Y` PR (see `CLAUDE.md` > Releases).
 | v0.6 | Tray, read (done, 0.6.0) | Every tray icon shows in the bar |
 | v0.7 | Tray, live (done, 0.7.0) | Tray icons work: click, right-click menus, pin, collapse |
 | v0.8 | Daily driver (done, 0.8.0) | Settings, first-party items (mic mute, now playing, system monitor), Liam uses it all day instead of the taskbar tray |
-| v0.9 | Script items | Drop a PowerShell, Python or Node script in a folder and it shows up in the bar (a system monitor script is the demo) |
+| v0.9 | Script items (done, 0.9.0) | Drop a PowerShell, Python or Node script in a folder and it shows up in the bar (a system monitor script is the demo) |
 | v0.10 | Ship it | Installer, auto-updater, docs, first public release |
 | v1.0 | 1.0 | Stable protocol v1, stable SDK |
 | v1.1 | Gallery | Curated scripts (repo `barista-scripts`) on the Barista site, Install button with a confirm dialog (notes only, `releases/v1.1.md`) |
