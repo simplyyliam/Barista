@@ -27,8 +27,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: cargo check --workspace
-      - run: cargo clippy --workspace --all-targets
+      - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+
+      # Known security advisories: Rust crates, and the JS packages that ship (high and up).
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories
+      - run: pnpm audit --prod --audit-level=high
 
       # Regenerates bindings.ts (tauri-specta) and protocol.ts (crates/protocol).
       - run: pnpm gen

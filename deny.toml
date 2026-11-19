@@ -1,0 +1,4 @@
+# cargo-deny: checked in CI (.github/workflows/checks.yml). Only security advisories for now;
+# licence rules come with the first public release review.
+[advisories]
+version = 2
