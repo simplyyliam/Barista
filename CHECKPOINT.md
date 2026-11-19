@@ -65,7 +65,7 @@ Found by dogfooding, the installer tests and the two reviews. Nothing here block
 4. ~~Settings did not show an update found before it was opened~~ fixed with `get_pending_update` and re-tested on an installed build.
 5. **Taskbar restore on uninstall** uses a null window handle (like the panic hook). Not tested on a PC where Barista had forced auto-hide on.
 6. **Unsigned installer:** SmartScreen warns on first run (documented). No EULA yet; privacy wording needs your eyes.
-7. **Memory 138 MB vs the 120 MB budget** (`docs/perf/0.10.md`). The memory pass moved here; candidates are listed in that file.
+7. **Memory 138 MB vs the 120 MB budget** (`docs/perf/0.10.md`). The pass was measured: ~3/4 is WebView2 browser + renderer, driven by the always-on windows. Saving real memory means lazy menu-sub and panel windows (slower first open): **your call**.
 8. **Not tested:** Windows 10, no monitor at launch, the release workflow itself (needs the repo, token and key), a real phone for the site.
 9. **Silent first minute:** a script started before the bar prints its "Waiting for the Barista bar" line only after about 10 s.
 10. **Landing page leftovers:** the Monitors tile, the Settings sliders and the Windows-mode switches are still hand-made; the demo cannot show the
