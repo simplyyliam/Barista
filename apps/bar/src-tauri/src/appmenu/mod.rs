@@ -90,6 +90,8 @@ struct State {
     /// Per title: entry id to what it does.
     actions: Vec<HashMap<String, Action>>,
     shown: AppMenus,
+    /// Per title (UIA only): its items were already read, so a click opens at once and never touches the app.
+    loaded: Vec<bool>,
 }
 
 struct Service {
@@ -363,6 +365,7 @@ impl Service {
             state.hwnd = hwnd;
             state.pid = pid;
             state.provider = provider;
+            state.loaded = vec![false; titles.len()];
             state.titles = titles;
             state.actions = actions;
             let changed = state.shown != shown;
@@ -381,7 +384,7 @@ pub fn init(app: &AppHandle, registry: Arc<Registry>) {
     let service = Arc::new(Service {
         app: app.clone(),
         registry,
-        state: Mutex::new(State { hwnd: 0, pid: 0, provider: Provider::None, titles: vec![], actions: vec![], shown: AppMenus::default() }),
+        state: Mutex::new(State { hwnd: 0, pid: 0, provider: Provider::None, titles: vec![], actions: vec![], shown: AppMenus::default(), loaded: vec![] }),
         wake: Notify::new(),
     });
     if SERVICE.set(service.clone()).is_err() {
@@ -401,6 +404,9 @@ pub fn init(app: &AppHandle, registry: Arc<Registry>) {
             if hwnd != 0 {
                 let svc = service.clone();
                 let mut provider = tokio::task::spawn_blocking(move || svc.refresh(hwnd)).await.unwrap_or(Provider::None);
+                if provider == Provider::Uia {
+                    tauri::async_runtime::spawn(prefetch(service.clone(), hwnd));
+                }
                 // A window that just came to the front often has no menu to read yet (its UI is still
                 // loading, or the first read timed out). Try again a few times while it stays in front,
                 // instead of settling on the generic menus until the user switches away and back.
@@ -447,34 +453,59 @@ pub fn open_lazy(key: &str) {
         return;
     }
     tauri::async_runtime::spawn(async move {
-        let (hwnd, title) = {
-            let state = service.lock();
-            match state.titles.get(index) {
-                Some(t) => (state.hwnd, t.clone()),
-                None => return,
+        if load_title(&service, index).await {
+            if let Some(menu) = crate::menu_window::get() {
+                menu.item_click(&key);
             }
-        };
-        let read = tokio::task::spawn_blocking(move || uia_menu::read_title(hwnd, index)).await.ok().flatten();
-        let Some(items) = read else { return };
-        let mut actions = HashMap::new();
-        let mut next_id = 0;
-        let entries = entries_from(&items, &Source::Uia { title_index: index, title }, &[], &mut next_id, &mut actions, 0);
-        {
-            let mut state = service.lock();
-            // The user moved on to another app while we were reading: drop it.
-            if state.hwnd != hwnd || index >= state.actions.len() {
-                return;
-            }
-            state.actions[index] = actions;
-        }
-        if entries.is_empty() {
-            return;
-        }
-        service.registry.app_menu_entries(index, entries);
-        if let Some(menu) = crate::menu_window::get() {
-            menu.item_click(&key);
         }
     });
+}
+
+/// Reads one UIA title's items from the app (the app flashes its own popup while it does) and gives them to
+/// the registry. Does nothing if they were read already. True when the items are there.
+async fn load_title(service: &Arc<Service>, index: usize) -> bool {
+    let (hwnd, title) = {
+        let state = service.lock();
+        if state.loaded.get(index) == Some(&true) {
+            return true;
+        }
+        match state.titles.get(index) {
+            Some(t) => (state.hwnd, t.clone()),
+            None => return false,
+        }
+    };
+    let read = tokio::task::spawn_blocking(move || uia_menu::read_title(hwnd, index)).await.ok().flatten();
+    let Some(items) = read else { return false };
+    let mut actions = HashMap::new();
+    let mut next_id = 0;
+    let entries = entries_from(&items, &Source::Uia { title_index: index, title }, &[], &mut next_id, &mut actions, 0);
+    {
+        let mut state = service.lock();
+        // The user moved on to another app while we were reading: drop it.
+        if state.hwnd != hwnd || index >= state.actions.len() {
+            return false;
+        }
+        if entries.is_empty() {
+            return false;
+        }
+        state.actions[index] = actions;
+        state.loaded[index] = true;
+    }
+    service.registry.app_menu_entries(index, entries);
+    true
+}
+
+/// Reads every title of the app in front once it has settled, so the click on a title never has to open
+/// the app's own menu (that popup stole the focus from the bar's menu and closed it).
+async fn prefetch(service: Arc<Service>, hwnd: isize) {
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let count = service.lock().titles.len();
+    for index in 0..count {
+        if LATEST.load(Ordering::SeqCst) != hwnd || crate::menu_window::get().and_then(|m| m.current()).is_some() {
+            return;
+        }
+        load_title(&service, index).await;
+    }
 }
 
 /// A classic menu was opened: read it again in the background so enabled and checked states are
