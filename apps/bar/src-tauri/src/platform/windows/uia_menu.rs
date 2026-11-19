@@ -206,6 +206,25 @@ fn collapse(item: &IUIAutomationElement) {
     }
 }
 
+/// Makes sure the app's own popup is really gone before the bar opens its menu. If it lingers, the app's
+/// menu mode steals the focus from the bar's menu window, which then closes right after opening.
+fn settle_closed(
+    automation: &IUIAutomation,
+    window: &IUIAutomationElement,
+    title: &IUIAutomationElement,
+    baseline: &[IUIAutomationElement],
+) {
+    let started = Instant::now();
+    loop {
+        let left_over = visible_items(automation, window).into_iter().any(|e| !baseline.iter().any(|k| same(automation, k, &e)));
+        if !left_over || started.elapsed() > Duration::from_millis(700) {
+            return;
+        }
+        collapse(title);
+        std::thread::sleep(Duration::from_millis(40));
+    }
+}
+
 fn raw_of(element: &IUIAutomationElement, submenu: bool) -> RawItem {
     // SAFETY: plain COM calls.
     unsafe {
@@ -267,8 +286,11 @@ pub fn read_title(hwnd: isize, index: usize) -> Option<Vec<RawItem>> {
         let (window, bar) = find_bar(automation, hwnd)?;
         let titles = bar_titles(&bar, automation);
         let title = titles.get(index)?;
-        let mut known = visible_items(automation, &window);
-        Some(read_level(automation, &window, title, &mut known, 0, Instant::now() + READ_BUDGET))
+        let baseline = visible_items(automation, &window);
+        let mut known = baseline.clone();
+        let items = read_level(automation, &window, title, &mut known, 0, Instant::now() + READ_BUDGET);
+        settle_closed(automation, &window, title, &baseline);
+        Some(items)
     })
     .flatten()
 }

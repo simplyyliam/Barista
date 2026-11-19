@@ -304,16 +304,16 @@ impl Service {
 
     /// Reads the menus of the window that just came to the front. Runs on a blocking thread: reading a
     /// menu can wait on the other app (with short timeouts).
-    fn refresh(&self, hwnd: isize) {
+    fn refresh(&self, hwnd: isize) -> Provider {
         if !enabled_in_settings() {
             self.show(0, 0, Provider::None, String::new(), (vec![], vec![], vec![]));
-            return;
+            return Provider::None;
         }
         let (root, pid) = match classify(hwnd) {
-            Target::Ignore => return,
+            Target::Ignore => return Provider::None,
             Target::Desktop => {
                 self.show(0, 0, Provider::None, String::new(), (vec![], vec![], vec![]));
-                return;
+                return Provider::None;
             }
             Target::App(root, pid) => (root, pid),
         };
@@ -335,7 +335,7 @@ impl Service {
                     actions.push(map);
                 }
                 self.show(root, pid, Provider::Win32, name, (titles, entries, actions));
-                return;
+                return Provider::Win32;
             }
         }
         if let Some(titles) = uia_menu::titles(root) {
@@ -343,11 +343,12 @@ impl Service {
             if !titles.is_empty() {
                 let n = titles.len();
                 self.show(root, pid, Provider::Uia, name, (titles, vec![vec![]; n], vec![HashMap::new(); n]));
-                return;
+                return Provider::Uia;
             }
         }
         let (titles, entries, actions) = generic_menus();
         self.show(root, pid, Provider::Generic, name, (titles, entries, actions));
+        Provider::Generic
     }
 
     /// Stores what was read, gives the registry the titles and tells the UI if anything changed.
@@ -399,7 +400,21 @@ pub fn init(app: &AppHandle, registry: Arc<Registry>) {
             let hwnd = LATEST.load(Ordering::SeqCst);
             if hwnd != 0 {
                 let svc = service.clone();
-                let _ = tokio::task::spawn_blocking(move || svc.refresh(hwnd)).await;
+                let mut provider = tokio::task::spawn_blocking(move || svc.refresh(hwnd)).await.unwrap_or(Provider::None);
+                // A window that just came to the front often has no menu to read yet (its UI is still
+                // loading, or the first read timed out). Try again a few times while it stays in front,
+                // instead of settling on the generic menus until the user switches away and back.
+                for wait in [250u64, 600, 1200, 2500] {
+                    if provider != Provider::Generic || LATEST.load(Ordering::SeqCst) != hwnd {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(wait)).await;
+                    if LATEST.load(Ordering::SeqCst) != hwnd {
+                        break;
+                    }
+                    let svc = service.clone();
+                    provider = tokio::task::spawn_blocking(move || svc.refresh(hwnd)).await.unwrap_or(Provider::None);
+                }
             }
             service.wake.notified().await;
             tokio::time::sleep(DEBOUNCE).await;
