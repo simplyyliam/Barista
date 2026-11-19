@@ -29,7 +29,7 @@ export function Hero() {
             <a href="/docs/" className="btn btn--lg btn--quiet">Read the docs</a>
           </div>
           <div className="facts" data-reveal data-delay="320">
-            <span>Free to start</span>
+            <span>Free</span>
             <span>Windows 11</span>
             <span>Idles near 0% CPU</span>
           </div>

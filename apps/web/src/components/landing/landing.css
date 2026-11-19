@@ -382,3 +382,28 @@
 .sl,.sl *:not(.drag){cursor:var(--cur-bean) 6 4,auto!important}
 .sl a:not(.drag),.sl button:not(.drag),.sl summary:not(.drag),.sl label:not(.drag),.sl [role="button"]:not(.drag),.sl .bean:not(.drag),.sl .tg:not(.drag),.sl .faq__q:not(.drag){cursor:var(--cur-bean-link) 7 5,pointer!important}
 .sl button:disabled,.sl a[aria-disabled="true"]:not(.drag){cursor:var(--cur-bean) 6 4,auto!important}
+
+/* phones: stack what sat side by side, let rows wrap, and never scroll sideways */
+.sl{overflow-x:clip}
+.sl img,.sl svg,.sl video{max-width:100%}
+@media (max-width:809px){
+  .sl .scene__body{grid-template-columns:1fr;gap:1em}
+  .sl .monitors{flex-wrap:wrap;justify-content:center}
+  .sl .mon{width:calc(50% - 7px);min-width:96px;height:72px}
+  .sl .set{padding:18px}
+  .sl .set__row{flex-wrap:wrap;gap:10px;font-size:15px}
+  .sl .set__slider{flex:1 1 100%}
+  .sl .code{padding:52px 18px 22px;font-size:12.5px}
+  .sl .tag{font-size:14px;padding:7px 13px}
+  .sl .closer .bean{right:2%;width:110px!important}
+  .sl .hero__media{margin-top:40px}
+  .sl .row .btn{flex:1 1 auto;justify-content:center}
+  .sl .facts{gap:8px 16px}
+  .sl .tray__menu{max-width:calc(100vw - 2 * var(--gutter))}
+}
+@media (max-width:480px){
+  .sl .h1{font-size:36px}
+  .sl .footer{grid-template-columns:1fr}
+  .sl .closer{padding:56px 20px 100px}
+  .sl .card{padding:22px}
+}

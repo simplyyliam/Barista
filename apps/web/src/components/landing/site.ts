@@ -6,7 +6,7 @@ export const NPM_URL = "https://www.npmjs.com/package/@baristabar/sdk"
 export const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#sdk", label: "For developers" },
-  { href: "#pricing", label: "Pricing" },
+  // { href: "#pricing", label: "Pricing" }, // hidden for the beta (docs/release/plan/hidden-on-website.md)
   { href: "#faq", label: "FAQ" },
   { href: "/docs", label: "Docs" },
 ]
