@@ -37,7 +37,12 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - Fix next (dogfooding the format): all done on `feature/script-fixes-and-app-menus` (xbar ` | ` params, Store Python, inert text lines,
   last good label on error, last run + duration, duplicate message, preview-cut note, `shell=` switch, docs per interpreter). The hash-to-read
   window is a documented accepted risk (ADR 0034): closing it would lock the file against editors during runs.
-- Liam also asked (2026-11-19) for application menus (File/Edit/View) that really work: in `docs/release/releases/backlog.md` (local file), needs a research spike first. Not in v0.9.
+- **Application menus built** (`feature/script-fixes-and-app-menus`, ADR 0036, stacked on the v0.9 branch): `src-tauri/src/appmenu/` (service, caps and cleaning,
+  `entries_from`), `platform/windows/win32_menu.rs` (GetMenu + WM_COMMAND), `uia_menu.rs` (UI Automation on a worker thread: expand, read, collapse; invoke by path),
+  `app_info.rs` (app name), `foreground::watch_window`. Registry keys `appmenu/<n>` (not in the item list). UI: `features/menubar/app-menus.tsx`, app name follows the app in
+  front, new built-in item `app-menus` (bar editor can hide it). New for the UI (wired): `getAppMenus`, event `appMenusChanged`.
+  Verified live: System Information (classic) and Windows 11 Notepad (UIA), including picking entries. Chromium/Electron/GPU apps expose nothing: name only.
+  Not done: keyboard access (Alt), item icons, hover-switching between UIA titles, a faster UIA read (about 0.8 s: one cache request per item would cut it).
 
 ## Facts a new session needs
 

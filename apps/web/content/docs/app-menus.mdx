@@ -1,0 +1,35 @@
+---
+title: Application menus
+description: The menus of the app in front (File, Edit, View) in the Barista menu bar.
+---
+
+Like the macOS menu bar, Barista shows the name of the app in front and its menus next to it. Click a
+title and the menu opens under it; pick an entry and it runs in that app, as if you had used the app's own
+menu.
+
+## Which apps work
+
+Windows has no single way to read another app's menus, so Barista reads the two kinds that exist:
+
+| App style | Examples | How it shows |
+| --- | --- | --- |
+| Classic Windows menu bar | System Information, Registry Editor, Notepad++, 7-Zip | Instant. Check marks and greyed-out entries are the app's real state. |
+| Modern menu bar exposed to accessibility (UI Automation) | Windows 11 Notepad | About a second to open, and the app's own menu flashes for a moment while Barista reads it. Hovering from one title to the next does not switch menus. |
+
+Apps that draw their own menus without exposing them (most browsers and Electron apps such as Figma or
+Spotify) show only their name. An app running as administrator while Barista is not cannot be controlled
+(Windows blocks it), so it shows no menus either.
+
+## Turning it off
+
+Settings > Menu bar: switch off "App menus" in the list of bar items. The app name stays; the menus go and
+Barista stops following the app in front.
+
+## What it can and cannot do
+
+- Entries run in the window you were looking at, and only if it is still the same program. Barista never
+  runs anything itself: it tells the app which of its own menu entries you picked.
+- Menu text comes from the other app, so Barista cleans it (no control characters, limited length and
+  depth) and only ever shows it as text.
+- Not supported yet: keyboard access (Alt and menu letters), item icons, owner-drawn entries (they have
+  no text to read), and the Help search box.

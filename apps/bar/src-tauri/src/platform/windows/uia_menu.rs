@@ -5,7 +5,10 @@
 //!
 //! Every UIA call runs on one worker thread, with a timeout on the caller's side. UIA calls into the
 //! other app and can block for as long as that app is hung: the bar's threads never wait for it
-//! (CLAUDE.md rule 3). A worker that does not answer is abandoned and a new one is made.
+//! (CLAUDE.md rule 3).
+//!
+//! Found while building this: a minimized window shows no popup, so its menu items do not exist for UIA
+//! (nothing to read). Apps in front are never minimized, so this only matters for tests. A worker that does not answer is abandoned and a new one is made.
 
 use super::win32_menu::{Kind, RawItem, MAX_ITEMS};
 use std::sync::mpsc::{channel, Sender};
@@ -16,7 +19,7 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
 use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::Accessibility::{
-    CUIAutomation, IUIAutomation, IUIAutomationElement, IUIAutomationExpandCollapsePattern, IUIAutomationInvokePattern,
+    CUIAutomation8, IUIAutomation, IUIAutomationElement, IUIAutomationExpandCollapsePattern, IUIAutomationInvokePattern,
     IUIAutomationTogglePattern, ToggleState_On, TreeScope_Children, TreeScope_Descendants, UIA_ControlTypePropertyId,
     UIA_ExpandCollapsePatternId, UIA_InvokePatternId, UIA_MenuBarControlTypeId, UIA_MenuItemControlTypeId,
     UIA_TogglePatternId,
@@ -39,7 +42,7 @@ fn start_worker() -> Sender<Task> {
         // SAFETY: COM is initialised on this thread before anything uses it, and only this thread does.
         let automation: Option<IUIAutomation> = unsafe {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-            CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER).ok()
+            CoCreateInstance(&CUIAutomation8, None, CLSCTX_INPROC_SERVER).ok()
         };
         let Some(automation) = automation else { return };
         for task in rx {
@@ -263,4 +266,25 @@ pub fn invoke(hwnd: isize, path: Vec<usize>, names: Vec<String>) -> bool {
     })
     .flatten()
     .is_some()
+}
+
+#[cfg(test)]
+mod live {
+    use super::*;
+    use windows::core::w;
+    use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
+
+    /// Needs a running Windows 11 Notepad. `cargo test -p barista --lib uia_menu::live -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn read_notepads_menus() {
+        // SAFETY: plain lookup by class name.
+        let hwnd = unsafe { FindWindowW(w!("Notepad"), None) }.unwrap().0 as isize;
+        eprintln!("hwnd {hwnd}");
+        eprintln!("titles: {:?}", titles(hwnd));
+        let t = std::time::Instant::now();
+        let edit = read_title(hwnd, 1);
+        eprintln!("Edit read in {:?}: {:?}", t.elapsed(), edit.as_ref().map(|v| v.iter().map(|i| (i.label.clone(), i.command, i.accelerator.clone())).collect::<Vec<_>>()));
+        assert!(edit.is_some_and(|v| !v.is_empty()));
+    }
 }

@@ -72,8 +72,10 @@ enum Provider {
 }
 
 struct State {
-    /// The window the menus were read from.
+    /// The window the menus were read from, and the process that owned it then. A click is only sent if
+    /// the window still belongs to that process (a window handle can be reused).
     hwnd: isize,
+    pid: u32,
     provider: Provider,
     titles: Vec<String>,
     /// Per title: entry id to what it does.
@@ -211,6 +213,18 @@ fn classify(hwnd: isize) -> Target {
     Target::App(root, pid)
 }
 
+/// The window's system menu (Restore, Move, Size, Minimize, Close): its commands are all `SC_*`
+/// (0xF000 and up). Some apps (browsers) put it in their menu bar slot; it is not the app's menu.
+fn is_system_menu(top: &RawItem) -> bool {
+    let commands: Vec<u32> = top.children.iter().filter(|c| c.kind == Kind::Normal).map(|c| c.command).collect();
+    !commands.is_empty() && commands.iter().all(|c| (0xF000..=0xFFFF).contains(c))
+}
+
+/// The submenu titles of a menu bar that are the app's own, in order.
+fn app_titles(bar: &[RawItem]) -> Vec<&RawItem> {
+    bar.iter().filter(|i| i.kind == Kind::Submenu && !is_system_menu(i)).take(MAX_TITLES).collect()
+}
+
 fn enabled_in_settings() -> bool {
     controller::get()
         .map(|c| c.settings().menu_bar.items.iter().find(|i| i.id == "app-menus").map_or(true, |i| i.visible))
@@ -241,7 +255,7 @@ impl Service {
         };
         let name = app_info::display_name(pid).unwrap_or_default();
         if let Some(bar) = win32_menu::read_menu_bar(root) {
-            let tops: Vec<&RawItem> = bar.iter().filter(|i| i.kind == Kind::Submenu).take(MAX_TITLES).collect();
+            let tops = app_titles(&bar);
             if !tops.is_empty() {
                 let mut titles = Vec::new();
                 let mut entries = Vec::new();
@@ -279,6 +293,7 @@ impl Service {
         let changed = {
             let mut state = self.lock();
             state.hwnd = hwnd;
+            state.pid = if hwnd == 0 { 0 } else { app_info::pid_of(hwnd) };
             state.provider = provider;
             state.titles = titles;
             state.actions = actions;
@@ -298,7 +313,7 @@ pub fn init(app: &AppHandle, registry: Arc<Registry>) {
     let service = Arc::new(Service {
         app: app.clone(),
         registry,
-        state: Mutex::new(State { hwnd: 0, provider: Provider::None, titles: vec![], actions: vec![], shown: AppMenus::default() }),
+        state: Mutex::new(State { hwnd: 0, pid: 0, provider: Provider::None, titles: vec![], actions: vec![], shown: AppMenus::default() }),
         wake: Notify::new(),
     });
     if SERVICE.set(service.clone()).is_err() {
@@ -390,7 +405,7 @@ pub fn refresh_open() {
     }
     tauri::async_runtime::spawn_blocking(move || {
         let Some(bar) = win32_menu::read_menu_bar(hwnd) else { return };
-        let tops: Vec<&RawItem> = bar.iter().filter(|i| i.kind == Kind::Submenu).take(MAX_TITLES).collect();
+        let tops = app_titles(&bar);
         let mut state = service.lock();
         // Only if it is still the same app with the same titles.
         if state.hwnd != hwnd || tops.len() != state.titles.len() {
@@ -415,13 +430,13 @@ pub fn refresh_open() {
 pub fn menu_click(key: &str, menu_id: &str) {
     let Some(service) = SERVICE.get().cloned() else { return };
     let Some(index) = key.strip_prefix("appmenu/").and_then(|n| n.parse::<usize>().ok()) else { return };
-    let (hwnd, action) = {
+    let (hwnd, pid, action) = {
         let state = service.lock();
-        (state.hwnd, state.actions.get(index).and_then(|a| a.get(menu_id)).cloned())
+        (state.hwnd, state.pid, state.actions.get(index).and_then(|a| a.get(menu_id)).cloned())
     };
     let Some(action) = action else { return };
-    // The window the menu was read from must still be there.
-    if hwnd == 0 || !win32_menu::is_window(hwnd) {
+    // The window the menu was read from must still be there, and still belong to the same program.
+    if hwnd == 0 || !win32_menu::is_window(hwnd) || app_info::pid_of(hwnd) != pid {
         return;
     }
     match action {
@@ -544,6 +559,16 @@ mod tests {
             actions[leaf],
             Action::Uia { path: vec![1, 2, 4], names: vec!["View".into(), "Zoom".into(), "In".into()] }
         );
+    }
+
+    #[test]
+    fn the_windows_system_menu_is_not_an_app_menu() {
+        let system = sub("System", vec![raw("Restore", 0xF120), raw("Move", 0xF010), sep(), raw("Close", 0xF060)]);
+        let file = sub("File", vec![raw("New", 101), raw("Close", 0xF060)]);
+        let bar = [system, file];
+        let titles = app_titles(&bar);
+        assert_eq!(titles.len(), 1);
+        assert_eq!(titles[0].label, "File");
     }
 
     #[test]

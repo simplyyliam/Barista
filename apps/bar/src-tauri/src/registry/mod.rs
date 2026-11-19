@@ -691,7 +691,8 @@ impl Registry {
         self.menu_changed.notify_one();
     }
 
-    /// How many app menu titles there are (for tests and the debug list).
+    /// How many app menu titles there are.
+    #[cfg(test)]
     pub fn app_menu_count(&self) -> usize {
         self.lock().app_menus.len()
     }
@@ -1884,5 +1885,38 @@ mod tests {
         assert!(debug[0].has_menu);
         assert_eq!(reg.session_count(), 0);
         assert_eq!(reg.script_ids(), vec!["a.ps1".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn app_menu_titles_get_keys_and_lazy_ones_are_read_on_click() {
+        let reg = Registry::new();
+        reg.app_menus_replace(vec![(false, vec![entry("a0")]), (true, vec![]), (false, vec![])]);
+        assert_eq!(reg.app_menu_count(), 3);
+        // A classic menu was read already: it opens at once. A UI Automation title is read when clicked.
+        assert_eq!(reg.target("appmenu/0", MouseButton::Left), ClickTarget::Menu);
+        assert_eq!(reg.target("appmenu/1", MouseButton::Left), ClickTarget::AppMenu);
+        assert_eq!(reg.target("appmenu/2", MouseButton::Left), ClickTarget::App);
+        assert_eq!(reg.target("appmenu/9", MouseButton::Left), ClickTarget::App);
+        assert_eq!(reg.menu("appmenu/0").unwrap().entries.len(), 1);
+        assert!(reg.menu("appmenu/2").is_none());
+        // They are not bar items: the right side never draws them.
+        assert!(reg.snapshot().is_empty());
+    }
+
+    #[tokio::test]
+    async fn app_menu_entries_move_the_revision_only_when_they_change() {
+        let reg = Registry::new();
+        reg.app_menus_replace(vec![(true, vec![])]);
+        reg.app_menu_entries(0, vec![entry("a0")]);
+        let first = reg.menu_rev("appmenu/0").unwrap();
+        reg.app_menu_entries(0, vec![entry("a0")]);
+        assert_eq!(reg.menu_rev("appmenu/0"), Some(first));
+        reg.app_menu_entries(0, vec![entry("a0"), entry("a1")]);
+        assert!(reg.menu_rev("appmenu/0").unwrap() > first);
+        // A title that is gone (the app changed) can't be filled in.
+        reg.app_menus_replace(vec![]);
+        reg.app_menu_entries(0, vec![entry("a0")]);
+        assert_eq!(reg.app_menu_count(), 0);
+        assert!(reg.menu("appmenu/0").is_none());
     }
 }

@@ -55,3 +55,15 @@ So no approach reaches every app. Two providers cover the apps that do have menu
 - Owner-drawn items (no text) are skipped; item icons are not shown.
 - Not done: keyboard access (Alt, mnemonic keys), a "Help" search field, the system menu, menus of apps
   running elevated while the bar is not (Windows blocks the messages: those apps simply show nothing).
+
+## Verified (2026-11-19, live on a Windows 11 machine)
+
+- Classic: System Information (File, Edit, View, Help). "Close" showed greyed (the app's real state after
+  `WM_INITMENUPOPUP`), and "Exit" closed the app (`WM_COMMAND`).
+- UI Automation: Windows 11 Notepad. Edit gave 16 items with shortcuts in about 0.8 s, and "Select all"
+  selected all the text in Notepad.
+- Found on the way: a **minimized window shows no popup**, so it has no menu items for UIA (an app in front
+  is never minimized); some browsers put the window's **system menu** (Restore, Move, Close) in the menu bar
+  slot, which is filtered out (its commands are all `SC_*`, 0xF000 and up); the first UIA read must wait for
+  the popup to appear (polling, up to 0.6 s).
+

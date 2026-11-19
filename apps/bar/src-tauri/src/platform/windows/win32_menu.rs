@@ -175,8 +175,8 @@ mod tests {
     use super::*;
     use windows::core::HSTRING;
     use windows::Win32::UI::WindowsAndMessaging::{
-        AppendMenuW, CheckMenuItem, CreateMenu, CreatePopupMenu, DestroyMenu, MF_CHECKED, MF_GRAYED, MF_POPUP, MF_SEPARATOR,
-        MF_STRING,
+        AppendMenuW, CheckMenuItem, CreateMenu, CreatePopupMenu, DestroyMenu, MF_BYCOMMAND, MF_CHECKED, MF_GRAYED, MF_POPUP,
+        MF_SEPARATOR, MF_STRING, MF_UNCHECKED,
     };
 
     fn read(menu: HMENU) -> Vec<RawItem> {
@@ -260,7 +260,7 @@ mod tests {
         // SAFETY: test-owned menu handles.
         unsafe {
             let edit = windows::Win32::UI::WindowsAndMessaging::GetSubMenu(bar, 1);
-            CheckMenuItem(edit, 201, (MF_STRING.0 | 0) as u32);
+            CheckMenuItem(edit, 201, MF_UNCHECKED.0 | MF_BYCOMMAND.0);
         }
         assert!(!read(bar)[1].children[0].checked);
         unsafe { DestroyMenu(bar).unwrap() };
