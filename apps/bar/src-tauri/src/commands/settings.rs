@@ -239,6 +239,9 @@ fn apply_differences(app: &tauri::AppHandle, before: &Settings) {
     if before.behavior != after.behavior {
         c.behavior_changed();
     }
+    if before.scripts != after.scripts {
+        crate::scripts::apply_settings();
+    }
     apply_advanced(app, &before.advanced, &after.advanced);
     crate::appearance::settings_changed(app);
 }

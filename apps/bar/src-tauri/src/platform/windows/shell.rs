@@ -15,6 +15,17 @@ use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
+/// Opens a file in the program Windows uses to *edit* it (the `edit` verb), never to run it:
+/// `open` on a `.js` or `.ps1` would execute the script. `false` if there is no editor registered.
+pub fn edit_file(path: &std::path::Path) -> bool {
+    // SAFETY: strings live for the call; no window handle, no working directory.
+    let result = unsafe {
+        ShellExecuteW(None, &HSTRING::from("edit"), &HSTRING::from(path.as_os_str()), None, None, SW_SHOWNORMAL)
+    };
+    // ShellExecute says "worked" with a value above 32.
+    result.0 as isize > 32
+}
+
 /// Opens a `ms-settings:` page or another URI the shell knows.
 pub fn open_uri(uri: &str) {
     // SAFETY: strings live for the call; no window handle, no working directory.

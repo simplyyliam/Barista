@@ -23,6 +23,8 @@ tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.26", features = ["derive"] }
 specta-typescript = "=0.0.13"
 serde_json = "1"
+# SHA-256 of a script file: trust is per exact content (ADR 0034). Already in the tree through Tauri.
+sha2 = "0.10"
 # The messages shared with the SDK (crates/protocol is our own crate).
 barista-protocol = { path = "../../../crates/protocol" }
 # Async runtime for the pipe server. Tauri already runs on tokio, so this adds no second copy.

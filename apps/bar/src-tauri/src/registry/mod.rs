@@ -47,6 +47,37 @@ pub struct StatusItemView {
     /// `bar` or `overflow` (the list behind the arrow). The list is in display order; draw `bar`
     /// ones in the bar and `overflow` ones in the overflow panel. Since v0.7.
     pub placement: Placement,
+    /// A CSS color for the label (script items, v0.9).
+    pub color: Option<String>,
+    /// Set for script items: `ok`, `error` (draw the error mark) or `untrusted` (waiting for the user).
+    pub script: Option<ScriptState>,
+}
+
+/// What a script item is doing, for the UI's badge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ScriptState {
+    Ok,
+    Error,
+    Untrusted,
+}
+
+/// A script item as the script manager hands it over. Its key in the UI is `script/<id>`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScriptItem {
+    /// The file name without interval and extension: the label while there is no output.
+    pub title: String,
+    pub label: Option<String>,
+    pub color: Option<String>,
+    pub state: ScriptState,
+    pub tooltip: Option<String>,
+    /// Ready to draw (ids already given). The manager keeps what each id does.
+    pub menu: Vec<MenuEntry>,
+}
+
+struct StoredScript {
+    item: ScriptItem,
+    menu_rev: u64,
 }
 
 /// Where to send a tray icon's clicks: the owner's window, the icon's id, its callback message and
@@ -110,6 +141,8 @@ pub enum ClickTarget {
     Popover,
     /// A visible Windows tray icon: the click goes to the app that owns it (ADR 0027).
     Tray,
+    /// A script item without a menu: the script manager decides (trust prompt, or run now).
+    Script,
 }
 
 /// What the coordinator needs to show a popover.
@@ -178,6 +211,8 @@ struct State {
     items: Vec<Item>,
     /// Tray icons (no session, no menu yet), keyed without the `tray/` prefix, in arrival order.
     tray: Vec<(String, TrayItem)>,
+    /// Script items (v0.9), keyed by script id without the `script/` prefix, in arrival order.
+    scripts: Vec<(String, StoredScript)>,
     /// The user's order, pins and collapsed flag, saved in settings (ADR 0028).
     layout: ItemLayout,
     /// Room the UI has for items, and the gap between two (logical px). `None` = unknown.
@@ -244,6 +279,9 @@ fn stable_of(state: &State, key: &str) -> Option<String> {
     if let Some(tray_key) = key.strip_prefix("tray/") {
         return state.tray.iter().find(|(k, _)| k == tray_key).map(|(_, t)| t.stable_id.clone());
     }
+    if let Some(id) = key.strip_prefix("script/") {
+        return state.scripts.iter().any(|(k, _)| k == id).then(|| format!("script:{id}"));
+    }
     let (session, id) = parse_key(key)?;
     state.items.iter().find(|i| i.session == session && i.id == id)?;
     Some(format!("app:{}/{}", state.sessions.get(&session)?.app_name, id))
@@ -266,6 +304,23 @@ fn arranged(state: &State) -> Vec<StatusItemView> {
             source: ItemSource::App,
             pinned: false,
             placement: Placement::Bar,
+            color: None,
+            script: None,
+        }));
+    }
+    for (id, s) in &state.scripts {
+        stables.push(format!("script:{id}"));
+        views.push(Some(StatusItemView {
+            id: format!("script/{id}"),
+            app_name: "Script".into(),
+            icon: None,
+            label: Some(s.item.label.clone().filter(|l| !l.is_empty()).unwrap_or_else(|| s.item.title.clone())),
+            tooltip: s.item.tooltip.clone(),
+            source: ItemSource::App,
+            pinned: false,
+            placement: Placement::Bar,
+            color: s.item.color.clone(),
+            script: Some(s.item.state),
         }));
     }
     for (key, t) in state.tray.iter().filter(|(_, t)| {
@@ -281,6 +336,8 @@ fn arranged(state: &State) -> Vec<StatusItemView> {
             source: ItemSource::Tray,
             pinned: false,
             placement: Placement::Bar,
+            color: None,
+            script: None,
         }));
     }
     let entries: Vec<layout::Entry> = views
@@ -539,6 +596,56 @@ impl Registry {
         }
     }
 
+    /// Adds or updates a script item. A change to what the bar draws wakes the UI; a change to
+    /// only the menu refreshes an open menu and nothing else, like an SDK menu change.
+    pub fn script_set(&self, id: &str, item: ScriptItem) {
+        let mut state = self.lock();
+        state.last_rev += 1;
+        let rev = state.last_rev;
+        let (bar_changed, menu_changed) = match state.scripts.iter_mut().find(|(k, _)| k == id) {
+            Some((_, stored)) => {
+                let old = &stored.item;
+                let bar = (&old.title, &old.label, &old.color, old.state, &old.tooltip)
+                    != (&item.title, &item.label, &item.color, item.state, &item.tooltip);
+                let menu = old.menu != item.menu;
+                if menu {
+                    stored.menu_rev = rev;
+                }
+                stored.item = item;
+                (bar, menu)
+            }
+            None => {
+                state.scripts.push((id.to_string(), StoredScript { item, menu_rev: rev }));
+                (true, true)
+            }
+        };
+        drop(state);
+        if bar_changed {
+            self.changed.notify_one();
+        }
+        if menu_changed {
+            self.menu_changed.notify_one();
+        }
+    }
+
+    /// Takes a script item out (file deleted, script disabled or scripts turned off).
+    pub fn script_remove(&self, id: &str) {
+        let mut state = self.lock();
+        let before = state.scripts.len();
+        state.scripts.retain(|(k, _)| k != id);
+        let removed = state.scripts.len() != before;
+        drop(state);
+        if removed {
+            self.changed.notify_one();
+            self.menu_changed.notify_one();
+        }
+    }
+
+    /// The ids of every script item right now.
+    pub fn script_ids(&self) -> Vec<String> {
+        self.lock().scripts.iter().map(|(k, _)| k.clone()).collect()
+    }
+
     /// Loads the saved layout (once, at startup, before the first items arrive).
     pub fn set_layout(&self, layout: ItemLayout) {
         self.lock().layout = layout.cleaned();
@@ -713,6 +820,18 @@ impl Registry {
                 })
             })
             .chain(tray)
+            .chain(state.scripts.iter().map(|(id, s)| ItemInfo {
+                id: format!("script/{id}"),
+                app_name: "Script".into(),
+                pid: 0,
+                has_icon: false,
+                label: s.item.label.clone().or_else(|| Some(s.item.title.clone())),
+                tooltip: s.item.tooltip.clone(),
+                visible: true,
+                has_menu: !s.item.menu.is_empty(),
+                has_popover: false,
+                source: ItemSource::App,
+            }))
             .collect()
     }
 
@@ -778,6 +897,14 @@ impl Registry {
             let visible = state.tray.iter().any(|(k, t)| k == tray_key && t.visible);
             return if visible { ClickTarget::Tray } else { ClickTarget::App };
         }
+        if let Some(id) = key.strip_prefix("script/") {
+            return match state.scripts.iter().find(|(k, _)| k == id) {
+                // A menu opens on any button; without one the manager decides.
+                Some((_, s)) if s.item.state != ScriptState::Untrusted && !s.item.menu.is_empty() => ClickTarget::Menu,
+                Some(_) => ClickTarget::Script,
+                None => ClickTarget::App,
+            };
+        }
         let Some(item) = state.item_mut(key).filter(|i| i.visible) else {
             return ClickTarget::App;
         };
@@ -833,6 +960,10 @@ impl Registry {
     /// The revision of a visible item's menu, without building it. `None` = nothing to show.
     pub fn menu_rev(&self, key: &str) -> Option<u64> {
         let mut state = self.lock();
+        if let Some(id) = key.strip_prefix("script/") {
+            let (_, s) = state.scripts.iter().find(|(k, _)| k == id)?;
+            return (!s.item.menu.is_empty() && s.item.state != ScriptState::Untrusted).then_some(s.menu_rev);
+        }
         let item = state.item_mut(key)?;
         (!item.menu.is_empty() && item.visible).then_some(item.menu_rev)
     }
@@ -840,6 +971,13 @@ impl Registry {
     /// The menu of a visible item, ready to draw. `None` if the item is gone, hidden or has no menu.
     pub fn menu(&self, key: &str) -> Option<MenuSnapshot> {
         let mut state = self.lock();
+        if let Some(id) = key.strip_prefix("script/") {
+            let (_, s) = state.scripts.iter().find(|(k, _)| k == id)?;
+            if s.item.menu.is_empty() || s.item.state == ScriptState::Untrusted {
+                return None;
+            }
+            return Some(MenuSnapshot { entries: s.item.menu.clone(), rev: s.menu_rev });
+        }
         let item = state.item_mut(key)?;
         if item.menu.is_empty() || !item.visible {
             return None;
@@ -1579,5 +1717,103 @@ mod tests {
         reg.set_space(Some((f64::NAN, 2.0)));
         reg.note_widths([("tray/a".to_string(), f64::INFINITY), ("tray/a".to_string(), -4.0)]);
         assert!(reg.snapshot().iter().all(|v| v.placement == Placement::Bar));
+    }
+
+    fn script_item(label: &str, state: ScriptState, menu: Vec<MenuEntry>) -> ScriptItem {
+        ScriptItem { title: "cpu".into(), label: Some(label.into()), color: None, state, tooltip: None, menu }
+    }
+    fn entry(id: &str) -> MenuEntry {
+        MenuEntry {
+            id: Some(id.into()),
+            kind: barista_protocol::MenuItemType::Normal,
+            label: id.into(),
+            checked: false,
+            enabled: true,
+            accelerator: None,
+            role: None,
+            icon: None,
+            color: None,
+            submenu: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn a_script_item_shows_in_the_bar_and_goes_away() {
+        let reg = Registry::new();
+        reg.script_set("cpu.ps1", script_item("CPU 12%", ScriptState::Ok, vec![]));
+        let items = reg.snapshot();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "script/cpu.ps1");
+        assert_eq!(items[0].label.as_deref(), Some("CPU 12%"));
+        assert_eq!(items[0].script, Some(ScriptState::Ok));
+        reg.script_remove("cpu.ps1");
+        assert!(reg.snapshot().is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_empty_label_falls_back_to_the_title() {
+        let reg = Registry::new();
+        reg.script_set("cpu.ps1", script_item("", ScriptState::Ok, vec![]));
+        assert_eq!(reg.snapshot()[0].label.as_deref(), Some("cpu"));
+    }
+
+    #[tokio::test]
+    async fn script_items_are_pinned_by_default_and_have_a_stable_id() {
+        let reg = Registry::new();
+        reg.script_set("cpu.ps1", script_item("x", ScriptState::Ok, vec![]));
+        assert!(reg.snapshot()[0].pinned);
+        assert_eq!(stable_of(&reg.lock(), "script/cpu.ps1").as_deref(), Some("script:cpu.ps1"));
+        assert_eq!(stable_of(&reg.lock(), "script/nope"), None);
+    }
+
+    #[tokio::test]
+    async fn clicks_go_to_the_menu_or_the_manager_never_to_an_app() {
+        let reg = Registry::new();
+        reg.script_set("a.ps1", script_item("x", ScriptState::Ok, vec![entry("m0")]));
+        reg.script_set("b.ps1", script_item("x", ScriptState::Ok, vec![]));
+        reg.script_set("c.ps1", script_item("x", ScriptState::Untrusted, vec![entry("m0")]));
+        assert_eq!(reg.target("script/a.ps1", MouseButton::Left), ClickTarget::Menu);
+        assert_eq!(reg.target("script/a.ps1", MouseButton::Right), ClickTarget::Menu);
+        assert_eq!(reg.target("script/b.ps1", MouseButton::Left), ClickTarget::Script);
+        // An untrusted script has no menu to show, even if one was stored.
+        assert_eq!(reg.target("script/c.ps1", MouseButton::Left), ClickTarget::Script);
+        assert!(reg.menu("script/c.ps1").is_none());
+        assert_eq!(reg.target("script/gone", MouseButton::Left), ClickTarget::App);
+    }
+
+    #[tokio::test]
+    async fn a_script_menu_is_served_with_a_revision_that_moves_only_when_it_changes() {
+        let reg = Registry::new();
+        reg.script_set("a.ps1", script_item("x", ScriptState::Ok, vec![entry("m0")]));
+        let first = reg.menu("script/a.ps1").unwrap();
+        assert_eq!(first.entries.len(), 1);
+        reg.script_set("a.ps1", script_item("y", ScriptState::Ok, vec![entry("m0")]));
+        assert_eq!(reg.menu_rev("script/a.ps1"), Some(first.rev), "same menu, same revision");
+        reg.script_set("a.ps1", script_item("y", ScriptState::Ok, vec![entry("m0"), entry("m1")]));
+        assert!(reg.menu_rev("script/a.ps1").unwrap() > first.rev);
+    }
+
+    #[tokio::test]
+    async fn only_a_menu_change_skips_the_items_event() {
+        let reg = Registry::new();
+        reg.script_set("a.ps1", script_item("x", ScriptState::Ok, vec![entry("m0")]));
+        // Drain the wake-ups of the first set.
+        reg.wait_changed().await;
+        reg.wait_menu_changed().await;
+        reg.script_set("a.ps1", script_item("x", ScriptState::Ok, vec![entry("m0"), entry("m1")]));
+        reg.wait_menu_changed().await;
+        let waited = tokio::time::timeout(std::time::Duration::from_millis(50), reg.wait_changed()).await;
+        assert!(waited.is_err(), "a menu-only change must not wake the bar");
+    }
+
+    #[tokio::test]
+    async fn script_items_appear_in_the_debug_list_and_do_not_touch_app_sessions() {
+        let reg = Registry::new();
+        reg.script_set("a.ps1", script_item("x", ScriptState::Error, vec![entry("m0")]));
+        let debug = reg.debug_items();
+        assert_eq!(debug.len(), 1);
+        assert!(debug[0].has_menu);
+        assert_eq!(reg.session_count(), 0);
+        assert_eq!(reg.script_ids(), vec!["a.ps1".to_string()]);
     }
 }
