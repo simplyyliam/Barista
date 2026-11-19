@@ -34,6 +34,8 @@ pub struct Found {
     pub sha256: String,
     /// The first lines, for the trust dialog.
     pub preview: Vec<String>,
+    /// The preview is not the whole file.
+    pub preview_cut: bool,
     pub kind: FoundKind,
 }
 
@@ -62,7 +64,7 @@ pub fn scan(dir: &Path) -> Vec<Found> {
                     path,
                     size: 0,
                     sha256: String::new(),
-                    preview: vec![],
+                    preview: vec![], preview_cut: false,
                     kind: FoundKind::Invalid(format!("\"{seg}\" is not an interval (use 10s, 5m, 2h or 1d, at least 1s)")),
                 });
                 continue;
@@ -74,20 +76,22 @@ pub fn scan(dir: &Path) -> Vec<Found> {
         }
         let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
         if size > MAX_FILE_BYTES {
-            out.push(Found { file_name, path, size, sha256: String::new(), preview: vec![], kind: FoundKind::Invalid("The file is larger than 1 MB".into()) });
+            out.push(Found { file_name, path, size, sha256: String::new(), preview: vec![], preview_cut: false, kind: FoundKind::Invalid("The file is larger than 1 MB".into()) });
             continue;
         }
         let Ok(bytes) = std::fs::read(&path) else {
-            out.push(Found { file_name, path, size, sha256: String::new(), preview: vec![], kind: FoundKind::Unreadable(parsed) });
+            out.push(Found { file_name, path, size, sha256: String::new(), preview: vec![], preview_cut: false, kind: FoundKind::Unreadable(parsed) });
             continue;
         };
+        let (shown, cut) = preview(&bytes);
         let duplicate = out.iter().any(|f| matches!(&f.kind, FoundKind::Script(n) if n.id == parsed.id));
         out.push(Found {
             file_name,
             path,
             size: bytes.len() as u64,
             sha256: sha256_hex(&bytes),
-            preview: preview(&bytes),
+            preview: shown,
+            preview_cut: cut,
             kind: if duplicate { FoundKind::Duplicate(parsed) } else { FoundKind::Script(parsed) },
         });
     }
@@ -114,28 +118,34 @@ pub fn next_delay(interval_secs: u32, failures: u32) -> Duration {
 }
 
 /// The first lines of a script for the trust dialog: control characters stripped, lines and
-/// total cut short. Lossy on purpose: this is only to look at.
-pub fn preview(bytes: &[u8]) -> Vec<String> {
+/// total cut short. Lossy on purpose: this is only to look at. The flag says the dialog does not
+/// show everything (more lines, a long line cut, or a big file), so it can say so.
+pub fn preview(bytes: &[u8]) -> (Vec<String>, bool) {
     const LINES: usize = 12;
     const LINE_CHARS: usize = 100;
     const TOTAL_CHARS: usize = 1500;
-    let head = &bytes[..bytes.len().min(8 * 1024)];
+    const HEAD_BYTES: usize = 8 * 1024;
+    let head = &bytes[..bytes.len().min(HEAD_BYTES)];
+    let text = String::from_utf8_lossy(head);
+    let mut cut = bytes.len() > HEAD_BYTES;
     let mut total = 0;
-    String::from_utf8_lossy(head)
-        .lines()
-        .take(LINES)
-        .map(|l| {
-            l.chars()
-                .map(|c| if c == '\t' { ' ' } else { c })
-                .filter(|c| !c.is_control())
-                .take(LINE_CHARS)
-                .collect::<String>()
-        })
-        .take_while(|l| {
-            total += l.chars().count();
-            total <= TOTAL_CHARS
-        })
-        .collect()
+    let mut out = Vec::new();
+    for (i, line) in text.lines().enumerate() {
+        if i >= LINES {
+            cut = true;
+            break;
+        }
+        let clean: String = line.chars().map(|c| if c == '\t' { ' ' } else { c }).filter(|c| !c.is_control()).collect();
+        let shown: String = clean.chars().take(LINE_CHARS).collect();
+        cut |= clean.chars().count() > LINE_CHARS;
+        total += shown.chars().count();
+        if total > TOTAL_CHARS {
+            cut = true;
+            break;
+        }
+        out.push(shown);
+    }
+    (out, cut)
 }
 
 #[cfg(test)]
@@ -271,12 +281,17 @@ mod tests {
     #[test]
     fn the_preview_is_short_and_clean() {
         let text = format!("line1\n\u{1b}[31mred\u{7}\n{}\n", "x".repeat(500));
-        let lines = preview(text.as_bytes());
+        let (lines, cut) = preview(text.as_bytes());
+        assert!(cut, "a 500 character line is cut");
         assert_eq!(lines[0], "line1");
         assert_eq!(lines[1], "[31mred");
         assert_eq!(lines[2].chars().count(), 100);
         let many = "a\n".repeat(100);
-        assert_eq!(preview(many.as_bytes()).len(), 12);
-        assert!(preview(&[0xff, 0xfe, 0x00]).len() <= 12);
+        let (lines, cut) = preview(many.as_bytes());
+        assert_eq!((lines.len(), cut), (12, true));
+        assert!(preview(&[0xff, 0xfe, 0x00]).0.len() <= 12);
+        assert_eq!(preview(b"one
+two
+"), (vec!["one".to_string(), "two".to_string()], false));
     }
 }

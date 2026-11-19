@@ -179,17 +179,18 @@ struct Params {
     refresh: bool,
 }
 
-/// `text | key=value ...` into the text and its params. The params start at the last ` | `. If
-/// they don't parse (bad quoting, a word with no `=`), the whole line stays text: it was probably
-/// just a pipe in the text.
+/// `text | key=value ...` into the text and its params. Params are space separated, and a ` | `
+/// between them is accepted too (`a | color=red | href=...`, how xbar scripts are written). The
+/// params start at the earliest ` | ` after which everything reads as `key=value` pairs; a pipe in
+/// the text before that stays text. If nothing parses (bad quoting, a word with no `=`), the whole
+/// line stays text.
 fn split_params(line: &str) -> (&str, Params) {
-    let Some(at) = line.rfind(" | ") else {
-        return (line, Params::default());
-    };
-    match parse_pairs(&line[at + 3..]) {
-        Some(pairs) => (&line[..at], build_params(pairs)),
-        None => (line, Params::default()),
+    for (at, _) in line.match_indices(" | ") {
+        if let Some(pairs) = parse_pairs(&line[at + 3..]) {
+            return (&line[..at], build_params(pairs));
+        }
     }
+    (line, Params::default())
 }
 
 /// `a=1 b="two words" c='x'` into pairs. `None` on any malformed part.
@@ -197,6 +198,11 @@ fn parse_pairs(text: &str) -> Option<Vec<(String, String)>> {
     let mut pairs = Vec::new();
     let mut rest = text.trim_start();
     while !rest.is_empty() {
+        // A ` | ` between two params is only a separator.
+        if let Some(after) = rest.strip_prefix("| ") {
+            rest = after.trim_start();
+            continue;
+        }
         let eq = rest.find('=')?;
         let key = &rest[..eq];
         if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric()) {
@@ -393,6 +399,38 @@ mod tests {
         let (e, _) = item(&out.menu[1]);
         assert_eq!(e.label, "A | B");
         assert_eq!(e.href.as_deref(), Some("https://example.com"));
+    }
+
+    #[test]
+    fn params_can_be_separated_by_pipes_like_xbar_scripts() {
+        let out = p("l
+---
+Open | color=red | href=https://example.com | refresh=true");
+        let (e, _) = item(&out.menu[0]);
+        assert_eq!(e.label, "Open");
+        assert_eq!(e.color.as_deref(), Some("red"));
+        assert_eq!(e.href.as_deref(), Some("https://example.com"));
+        assert!(e.refresh);
+    }
+
+    #[test]
+    fn a_pipe_in_the_text_stays_text_even_with_pipe_separated_params() {
+        let out = p("l
+---
+A | B | color=red | refresh=true");
+        let (e, _) = item(&out.menu[0]);
+        assert_eq!(e.label, "A | B");
+        assert!(e.refresh);
+    }
+
+    #[test]
+    fn a_pipe_inside_quotes_is_not_a_separator() {
+        let out = p("l
+---
+Run | shell=cmd param1=\"a | b\" | refresh=true");
+        let (e, _) = item(&out.menu[0]);
+        assert_eq!(e.shell.as_ref().unwrap().args, vec!["a | b"]);
+        assert!(e.refresh);
     }
 
     #[test]

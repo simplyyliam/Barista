@@ -799,6 +799,7 @@ mod tests {
             accelerator: None,
             role: None,
             icon: None,
+            info: false,
             color: None,
             submenu: vec![],
         };

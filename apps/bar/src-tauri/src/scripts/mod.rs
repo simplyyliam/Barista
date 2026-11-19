@@ -77,6 +77,10 @@ pub struct ScriptInfo {
     pub state: ScriptListState,
     /// The error, or why the file is not usable.
     pub message: Option<String>,
+    /// Unix seconds of the last finished run, and how long it took. Not part of the change test for
+    /// `scriptsChanged` (they change on every run): read them with `getScripts`.
+    pub last_run_at: Option<u32>,
+    pub last_duration_ms: Option<u32>,
 }
 
 /// What the trust dialog shows. Internal: not part of the SDK or the protocol.
@@ -90,6 +94,8 @@ pub struct TrustRequest {
     /// Hex SHA-256. Send it back with the answer: it only counts for this exact file.
     pub sha256: String,
     pub preview: Vec<String>,
+    /// The preview is not the whole file (more lines, a long line, a big file).
+    pub preview_cut: bool,
 }
 
 /// The list of scripts changed. Carries the whole list.
@@ -125,6 +131,7 @@ struct Live {
     size: u64,
     sha256: String,
     preview: Vec<String>,
+    preview_cut: bool,
     name: ScriptName,
     interval_secs: u32,
     pref_enabled: bool,
@@ -134,6 +141,11 @@ struct Live {
     /// Tells a stale task's late result from the current one's.
     generation: u64,
     actions: HashMap<String, Action>,
+    /// The last good output, kept on screen (with the error mark) while the script fails.
+    last_label: Option<String>,
+    last_color: Option<String>,
+    last_run_at: Option<u32>,
+    last_duration_ms: Option<u32>,
     refresh: Arc<Notify>,
     running: Arc<AtomicBool>,
     /// `false` once the task's loop has ended on its own (it can: see `run_loop`), so `apply` starts a new one.
@@ -247,6 +259,75 @@ fn outcome(title: &str, result: Result<Vec<u8>, RunError>) -> (ScriptItem, HashM
     }
 }
 
+/// Every script for the settings page, then the files that can't be used.
+fn infos_of(inner: &Inner, prefs: &ScriptsPrefs) -> Vec<ScriptInfo> {
+    let mut live: Vec<(&String, &Live)> = inner.live.iter().collect();
+    live.sort_by_key(|(_, l)| l.file_name.to_lowercase());
+    let mut infos: Vec<ScriptInfo> = live
+        .iter()
+        .map(|(id, l)| {
+            let (state, message) = match &l.state {
+                _ if !prefs.enabled || !l.pref_enabled => (ScriptListState::Disabled, None),
+                LiveState::NeedsTrust => (ScriptListState::NeedsTrust, None),
+                LiveState::Error(m) => (ScriptListState::Error, Some(m.clone())),
+                LiveState::Disabled => (ScriptListState::Disabled, None),
+                LiveState::Ok | LiveState::Waiting => (ScriptListState::Running, None),
+            };
+            ScriptInfo {
+                id: (*id).clone(),
+                file_name: l.file_name.clone(),
+                title: l.name.title.clone(),
+                interpreter: l.name.interpreter.label().to_string(),
+                interval_secs: l.interval_secs,
+                interval_from_name: l.name.interval_secs.is_some(),
+                enabled: l.pref_enabled,
+                state,
+                message,
+                last_run_at: l.last_run_at,
+                last_duration_ms: l.last_duration_ms,
+            }
+        })
+        .collect();
+    for (file_name, why) in &inner.invalid {
+        infos.push(ScriptInfo {
+            id: format!("invalid:{file_name}"),
+            file_name: file_name.clone(),
+            title: file_name.clone(),
+            interpreter: String::new(),
+            interval_secs: 0,
+            interval_from_name: false,
+            enabled: false,
+            state: ScriptListState::Invalid,
+            message: Some(why.clone()),
+            last_run_at: None,
+            last_duration_ms: None,
+        });
+    }
+    infos
+}
+
+/// The scripts waiting for a yes, by file name.
+fn pending_of(inner: &Inner, prefs: &ScriptsPrefs) -> Vec<TrustRequest> {
+    let mut live: Vec<(&String, &Live)> = inner.live.iter().collect();
+    live.sort_by_key(|(_, l)| l.file_name.to_lowercase());
+    live.iter()
+        .filter(|(_, l)| matches!(l.state, LiveState::NeedsTrust) && prefs.enabled && l.pref_enabled)
+        .map(|(id, l)| TrustRequest {
+            id: (*id).clone(),
+            file_name: l.file_name.clone(),
+            interpreter: l.name.interpreter.label().to_string(),
+            size: l.size.min(u32::MAX as u64) as u32,
+            sha256: l.sha256.clone(),
+            preview: l.preview.clone(),
+            preview_cut: l.preview_cut,
+        })
+        .collect()
+}
+
+fn without_run_times(infos: &[ScriptInfo]) -> Vec<ScriptInfo> {
+    infos.iter().map(|i| ScriptInfo { last_run_at: None, last_duration_ms: None, ..i.clone() }).collect()
+}
+
 impl Manager {
     fn lock(&self) -> MutexGuard<'_, Inner> {
         // A panic while the lock was held leaves the data usable, so ignore the poison flag.
@@ -266,10 +347,15 @@ impl Manager {
             let mut inner = self.lock();
             inner.invalid.clear();
             let mut seen: HashSet<String> = HashSet::new();
+            // The file that wins each id (files come sorted, so it is seen before its duplicates).
+            let mut winners: HashMap<String, String> = HashMap::new();
             for f in found {
                 match f.kind.clone() {
                     FoundKind::Invalid(why) => inner.invalid.push((f.file_name, why)),
-                    FoundKind::Duplicate(_) => inner.invalid.push((f.file_name, "Another file has the same name".into())),
+                    FoundKind::Duplicate(name) => {
+                        let other = winners.get(&name.id).cloned().unwrap_or_default();
+                        inner.invalid.push((f.file_name, format!("Same name as {other}: only that one runs. Rename or remove one.")));
+                    }
                     // Leave what is running alone: the file is only locked for a moment.
                     FoundKind::Unreadable(name) => {
                         any_unreadable = true;
@@ -277,6 +363,7 @@ impl Manager {
                     }
                     FoundKind::Script(name) => {
                         seen.insert(name.id.clone());
+                        winners.insert(name.id.clone(), f.file_name.clone());
                         self.apply(&mut inner, f, name, &prefs, &mut newly_pending);
                     }
                 }
@@ -322,6 +409,7 @@ impl Manager {
             size: 0,
             sha256: String::new(),
             preview: vec![],
+            preview_cut: false,
             name: name.clone(),
             interval_secs: interval,
             pref_enabled,
@@ -330,6 +418,10 @@ impl Manager {
             key: None,
             generation: 0,
             actions: HashMap::new(),
+            last_label: None,
+            last_color: None,
+            last_run_at: None,
+            last_duration_ms: None,
             refresh: Arc::new(Notify::new()),
             running: Arc::new(AtomicBool::new(false)),
             alive: Arc::new(AtomicBool::new(false)),
@@ -340,6 +432,7 @@ impl Manager {
         live.size = found.size;
         live.sha256 = found.sha256.clone();
         live.preview = found.preview;
+        live.preview_cut = found.preview_cut;
         live.name = name.clone();
         live.interval_secs = interval;
         live.pref_enabled = pref_enabled;
@@ -400,8 +493,8 @@ impl Manager {
     }
 
     /// A run finished: show it. `true` = it worked (resets the failure back-off).
-    fn finish(&self, id: &str, generation: u64, title: &str, result: Result<Vec<u8>, RunError>) -> bool {
-        let (item, actions, error) = outcome(title, result);
+    fn finish(&self, id: &str, generation: u64, title: &str, took: Duration, result: Result<Vec<u8>, RunError>) -> bool {
+        let (mut item, actions, error) = outcome(title, result);
         let ok = error.is_none();
         {
             let mut inner = self.lock();
@@ -409,6 +502,19 @@ impl Manager {
                 return ok; // the script was removed or restarted meanwhile: drop the result
             };
             live.actions = actions;
+            live.last_run_at = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .map(|d| d.as_secs().min(u32::MAX as u64) as u32);
+            live.last_duration_ms = Some(took.as_millis().min(u32::MAX as u128) as u32);
+            if error.is_none() {
+                live.last_label = item.label.clone();
+                live.last_color = item.color.clone();
+            } else {
+                // Keep showing the last good output next to the error mark, not just the file name.
+                item.label = live.last_label.clone();
+                item.color = live.last_color.clone();
+            }
             live.state = match error {
                 None => LiveState::Ok,
                 Some(message) => LiveState::Error(message),
@@ -424,57 +530,10 @@ impl Manager {
         let prefs = prefs();
         let (infos, pending, infos_changed, pending_changed) = {
             let mut inner = self.lock();
-            let mut live: Vec<(&String, &Live)> = inner.live.iter().collect();
-            live.sort_by_key(|(_, l)| l.file_name.to_lowercase());
-            let mut infos: Vec<ScriptInfo> = live
-                .iter()
-                .map(|(id, l)| {
-                    let (state, message) = match &l.state {
-                        _ if !prefs.enabled || !l.pref_enabled => (ScriptListState::Disabled, None),
-                        LiveState::NeedsTrust => (ScriptListState::NeedsTrust, None),
-                        LiveState::Error(m) => (ScriptListState::Error, Some(m.clone())),
-                        LiveState::Disabled => (ScriptListState::Disabled, None),
-                        LiveState::Ok | LiveState::Waiting => (ScriptListState::Running, None),
-                    };
-                    ScriptInfo {
-                        id: (*id).clone(),
-                        file_name: l.file_name.clone(),
-                        title: l.name.title.clone(),
-                        interpreter: l.name.interpreter.label().to_string(),
-                        interval_secs: l.interval_secs,
-                        interval_from_name: l.name.interval_secs.is_some(),
-                        enabled: l.pref_enabled,
-                        state,
-                        message,
-                    }
-                })
-                .collect();
-            let pending: Vec<TrustRequest> = live
-                .iter()
-                .filter(|(_, l)| matches!(l.state, LiveState::NeedsTrust) && prefs.enabled && l.pref_enabled)
-                .map(|(id, l)| TrustRequest {
-                    id: (*id).clone(),
-                    file_name: l.file_name.clone(),
-                    interpreter: l.name.interpreter.label().to_string(),
-                    size: l.size.min(u32::MAX as u64) as u32,
-                    sha256: l.sha256.clone(),
-                    preview: l.preview.clone(),
-                })
-                .collect();
-            for (file_name, why) in &inner.invalid {
-                infos.push(ScriptInfo {
-                    id: format!("invalid:{file_name}"),
-                    file_name: file_name.clone(),
-                    title: file_name.clone(),
-                    interpreter: String::new(),
-                    interval_secs: 0,
-                    interval_from_name: false,
-                    enabled: false,
-                    state: ScriptListState::Invalid,
-                    message: Some(why.clone()),
-                });
-            }
-            let infos_changed = infos != inner.last_infos;
+            let infos = infos_of(&inner, &prefs);
+            let pending = pending_of(&inner, &prefs);
+            // The last-run fields change on every run: they alone don't make an event.
+            let infos_changed = without_run_times(&infos) != without_run_times(&inner.last_infos);
             let pending_changed = pending != inner.last_pending;
             inner.last_infos = infos.clone();
             inner.last_pending = pending.clone();
@@ -548,6 +607,7 @@ async fn run_loop(
                 continue;
             }
         }
+        let started = std::time::Instant::now();
         let result = run::run(RunSpec {
             path: key.path.clone(),
             interpreter,
@@ -556,7 +616,7 @@ async fn run_loop(
         })
         .await;
         running.store(false, Ordering::SeqCst);
-        let ok = mgr.finish(&id, generation, &title, result);
+        let ok = mgr.finish(&id, generation, &title, started.elapsed(), result);
         failures = if ok { 0 } else { failures.saturating_add(1) };
         tokio::select! {
             _ = tokio::time::sleep(scan::next_delay(key.interval, failures)) => {}
@@ -642,7 +702,7 @@ pub fn apply_settings() {
 }
 
 pub fn list() -> Vec<ScriptInfo> {
-    MANAGER.get().map(|m| m.lock().last_infos.clone()).unwrap_or_default()
+    MANAGER.get().map(|m| infos_of(&m.lock(), &prefs())).unwrap_or_default()
 }
 
 pub fn trust_requests() -> Vec<TrustRequest> {
@@ -712,7 +772,10 @@ pub fn menu_click(key: &str, menu_id: &str) {
         actions::open_href(href);
     }
     if let Some(shell) = &action.shell {
-        actions::run_shell(shell, &manager.dir);
+        // The "allow menu lines to run programs" switch in settings: off means these lines do nothing.
+        if prefs().allow_shell {
+            actions::run_shell(shell, &manager.dir);
+        }
     }
     if action.refresh {
         manager.refresh_now(id);

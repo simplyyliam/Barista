@@ -61,10 +61,13 @@ export function MenuList({ entries, highlighted, expanded = null, idPrefix, onHo
             aria-disabled={!entry.enabled}
             aria-haspopup={submenu ? "menu" : undefined}
             aria-expanded={submenu ? expanded === index : undefined}
-            data-highlighted={lit && entry.enabled}
+            // A script's plain text line (`info`) is only text: no highlight and a click does nothing.
+            data-highlighted={lit && entry.enabled && !entry.info}
             data-disabled={!entry.enabled}
             onMouseMove={(event) => onHover(index, event)}
-            onClick={() => onPick(index)}
+            onClick={() => {
+              if (!entry.info) onPick(index)
+            }}
             // No transition on purpose: the highlight must snap, like a native menu.
             className="group/row flex h-menu-row items-center rounded-menu-row px-[10px] data-[disabled=true]:text-menu-fg-disabled data-[highlighted=true]:bg-menu-highlight data-[highlighted=true]:text-menu-highlight-fg"
           >

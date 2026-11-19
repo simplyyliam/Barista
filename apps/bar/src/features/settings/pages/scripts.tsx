@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { commands, type ScriptInfo } from "@/shared/bindings"
 import { useScripts } from "@/shared/hooks/use-scripts"
 import type { Settings } from "@/shared/stores/settings"
@@ -19,6 +20,31 @@ function formatInterval(secs: number) {
 function intervalOptions(current?: number) {
   const secs = current && !INTERVALS.includes(current) ? [...INTERVALS, current].sort((a, b) => a - b) : INTERVALS
   return secs.map((s) => ({ value: String(s), label: formatInterval(s) }))
+}
+
+/** "ran 13:08:22, 340 ms", or nothing before the first run. */
+function lastRunText(script: ScriptInfo) {
+  if (script.lastRunAt == null || script.lastDurationMs == null) return null
+  const time = new Date(script.lastRunAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  const took = script.lastDurationMs < 1000 ? `${script.lastDurationMs} ms` : `${(script.lastDurationMs / 1000).toFixed(1)} s`
+  return `ran ${time}, ${took}`
+}
+
+/** The list, refreshed every 3 s while the page is open: the last-run times change on every run, so they are not events. */
+function useLiveScripts(fromEvents: ScriptInfo[] | null) {
+  const [polled, setPolled] = useState<ScriptInfo[] | null>(null)
+  useEffect(() => {
+    let stopped = false
+    const load = () => void commands.getScripts().then((list) => !stopped && setPolled(list))
+    load()
+    const timer = setInterval(load, 3000)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [])
+  // Whichever is newer: an event (state changes at once) or the poll (run times).
+  return polled ?? fromEvents
 }
 
 function stateText(script: ScriptInfo) {
@@ -47,7 +73,11 @@ function ScriptRow({ script, scriptsOn }: { script: ScriptInfo; scriptsOn: boole
   const every = `every ${formatInterval(script.intervalSecs)}${script.intervalFromName ? " (from the file name)" : ""}`
   const options = intervalOptions(script.intervalSecs)
   return (
-    <Row label={script.title} hint={`${script.interpreter} · ${every} · ${stateText(script)}`} disabled={!scriptsOn}>
+    <Row
+      label={script.title}
+      hint={[script.interpreter, every, stateText(script), lastRunText(script)].filter(Boolean).join(" · ")}
+      disabled={!scriptsOn}
+    >
       {script.state === "needsTrust" && script.enabled && (
         // The review panel hangs from the bar item, so this clicks that item.
         <ActionButton onClick={() => void commands.itemClicked(`script/${script.id}`, "left")}>Review</ActionButton>
@@ -84,7 +114,7 @@ function ScriptRow({ script, scriptsOn }: { script: ScriptInfo; scriptsOn: boole
  * permissions, which is why each one asks first and again when the file changes.
  */
 export function ScriptsPage({ settings }: { settings: Settings }) {
-  const scripts = useScripts()
+  const scripts = useLiveScripts(useScripts())
   const prefs = settings.scripts
 
   return (
@@ -107,6 +137,13 @@ export function ScriptsPage({ settings }: { settings: Settings }) {
           options={intervalOptions(prefs.defaultIntervalSecs)}
           disabled={!prefs.enabled}
           onChange={(value) => void commands.setScriptsDefaultInterval(Number(value))}
+        />
+        <SwitchRow
+          label="Let menu lines run programs"
+          hint="Lines with shell= start a program when clicked. Off: they do nothing. Links still open."
+          checked={prefs.allowShell}
+          disabled={!prefs.enabled}
+          onChange={(on) => void commands.setScriptsAllowShell(on)}
         />
         <Row label="Scripts folder" hint="%APPDATA%\Barista\scripts">
           <ActionButton onClick={() => void commands.openScriptsFolder()}>Open scripts folder</ActionButton>

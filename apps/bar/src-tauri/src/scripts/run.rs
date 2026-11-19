@@ -72,6 +72,21 @@ fn find_on_path(name: &str, skip_store_stub: bool) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
+/// Python from the Microsoft Store has no `py` launcher, and `python.exe` on PATH is the empty alias
+/// that only opens the Store. But an installed Store Python also leaves a
+/// `PythonSoftwareFoundation.Python.*` folder next to the alias with the real `python.exe` in it.
+fn find_store_python(windows_apps: &Path) -> Option<PathBuf> {
+    let mut folders: Vec<PathBuf> = std::fs::read_dir(windows_apps)
+        .ok()?
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with("PythonSoftwareFoundation.Python"))
+        .map(|e| e.path())
+        .collect();
+    // The newest version sorts last.
+    folders.sort();
+    folders.iter().rev().map(|d| d.join("python.exe")).find(|p| p.is_file())
+}
+
 /// The program and its leading arguments (the script path comes last).
 pub fn command_for(interpreter: Interpreter) -> Result<(PathBuf, Vec<OsString>), RunError> {
     let missing = |what: &str| RunError::NoInterpreter(format!("{what} not found"));
@@ -94,6 +109,10 @@ pub fn command_for(interpreter: Interpreter) -> Result<(PathBuf, Vec<OsString>),
         Interpreter::Python => {
             let exe = find_on_path("py", false)
                 .or_else(|| find_on_path("python", true))
+                .or_else(|| {
+                    let local = std::env::var_os("LOCALAPPDATA")?;
+                    find_store_python(&Path::new(&local).join(r"Microsoft\WindowsApps"))
+                })
                 .ok_or_else(|| missing("Python"))?;
             Ok((exe, vec![]))
         }
@@ -389,6 +408,27 @@ mod tests {
         let out = run(spec).await.unwrap();
         assert!(String::from_utf8_lossy(&out).contains("label"));
         assert!(started.elapsed() < Duration::from_secs(3));
+    }
+
+    #[test]
+    fn store_python_is_found_by_its_package_folder_and_the_empty_alias_is_not() {
+        let dir = std::env::temp_dir().join(format!("barista-winapps-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // The alias alone (what every Windows has): not Python.
+        std::fs::write(dir.join("python.exe"), "").unwrap();
+        assert_eq!(find_store_python(&dir), None);
+        // A package folder without the exe: still not.
+        std::fs::create_dir_all(dir.join("PythonSoftwareFoundation.Python.3.11_x")).unwrap();
+        assert_eq!(find_store_python(&dir), None);
+        // Two installed versions: the newest wins.
+        for v in ["3.11_x", "3.13_x"] {
+            let d = dir.join(format!("PythonSoftwareFoundation.Python.{v}"));
+            std::fs::create_dir_all(&d).unwrap();
+            std::fs::write(d.join("python.exe"), "").unwrap();
+        }
+        let found = find_store_python(&dir).unwrap();
+        assert!(found.to_string_lossy().contains("3.13_x"));
     }
 
     #[test]

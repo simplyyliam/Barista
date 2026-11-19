@@ -18,6 +18,8 @@ export const commands = {
 	getScriptTrustRequests: () => __TAURI_INVOKE<TrustRequest[]>("get_script_trust_requests"),
 	/**  Turns every script item on or off. Off stops all runs and removes the items. */
 	setScriptsEnabled: (on: boolean) => __TAURI_INVOKE<void>("set_scripts_enabled", { on }),
+	/**  Whether menu lines with `shell=` may start a program. Off: they do nothing. */
+	setScriptsAllowShell: (on: boolean) => __TAURI_INVOKE<void>("set_scripts_allow_shell", { on }),
 	/**  The interval for scripts whose file name has none (1 s to 30 days). */
 	setScriptsDefaultInterval: (secs: number) => __TAURI_INVOKE<void>("set_scripts_default_interval", { secs }),
 	/**  Turns one script on or off. Turning on a script the user said no to asks again. */
@@ -1120,6 +1122,8 @@ export type MenuEntry_Deserialize = {
 	role?: MenuRole | null,
 	/**  A small `data:` URL, drawn at 16 px. */
 	icon?: string | null,
+	/**  Only text (a script's plain line): drawn like any entry but not clickable and without a hover. */
+	info: boolean,
 	/**  A CSS color the UI draws the label in (script items, v0.9). Never set for SDK menus. */
 	color?: string | null,
 	/**  Entries of a `submenu` entry; empty for the others. */
@@ -1140,6 +1144,8 @@ export type MenuEntry_Serialize = {
 	role: MenuRole | null,
 	/**  A small `data:` URL, drawn at 16 px. */
 	icon: string | null,
+	/**  Only text (a script's plain line): drawn like any entry but not clickable and without a hover. */
+	info: boolean,
 	/**  A CSS color the UI draws the label in (script items, v0.9). Never set for SDK menus. */
 	color: string | null,
 	/**  Entries of a `submenu` entry; empty for the others. */
@@ -1376,6 +1382,12 @@ export type ScriptInfo_Deserialize = {
 	state: ScriptListState,
 	/**  The error, or why the file is not usable. */
 	message?: string | null,
+	/**
+	 *  Unix seconds of the last finished run, and how long it took. Not part of the change test for
+	 *  `scriptsChanged` (they change on every run): read them with `getScripts`.
+	 */
+	lastRunAt?: number | null,
+	lastDurationMs?: number | null,
 };
 
 export type ScriptInfo_Serialize = {
@@ -1392,6 +1404,12 @@ export type ScriptInfo_Serialize = {
 	state: ScriptListState,
 	/**  The error, or why the file is not usable. */
 	message: string | null,
+	/**
+	 *  Unix seconds of the last finished run, and how long it took. Not part of the change test for
+	 *  `scriptsChanged` (they change on every run): read them with `getScripts`.
+	 */
+	lastRunAt: number | null,
+	lastDurationMs: number | null,
 };
 
 export type ScriptListState = 
@@ -1454,6 +1472,8 @@ export type ScriptsPrefs = ScriptsPrefs_Serialize | ScriptsPrefs_Deserialize;
 
 export type ScriptsPrefs_Deserialize = {
 	enabled?: boolean,
+	/**  Menu lines with `shell=` may start a program. Off = those lines do nothing (`href` links still work). */
+	allowShell?: boolean,
 	defaultIntervalSecs?: number,
 	/**  By script id (`clock.mjs`). */
 	perScript?: { [key in string]: ScriptPref_Deserialize },
@@ -1461,6 +1481,8 @@ export type ScriptsPrefs_Deserialize = {
 
 export type ScriptsPrefs_Serialize = {
 	enabled: boolean,
+	/**  Menu lines with `shell=` may start a program. Off = those lines do nothing (`href` links still work). */
+	allowShell: boolean,
 	defaultIntervalSecs: number,
 	/**  By script id (`clock.mjs`). */
 	perScript: { [key in string]: ScriptPref_Serialize },
@@ -1734,6 +1756,8 @@ export type TrustRequest = {
 	/**  Hex SHA-256. Send it back with the answer: it only counts for this exact file. */
 	sha256: string,
 	preview: string[],
+	/**  The preview is not the whole file (more lines, a long line, a big file). */
+	previewCut: boolean,
 };
 
 export type User = User_Serialize | User_Deserialize;

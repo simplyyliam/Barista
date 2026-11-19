@@ -40,6 +40,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::scripts::get_scripts,
             commands::scripts::get_script_trust_requests,
             commands::scripts::set_scripts_enabled,
+            commands::scripts::set_scripts_allow_shell,
             commands::scripts::set_scripts_default_interval,
             commands::scripts::set_script_enabled,
             commands::scripts::set_script_interval,
