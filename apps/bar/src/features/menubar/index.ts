@@ -3,11 +3,10 @@ export { MenubarItemGroup } from "./menubar-item";
 
 export { AppName } from "./app-name";
 export { BrandItem } from "./brand-item";
-export { Battery, BatteryView } from "./battery";
+export { BatteryView } from "./battery";
 export { Clock } from "./clock";
-export { ControlCenter } from "./control-center";
-export { Volume, VolumeView } from "./volume";
-export { Wifi, WifiView } from "./wifi";
+export { VolumeView } from "./volume";
+export { WifiView } from "./wifi";
 export { Search } from "./search";
 export { StatusItems } from "./status-items"
 export { TrayItems } from "./tray-items"

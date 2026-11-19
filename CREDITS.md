@@ -24,6 +24,10 @@ The first column must be the exact package or crate name.
 | roxmltree         | 0.21        | MIT OR Apache-2.0 | https://github.com/RazrFalcon/roxmltree       |
 | rusqlite          | 0.40        | MIT               | https://github.com/rusqlite/rusqlite          |
 | sha2              | 0.10        | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes          |
+| log | 0.4 | MIT OR Apache-2.0 | https://github.com/rust-lang/log |
+| tauri-plugin-updater | 2.14 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| tauri-plugin-single-instance | 2.5 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| tauri-plugin-log | 2.10 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 
 ## JavaScript and TypeScript
 
