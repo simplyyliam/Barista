@@ -739,6 +739,17 @@ fn migrate(value: Value) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
+    /// `pnpm gen` runs this. The website demo (apps/bar/demo) starts from the default settings, so
+    /// they live in a file; CI fails on `git diff` when this file is stale.
+    #[test]
+    fn export_demo_settings() {
+        let json = serde_json::to_string_pretty(&Settings::default()).unwrap();
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../demo/settings.json");
+        std::fs::create_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
+        std::fs::write(path, format!("{json}
+")).unwrap();
+    }
+
     #[test]
     fn an_import_must_look_like_settings() {
         assert!(!Settings::looks_like_settings("{}"));

@@ -1,0 +1,5 @@
+/* The bar's own stylesheet, plus the folders Tailwind must scan: the demo's root is demo/, so it
+   would otherwise miss every class used in ../src. */
+@import "../src/index.css";
+@source "../src";
+@source ".";

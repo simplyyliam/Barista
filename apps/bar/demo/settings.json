@@ -1,0 +1,146 @@
+{
+  "general": {
+    "monitor": null,
+    "startWithWindows": false
+  },
+  "menuBar": {
+    "height": 28,
+    "appearance": {
+      "tone": "auto",
+      "blur": "auto",
+      "font": "",
+      "fontSize": 13,
+      "iconStyle": "colour",
+      "background": "translucent",
+      "opacity": 100
+    },
+    "items": [
+      {
+        "id": "brand",
+        "visible": true,
+        "display": "both"
+      },
+      {
+        "id": "app-name",
+        "visible": true,
+        "display": "both"
+      },
+      {
+        "id": "app-menus",
+        "visible": true,
+        "display": "both"
+      },
+      {
+        "id": "battery",
+        "visible": true,
+        "display": "both"
+      },
+      {
+        "id": "wifi",
+        "visible": true,
+        "display": "both"
+      },
+      {
+        "id": "volume",
+        "visible": true,
+        "display": "both"
+      },
+      {
+        "id": "search",
+        "visible": true,
+        "display": "both"
+      },
+      {
+        "id": "control-center",
+        "visible": true,
+        "display": "both"
+      },
+      {
+        "id": "clock",
+        "visible": true,
+        "display": "both"
+      }
+    ],
+    "clock": {
+      "hourFormat": "auto",
+      "seconds": false,
+      "weekday": true,
+      "date": true,
+      "datePosition": "right"
+    },
+    "taskbar": {
+      "autoHide": false,
+      "savedState": null
+    },
+    "tray": {
+      "style": "panel",
+      "hideWindowsIcons": false
+    },
+    "layout": {
+      "order": [],
+      "pinned": {},
+      "collapsed": true
+    }
+  },
+  "controlCenter": {
+    "tiles": [
+      {
+        "id": "wifi",
+        "size": "wide",
+        "visible": true
+      },
+      {
+        "id": "airplane",
+        "size": "small",
+        "visible": true
+      },
+      {
+        "id": "night-light",
+        "size": "small",
+        "visible": true
+      },
+      {
+        "id": "bluetooth",
+        "size": "small",
+        "visible": true
+      },
+      {
+        "id": "hotspot",
+        "size": "small",
+        "visible": true
+      },
+      {
+        "id": "battery-saver",
+        "size": "wide",
+        "visible": true
+      }
+    ],
+    "userCard": true,
+    "brightness": true,
+    "volume": true,
+    "nowPlaying": true,
+    "quickActions": [
+      "dark-mode",
+      "timer",
+      "calculator",
+      "camera",
+      "screenshot"
+    ]
+  },
+  "behavior": {
+    "hideOnFullscreen": true,
+    "autoUpdate": true
+  },
+  "advanced": {
+    "notifications": "barista",
+    "controlCenter": "barista",
+    "tray": "barista"
+  },
+  "scripts": {
+    "enabled": true,
+    "allowShell": true,
+    "defaultIntervalSecs": 60,
+    "perScript": {}
+  },
+  "notificationsSeenAt": 0
+}

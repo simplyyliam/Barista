@@ -7,6 +7,7 @@
     "dev": "tauri dev",
     "dev:web": "vite",
     "build": "vite build",
+    "build:demo": "vite build --config vite.demo.config.ts",
     "build:app": "tauri build",
     "typecheck": "tsc6 --noEmit",
     "tauri": "tauri"

@@ -1,0 +1,58 @@
+import { useEffect, useSyncExternalStore, type ReactNode } from "react"
+import { commands } from "@/shared/bindings"
+import { PanelBody, PanelFrame, useOpenPanel } from "@/features/panel"
+import RootMenu from "@/widgets/menu/root-menu"
+import Menubar from "@/widgets/menubar/menubar"
+import { Motion } from "@/shared/motion"
+import { getSize, subscribeSizes } from "./backend"
+
+/**
+ * In the app, a panel and a menu are windows, so their components fill them (`fixed inset-0`).
+ * A transformed parent becomes the containing block of its fixed children, so each gets a box
+ * of the size it reported with `panelResized` / `menuResized`, like Rust would size the window.
+ */
+function WindowBox({ which, className, children }: { which: "panel" | "menu"; className: string; children: ReactNode }) {
+  const size = useSyncExternalStore(subscribeSizes, () => getSize(which))
+  return (
+    <div
+      className={`absolute transform-gpu ${className}`}
+      style={size ? { width: size.width, height: size.height } : { width: 0, height: 0, visibility: "hidden" }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** A pretend desktop: the real bar on top, and the real panel and menu where their windows would be. */
+export default function Stage({ scene }: { scene: string }) {
+  const open = useOpenPanel()
+
+  // What is already open when the page loads, so a still frame on the landing page is not empty.
+  useEffect(() => {
+    if (scene === "notifications") void commands.openPanel("notifications", "clock", null, null, "glass")
+    if (scene === "control") void commands.openPanel("control-center", "control-center", null, null, "glass")
+  }, [scene])
+
+  return (
+    <div
+      className="relative h-full w-full overflow-hidden bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950"
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) void commands.closePanel()
+      }}
+    >
+      <div className="h-[28px] w-full bg-black/30 backdrop-blur-md">
+        <Menubar />
+      </div>
+      <WindowBox which="panel" className="top-[34px] right-2">
+        <Motion>
+          <PanelFrame acrylic chrome="glass" openKey={open ? `${open.name}|${open.anchor}` : null}>
+            <PanelBody name={open?.name ?? null} />
+          </PanelFrame>
+        </Motion>
+      </WindowBox>
+      <WindowBox which="menu" className="top-[34px] left-24">
+        <RootMenu />
+      </WindowBox>
+    </div>
+  )
+}
