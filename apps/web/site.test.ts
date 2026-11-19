@@ -22,14 +22,14 @@ describe("website", () => {
     const listed = meta.pages.filter((page) => !page.startsWith("---"))
     const files = readdirSync(fileURLToPath(new URL("./content/docs/", import.meta.url)))
       .filter((file) => file.endsWith(".mdx"))
-      .map((file) => file.replace(/.mdx$/, ""))
+      .map((file) => file.replace(/\.mdx$/, ""))
     expect([...listed].sort()).toEqual([...files].sort())
   })
 
   it("has no placeholder docs page left", () => {
     const dir = fileURLToPath(new URL("./content/docs/", import.meta.url))
     for (const file of readdirSync(dir).filter((f) => f.endsWith(".mdx"))) {
-      expect(readFileSync(dir + file, "utf8"), file).not.toMatch(/Coming in v0./)
+      expect(readFileSync(dir + file, "utf8"), file).not.toMatch(/Coming in v0\./)
     }
   })
 
