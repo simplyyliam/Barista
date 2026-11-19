@@ -73,3 +73,13 @@ So no approach reaches every app. Two providers cover the apps that do have menu
   Chromium or GPU-drawn, so providers 1 and 2 give nothing; that is why the fallback was added. Also: Windows
   exposes the title bar's system menu as a UIA `MenuBar` named "System" on every window, which is skipped.
 
+## Update: UI Automation reading removed
+
+Reading a modern app's menu (Notepad, WinUI/XAML) needs the app's own menu to be opened, because the items
+only exist while it is expanded. In practice the app's popup opened next to the bar's menu and the two fought
+over focus, so the bar's menu closed right after opening. Timing fixes, reading ahead and hiding the popup
+(making it transparent) were all workarounds, so they were removed. It does not feel native.
+
+Now: apps with a classic menu show their real menus (provider 1). Every other app gets the standard Edit and
+Window menu (provider 3). Reading modern menus can come back when there is a clean way (an app-side API, or
+a reliable non-visible read). Notes above about provider 2 describe the removed code.

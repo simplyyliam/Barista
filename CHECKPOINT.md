@@ -44,6 +44,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   Verified live: System Information (classic) and Windows 11 Notepad (UIA), including picking entries. Chromium/Electron/GPU apps expose nothing: name only.
   Apps with no readable menu get a generic Edit + Window menu (SendInput chords, WM_SYSCOMMAND), only for normal app windows (`is_normal_window`). Zed, Figma, Zen verified.
   App name comes from the exe's FileDescription, read up to the first NUL (Spotify fix).
+  **UIA reading was removed** (the app's own popup fought the bar's menu; see the ADR update). Only classic menus + the generic Edit/Window menu remain. Modern apps (Notepad, Zed...) show Edit/Window only.
   Not done: keyboard access (Alt), item icons, hover-switching between UIA titles, a faster UIA read (about 0.8 s: one cache request per item would cut it).
 
 ## Facts a new session needs

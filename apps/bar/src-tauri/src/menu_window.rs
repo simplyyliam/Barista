@@ -223,7 +223,7 @@ pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Resul
         ClickTarget::AppMenu => {
             crate::popover::close();
             crate::panel::close();
-            crate::appmenu::open_lazy(key);
+            // App menus are never lazy now.
             Ok(())
         }
         ClickTarget::App => {
