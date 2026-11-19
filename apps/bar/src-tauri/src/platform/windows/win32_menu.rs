@@ -105,7 +105,8 @@ pub fn read_menu(
             continue;
         }
         let (label, accelerator) = split_accelerator(&text);
-        let enabled = info.fState.0 & (MFS_DISABLED.0 | MFS_GRAYED.0) == 0;
+        // `WM_COMMAND` carries only 16 bits of the id: a bigger one would run a different command, so it is not offered.
+        let enabled = info.fState.0 & (MFS_DISABLED.0 | MFS_GRAYED.0) == 0 && (info.hSubMenu.0 as usize != 0 || info.wID <= 0xFFFF);
         let checked = info.fState.0 & MFS_CHECKED.0 != 0;
         if info.hSubMenu.0.is_null() {
             out.push(RawItem { kind: Kind::Normal, label, accelerator, command: info.wID, checked, enabled, children: vec![] });
@@ -119,8 +120,9 @@ pub fn read_menu(
 }
 
 /// The window's menu bar, or `None` if it has none. Each top-level title comes with its items.
-/// A window that does not answer `WM_INITMENUPOPUP` in time is not asked again.
-pub fn read_menu_bar(hwnd: isize) -> Option<Vec<RawItem>> {
+/// With `refresh_states` the app is first sent `WM_INITMENUPOPUP` for each submenu (short timeouts, at most
+/// 500 ms in all); without it nothing is sent to the app. A window that does not answer in time is not asked again.
+pub fn read_menu_bar(hwnd: isize, refresh_states: bool) -> Option<Vec<RawItem>> {
     let window = HWND(hwnd as *mut _);
     // SAFETY: plain calls; a dead window gives a null menu.
     let menu = unsafe { GetMenu(window) };
@@ -133,8 +135,11 @@ pub fn read_menu_bar(hwnd: isize) -> Option<Vec<RawItem>> {
     }
     let mut asked_in_vain = false;
     let mut budget = MAX_ITEMS;
+    let started = std::time::Instant::now();
     let mut ask = |submenu: HMENU, position: i32| {
-        if asked_in_vain {
+        // Only when a menu is being opened (the app updates its enabled and checked states in
+        // `WM_INITMENUPOPUP`), and never for longer than 500 ms in total, however many submenus there are.
+        if !refresh_states || asked_in_vain || started.elapsed() > std::time::Duration::from_millis(500) {
             return;
         }
         let mut result = 0usize;
@@ -155,6 +160,21 @@ pub fn read_menu_bar(hwnd: isize) -> Option<Vec<RawItem>> {
         }
     };
     Some(read_menu(menu, 0, &mut budget, &mut ask))
+}
+
+/// Is the window maximized? (For the Maximize / Restore entry of the fallback Window menu.)
+pub fn is_maximized(hwnd: isize) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::IsZoomed;
+    // SAFETY: plain call.
+    unsafe { IsZoomed(HWND(hwnd as *mut _)).as_bool() }
+}
+
+/// Does what the window's system menu does (`SC_MINIMIZE`, `SC_MAXIMIZE`, `SC_RESTORE`, `SC_CLOSE`):
+/// works for every window, whatever it draws. Posted, so the bar never waits.
+pub fn post_syscommand(hwnd: isize, command: u32) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::WM_SYSCOMMAND;
+    // SAFETY: plain call.
+    unsafe { PostMessageW(Some(HWND(hwnd as *mut _)), WM_SYSCOMMAND, WPARAM(command as usize), LPARAM(0)).is_ok() }
 }
 
 /// Does this window still exist?
@@ -268,7 +288,7 @@ mod tests {
 
     #[test]
     fn a_window_without_a_menu_reads_as_none() {
-        assert!(read_menu_bar(0).is_none());
+        assert!(read_menu_bar(0, true).is_none());
         assert!(!is_window(0));
     }
 }

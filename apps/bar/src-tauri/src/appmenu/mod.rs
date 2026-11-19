@@ -12,6 +12,7 @@
 use crate::controller;
 use crate::platform::windows::app_info;
 use crate::platform::windows::foreground;
+use crate::platform::windows::keys;
 use crate::platform::windows::uia_menu;
 use crate::platform::windows::win32_menu::{self, Kind, RawItem};
 use crate::registry::menu::MenuEntry;
@@ -62,6 +63,12 @@ enum Action {
     Command(u32),
     /// A UI Automation item: the choice made at each level, and the names seen (checked again).
     Uia { path: Vec<usize>, names: Vec<String> },
+    /// The fallback Edit menu: type this shortcut into the app (Ctrl+C ...).
+    Chord { ctrl: bool, shift: bool, vk: u16 },
+    /// The fallback Window menu: what the window's system menu does.
+    Minimize,
+    ToggleMaximize,
+    CloseWindow,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,6 +76,8 @@ enum Provider {
     None,
     Win32,
     Uia,
+    /// The app has no readable menu: the bar offers a standard Edit and Window menu instead.
+    Generic,
 }
 
 struct State {
@@ -183,6 +192,52 @@ fn entry(
     MenuEntry { id, kind, label, checked, enabled, accelerator, role: None, icon: None, info: false, color: None, submenu }
 }
 
+// ---------------------------------------------------------------- the fallback menus
+
+const VK_Z: u16 = 0x5A;
+const VK_X: u16 = 0x58;
+const VK_C: u16 = 0x43;
+const VK_V: u16 = 0x56;
+const VK_A: u16 = 0x41;
+
+/// Titles, the items of each, and what each item does.
+type Menus = (Vec<String>, Vec<Vec<MenuEntry>>, Vec<HashMap<String, Action>>);
+
+/// For an app with no readable menu: Edit (the standard shortcuts, typed into the app) and Window (what
+/// the window's own system menu does). Same two titles for every app, so it is clear what they are.
+fn generic_menus() -> Menus {
+    let line = |id: &str, label: &str, accel: Option<&str>| {
+        entry(Some(id.into()), MenuItemType::Normal, label.into(), false, true, accel.map(String::from), vec![])
+    };
+    let sep = || entry(None, MenuItemType::Separator, String::new(), false, true, None, vec![]);
+
+    let edit = vec![
+        line("undo", "Undo", Some("Ctrl+Z")),
+        sep(),
+        line("cut", "Cut", Some("Ctrl+X")),
+        line("copy", "Copy", Some("Ctrl+C")),
+        line("paste", "Paste", Some("Ctrl+V")),
+        sep(),
+        line("select-all", "Select All", Some("Ctrl+A")),
+    ];
+    let chord = |vk| Action::Chord { ctrl: true, shift: false, vk };
+    let edit_actions = HashMap::from([
+        ("undo".to_string(), chord(VK_Z)),
+        ("cut".to_string(), chord(VK_X)),
+        ("copy".to_string(), chord(VK_C)),
+        ("paste".to_string(), chord(VK_V)),
+        ("select-all".to_string(), chord(VK_A)),
+    ]);
+
+    let window = vec![line("minimize", "Minimize", None), line("maximize", "Zoom", None), sep(), line("close", "Close Window", None)];
+    let window_actions = HashMap::from([
+        ("minimize".to_string(), Action::Minimize),
+        ("maximize".to_string(), Action::ToggleMaximize),
+        ("close".to_string(), Action::CloseWindow),
+    ]);
+    (vec!["Edit".into(), "Window".into()], vec![edit, window], vec![edit_actions, window_actions])
+}
+
 // ---------------------------------------------------------------- which windows count
 
 /// Windows we never show menus for: the desktop and the taskbar. (Barista's own windows are skipped
@@ -222,7 +277,11 @@ fn is_system_menu(top: &RawItem) -> bool {
 
 /// The submenu titles of a menu bar that are the app's own, in order.
 fn app_titles(bar: &[RawItem]) -> Vec<&RawItem> {
-    bar.iter().filter(|i| i.kind == Kind::Submenu && !is_system_menu(i)).take(MAX_TITLES).collect()
+    // A title with nothing to show (some apps keep an empty "System" slot) is not a menu.
+    bar.iter()
+        .filter(|i| i.kind == Kind::Submenu && !clean_label(&i.label).is_empty() && !is_system_menu(i) && i.children.iter().any(|c| c.kind != Kind::Separator))
+        .take(MAX_TITLES)
+        .collect()
 }
 
 fn enabled_in_settings() -> bool {
@@ -242,19 +301,21 @@ impl Service {
     /// menu can wait on the other app (with short timeouts).
     fn refresh(&self, hwnd: isize) {
         if !enabled_in_settings() {
-            self.show(0, Provider::None, String::new(), vec![], vec![], vec![]);
+            self.show(0, 0, Provider::None, String::new(), (vec![], vec![], vec![]));
             return;
         }
         let (root, pid) = match classify(hwnd) {
             Target::Ignore => return,
             Target::Desktop => {
-                self.show(0, Provider::None, String::new(), vec![], vec![], vec![]);
+                self.show(0, 0, Provider::None, String::new(), (vec![], vec![], vec![]));
                 return;
             }
             Target::App(root, pid) => (root, pid),
         };
         let name = app_info::display_name(pid).unwrap_or_default();
-        if let Some(bar) = win32_menu::read_menu_bar(root) {
+        // No messages are sent to the app here (that would happen on every Alt+Tab): the menu is read again with
+        // fresh states when it is opened.
+        if let Some(bar) = win32_menu::read_menu_bar(root, false) {
             let tops = app_titles(&bar);
             if !tops.is_empty() {
                 let mut titles = Vec::new();
@@ -268,7 +329,7 @@ impl Service {
                     entries.push(items);
                     actions.push(map);
                 }
-                self.show(root, Provider::Win32, name, titles, entries, actions);
+                self.show(root, pid, Provider::Win32, name, (titles, entries, actions));
                 return;
             }
         }
@@ -276,15 +337,16 @@ impl Service {
             let titles: Vec<String> = titles.iter().map(|t| clean_label(t)).filter(|t| !t.is_empty()).take(MAX_TITLES).collect();
             if !titles.is_empty() {
                 let n = titles.len();
-                self.show(root, Provider::Uia, name, titles, vec![vec![]; n], vec![HashMap::new(); n]);
+                self.show(root, pid, Provider::Uia, name, (titles, vec![vec![]; n], vec![HashMap::new(); n]));
                 return;
             }
         }
-        self.show(root, Provider::None, name, vec![], vec![], vec![]);
+        let (titles, entries, actions) = generic_menus();
+        self.show(root, pid, Provider::Generic, name, (titles, entries, actions));
     }
 
     /// Stores what was read, gives the registry the titles and tells the UI if anything changed.
-    fn show(&self, hwnd: isize, provider: Provider, name: String, titles: Vec<String>, entries: Vec<Vec<MenuEntry>>, actions: Vec<HashMap<String, Action>>) {
+    fn show(&self, hwnd: isize, pid: u32, provider: Provider, name: String, (titles, entries, actions): Menus) {
         let lazy = provider == Provider::Uia;
         let shown = AppMenus {
             app_name: name,
@@ -293,7 +355,7 @@ impl Service {
         let changed = {
             let mut state = self.lock();
             state.hwnd = hwnd;
-            state.pid = if hwnd == 0 { 0 } else { app_info::pid_of(hwnd) };
+            state.pid = pid;
             state.provider = provider;
             state.titles = titles;
             state.actions = actions;
@@ -404,7 +466,7 @@ pub fn refresh_open() {
         return;
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(bar) = win32_menu::read_menu_bar(hwnd) else { return };
+        let Some(bar) = win32_menu::read_menu_bar(hwnd, true) else { return };
         let tops = app_titles(&bar);
         let mut state = service.lock();
         // Only if it is still the same app with the same titles.
@@ -451,6 +513,26 @@ pub fn menu_click(key: &str, menu_id: &str) {
             tauri::async_runtime::spawn_blocking(move || {
                 uia_menu::invoke(hwnd, path, names);
             });
+        }
+        Action::Chord { ctrl, shift, vk } => {
+            foreground::focus(hwnd);
+            tauri::async_runtime::spawn_blocking(move || {
+                // Let the bar's menu window finish closing and the app take the focus back first.
+                std::thread::sleep(Duration::from_millis(120));
+                if foreground::current_window() == hwnd {
+                    keys::send_chord(ctrl, shift, vk);
+                }
+            });
+        }
+        Action::Minimize => {
+            win32_menu::post_syscommand(hwnd, 0xF020);
+        }
+        Action::ToggleMaximize => {
+            // SC_RESTORE if it is maximized already, else SC_MAXIMIZE.
+            win32_menu::post_syscommand(hwnd, if win32_menu::is_maximized(hwnd) { 0xF120 } else { 0xF030 });
+        }
+        Action::CloseWindow => {
+            win32_menu::post_syscommand(hwnd, 0xF060);
         }
     }
 }
@@ -566,6 +648,35 @@ mod tests {
         let system = sub("System", vec![raw("Restore", 0xF120), raw("Move", 0xF010), sep(), raw("Close", 0xF060)]);
         let file = sub("File", vec![raw("New", 101), raw("Close", 0xF060)]);
         let bar = [system, file];
+        let titles = app_titles(&bar);
+        assert_eq!(titles.len(), 1);
+        assert_eq!(titles[0].label, "File");
+    }
+
+    #[test]
+    fn the_fallback_has_an_edit_and_a_window_menu_with_an_action_for_every_entry() {
+        let (titles, entries, actions) = generic_menus();
+        assert_eq!(titles, vec!["Edit", "Window"]);
+        for (menu, map) in entries.iter().zip(&actions) {
+            let ids: Vec<&String> = menu.iter().filter_map(|e| e.id.as_ref()).collect();
+            assert_eq!(ids.len(), map.len());
+            assert!(ids.iter().all(|id| map.contains_key(*id)));
+        }
+        assert_eq!(actions[0]["copy"], Action::Chord { ctrl: true, shift: false, vk: VK_C });
+        assert_eq!(actions[1]["close"], Action::CloseWindow);
+        // Never a separator at an edge.
+        for menu in &entries {
+            assert_ne!(menu.first().unwrap().kind, MenuItemType::Separator);
+            assert_ne!(menu.last().unwrap().kind, MenuItemType::Separator);
+        }
+    }
+
+    #[test]
+    fn a_menu_title_with_nothing_in_it_is_not_a_title() {
+        let empty = sub("System", vec![]);
+        let only_separators = sub("Odd", vec![sep(), sep()]);
+        let file = sub("File", vec![raw("New", 101)]);
+        let bar = [empty, only_separators, file];
         let titles = app_titles(&bar);
         assert_eq!(titles.len(), 1);
         assert_eq!(titles[0].label, "File");

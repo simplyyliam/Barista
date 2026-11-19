@@ -58,9 +58,10 @@ pub struct RunSpec {
     pub cwd: PathBuf,
 }
 
-/// Run by `powershell.exe -Command`: UTF-8 stdout without a BOM, run the script, pass its exit code on.
-const POWERSHELL_WRAPPER: &str =
-    "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; & $env:BARISTA_SCRIPT; exit $LASTEXITCODE";
+/// Run by `powershell.exe -Command`: UTF-8 stdout without a BOM, run the script, and pass on how it ended: a
+/// failing program *inside* a good script is not a failure (`$?` is true), `exit 3` gives 3, a throw gives 1.
+const POWERSHELL_WRAPPER: &str = "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; $global:LASTEXITCODE = 0; \
+& $env:BARISTA_SCRIPT; if ($?) { exit 0 } elseif ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 }";
 
 /// Looks `name.exe` up in every PATH folder. `skip_store_stub` ignores the empty `python.exe` that
 /// Windows ships in `WindowsApps` (it opens the Microsoft Store instead of running anything).
@@ -280,6 +281,14 @@ mod tests {
         let Some(spec) = ps_script("'Temp 45' + [char]176 + 'C'") else { return };
         let out = run(spec).await.unwrap();
         assert!(super::super::parse::parse(&out).unwrap().label.contains("45\u{b0}C"));
+    }
+
+    #[tokio::test]
+    async fn a_failing_program_inside_a_good_powershell_script_is_not_an_error() {
+        // `cmd /c exit 5` leaves $LASTEXITCODE at 5, but the script itself finished fine and printed its label.
+        let Some(spec) = ps_script("'label'; cmd /c exit 5; 'more'") else { return };
+        let out = run(spec).await.unwrap();
+        assert!(String::from_utf8_lossy(&out).contains("label"));
     }
 
     #[tokio::test]

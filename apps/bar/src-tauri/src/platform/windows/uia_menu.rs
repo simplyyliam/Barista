@@ -34,7 +34,9 @@ const MAX_TITLES: i32 = 24;
 
 type Task = Box<dyn FnOnce(&IUIAutomation) + Send>;
 
-static WORKER: Mutex<Option<Sender<Task>>> = Mutex::new(None);
+/// The worker and its generation number: a timeout only drops the worker it timed out on, not a newer one.
+static WORKER: Mutex<Option<(u64, Sender<Task>)>> = Mutex::new(None);
+static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 fn start_worker() -> Sender<Task> {
     let (tx, rx) = channel::<Task>();
@@ -59,18 +61,28 @@ fn start_worker() -> Sender<Task> {
 /// then dropped (it may be stuck in a hung app) and the next call starts a fresh one.
 fn run<T: Send + 'static>(timeout: Duration, job: impl FnOnce(&IUIAutomation) -> T + Send + 'static) -> Option<T> {
     let (reply, wait) = channel();
-    let sender = WORKER.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(start_worker).clone();
+    let (generation, sender) = WORKER
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get_or_insert_with(|| (GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst), start_worker()))
+        .clone();
+    let drop_this_worker = move || {
+        let mut worker = WORKER.lock().unwrap_or_else(|e| e.into_inner());
+        if worker.as_ref().is_some_and(|(g, _)| *g == generation) {
+            *worker = None;
+        }
+    };
     let task: Task = Box::new(move |automation| {
         let _ = reply.send(job(automation));
     });
     if sender.send(task).is_err() {
-        *WORKER.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        drop_this_worker();
         return None;
     }
     match wait.recv_timeout(timeout) {
         Ok(value) => Some(value),
         Err(_) => {
-            *WORKER.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            drop_this_worker();
             None
         }
     }
@@ -104,8 +116,14 @@ fn bar_titles(bar: &IUIAutomationElement, automation: &IUIAutomation) -> Vec<IUI
     // SAFETY: plain COM calls.
     unsafe {
         let Ok(all) = automation.CreateTrueCondition().and_then(|t| bar.FindAll(TreeScope_Children, &t)) else { return vec![] };
-        let n = all.Length().unwrap_or(0).min(MAX_TITLES);
-        (0..n).filter_map(|i| all.GetElement(i).ok()).collect()
+        let n = all.Length().unwrap_or(0).min(MAX_TITLES * 2);
+        // Unnamed children (an overflow button, an icon) are not titles. `titles`, `read_title` and `invoke`
+        // all use this one list, so an index means the same title everywhere.
+        (0..n)
+            .filter_map(|i| all.GetElement(i).ok())
+            .filter(|e| name_of(e).chars().any(|c| !c.is_control() && !c.is_whitespace()))
+            .take(MAX_TITLES as usize)
+            .collect()
     }
 }
 
@@ -113,7 +131,7 @@ fn bar_titles(bar: &IUIAutomationElement, automation: &IUIAutomation) -> Vec<IUI
 pub fn titles(hwnd: isize) -> Option<Vec<String>> {
     run(Duration::from_millis(1200), move |automation| {
         let (_, bar) = find_bar(automation, hwnd)?;
-        let names: Vec<String> = bar_titles(&bar, automation).iter().map(name_of).filter(|n| !n.is_empty()).collect();
+        let names: Vec<String> = bar_titles(&bar, automation).iter().map(name_of).collect();
         (!names.is_empty()).then_some(names)
     })
     .flatten()
