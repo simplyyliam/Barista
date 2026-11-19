@@ -63,7 +63,7 @@ pub fn init(app: &AppHandle) {
         tokio::time::sleep(FIRST_CHECK).await;
         loop {
             // Read every round, so switching the setting off takes effect without a restart.
-            let on = controller::get().is_none_or(|c| c.settings().behavior.auto_update);
+            let on = controller::get().map_or(true, |c| c.settings().behavior.auto_update);
             if on {
                 if let Err(error) = check(&app).await {
                     log::info!("updater: check failed: {error}");
