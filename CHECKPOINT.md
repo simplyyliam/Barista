@@ -26,8 +26,13 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   settings (beside the override folder when overridden). `node examples/inspect/src/index.ts` lists `script/...` items (do NOT run
   `pnpm inspect` while `pnpm dev` runs: it rebuilds the SDK).
 - Code review (medium) fixes done: timer restart after a failed file read, stale result after stop, PowerShell UTF-8 wrapper, content-hashed menu ids, double run after "Run again", `2fa`-style names. Security review: nothing at confidence 8+.
-- Not verified live: the trust panel and settings page visually (the bar's right side rendered empty in screenshots of the dev bar,
-  cause not found), "Allow" click, menu actions (href/shell/refresh), "scripts off" toggle, `pnpm bench` (needs release build, no running bar).
+- Verified live on the real UI (dev bar with `--remote-debugging-port=9222`, driven over CDP, real mouse clicks, screenshots): trust
+  panel shows and Allow works ("1 of 3" cycling), items go live, label/menu color, error marks, submenu, `href` (browser opened),
+  `shell` (cmd wrote a file), `refresh`, "Disable" in the error menu, "Run scripts" off (items gone, no script process) and on (back,
+  no prompt), "Open scripts folder", bar restart (trusted scripts return silently), edit asks again, settings page.
+  Screenshots need a DPI-aware capture (the screen is 3840 wide, PowerShell is virtualized to 2560 unless `SetProcessDPIAware`).
+- Gotcha: killing the dev `barista.exe` ends the whole `pnpm dev` session (vite too). The example clients (test-client, spotify, ...) from
+  `pnpm dev` were not restarted.
 - Fix next (dogfooding the format):
   - Params separated by ` | ` (xbar style) silently turn into label text.
   - Plain menu lines are clickable but do nothing (UI could draw them as inert).
