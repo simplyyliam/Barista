@@ -33,8 +33,35 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 5. Bring back before v1.0: Pricing/Pro (`docs/release/plan/hidden-on-website.md`) and the hidden settings pages
    (`docs/release/plan/hidden-in-settings.md`). Both files are local only.
 
+## "Done when" evidence (2026-11-19)
+- **Fresh install:** the built NSIS installer installed per-user without admin (22 s); the installed bar ran, logged to
+  `%LOCALAPPDATA%\dev.barista.app\logs`, and the test client's item appeared in the registry (`s10/timer ... icon menu "25:00"`) and went away
+  when the client was killed. Uninstall stopped the bar and removed the program, the registry entry and the startup entry.
+- **Update to a newer build:** two throwaway builds (0.10.1, 0.10.2, signed with a disposable key, local http server, never released).
+  The installed 0.10.1 asked the server 31 s after start; Settings > General offered "Barista 0.10.2 is ready"; "Update now" downloaded it,
+  the old bar shut down cleanly, the installer ran, and the new bar started (product version 0.10.2). All driven through the real Settings window.
+- **README to working item:** `npm install` took 24 s; the README snippet put a ticking `Clock` item in the bar and removed it when stopped.
+
 ## Fix next
-(filled in by the dogfooding pass at the end of v0.10)
+Found by dogfooding, the installer tests and the two reviews. Nothing here blocks the PR.
+1. **Publish a new SDK before announcing.** The repo README and docs describe things the published `@baristabar/sdk@0.1.1` does not have
+   (`item.ready`, `StatusBar.isAvailable()`, ...). The five-minute README path works on 0.1.1; the docs pages for menus and popovers should be
+   re-checked against whatever version goes out (`sdk-v*` tag).
+2. **The test client starts in about 15 s.** `@hugeicons/core-free-icons` is a huge import under Node's type stripping. The README example
+   avoids icons; consider a lighter import in `examples/test-client` and a note in the docs.
+3. **Uninstall time:** 22 to 45 s, and a silent `uninstall.exe /S` run without `_?=` looked like it did nothing for 27 s. Find where the time goes
+   (probably the NSIS uninstaller waiting on the bar or on deleting the WebView2 profile).
+4. **The updater test build predates `get_pending_update`.** Settings showed "Update now" only after a manual "Check for updates". The fix is
+   committed (the window asks for a pending update when it opens) but was not re-run on an installed build.
+5. **Taskbar restore on uninstall** uses a null window handle (like the panic hook). Not tested on a PC where Barista had forced auto-hide on.
+6. **Unsigned installer:** SmartScreen warns on first run (documented). No EULA yet; privacy wording needs your eyes.
+7. **Memory 138 MB vs the 120 MB budget** (`docs/perf/0.10.md`). The memory pass moved here; candidates are listed in that file.
+8. **Not tested:** Windows 10, no monitor at launch, the release workflow itself (needs the repo, token and key), a real phone for the site.
+9. **Silent first minute:** a script started before the bar prints its "Waiting for the Barista bar" line only after about 10 s.
+10. **Landing page leftovers:** the Monitors tile, the Settings sliders and the Windows-mode switches are still hand-made; the demo cannot show the
+    settings window yet. The explorer and videos are v0.10.x.
+11. **Review notes left as they are:** the demo-settings test writes `apps/bar/demo/settings.json` (same pattern as `bindings.ts`); the
+    installer kills the bar by image name.
 
 ## Useful facts
 
