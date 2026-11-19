@@ -214,7 +214,7 @@ fn measure(monitor: Rect, strip_h: i32) -> bool {
         };
         let tone = tone_for(l);
         if std::env::var_os("BARISTA_DEBUG").is_some() {
-            log::warn!(
+            log::debug!(
                 "barista: wallpaper strip luminance {l:.3} -> {tone:?} in {:?}",
                 started.elapsed()
             );

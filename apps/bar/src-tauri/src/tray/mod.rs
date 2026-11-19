@@ -68,7 +68,7 @@ mod worker {
             .map(|c| c.settings().advanced.tray)
             .unwrap_or_default();
         if mode == Mode::Windows {
-            log::warn!("[tray] trayMode is windows: the tray stays with Explorer");
+            log::info!("[tray] trayMode is windows: the tray stays with Explorer");
             return;
         }
         if let Some(name) = tray_host::foreign_host() {
