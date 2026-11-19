@@ -196,9 +196,10 @@ impl Default for BarItemPref {
 }
 
 /// Built-in items in the default order (left group first, then the right group as it is drawn).
-pub const BAR_ITEMS: [&str; 8] = [
+pub const BAR_ITEMS: [&str; 9] = [
     "brand",
     "app-name",
+    "app-menus",
     "battery",
     "wifi",
     "volume",

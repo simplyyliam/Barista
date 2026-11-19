@@ -70,6 +70,8 @@ pub fn set_appearance(app: tauri::AppHandle, appearance: Appearance) {
 #[specta::specta]
 pub fn set_menu_bar_items(app: tauri::AppHandle, items: Vec<BarItemPref>) {
     change(&app, |s| s.menu_bar.items = items);
+    // Showing or hiding the "app-menus" item starts or stops following the app in front.
+    crate::appmenu::settings_changed();
 }
 
 /// How the clock and date read.

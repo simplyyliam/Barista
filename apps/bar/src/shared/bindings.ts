@@ -7,8 +7,13 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
-	/**  The bar's version, from Cargo.toml. A sample command that proves the bridge works. */
 	getVersion: () => __TAURI_INVOKE<string>("get_version"),
+	/**
+	 *  The bar's version, from Cargo.toml. A sample command that proves the bridge works.
+	 *  The app in front and its menu titles (File, Edit, View ...), for the left side of the bar.
+	 *  `appMenusChanged` keeps it fresh. Click a title with `itemClicked(key)` like any item.
+	 */
+	getAppMenus: () => __TAURI_INVOKE<AppMenus>("get_app_menus"),
 	/**
 	 *  Every script in the folder with its state. Call once when the page opens; `scriptsChanged`
 	 *  keeps it fresh.
@@ -419,6 +424,7 @@ export const commands = {
 /** Events */
 export const events = {
 	airplaneModeChanged: makeEvent<AirplaneModeChanged, AirplaneModeChanged>("airplane-mode-changed"),
+	appMenusChanged: makeEvent<AppMenusChanged, AppMenusChanged>("app-menus-changed"),
 	appVolumesChanged: makeEvent<AppVolumesChanged_Serialize, AppVolumesChanged_Deserialize>("app-volumes-changed"),
 	barAppearanceChanged: makeEvent<BarAppearanceChanged, BarAppearanceChanged>("bar-appearance-changed"),
 	barChanged: makeEvent<BarChanged, BarChanged>("bar-changed"),
@@ -504,6 +510,22 @@ export type AirplaneModeChanged = AirplaneMode;
 
 /**  Apps a quick action can start. An enum with fixed URIs, so the UI can't launch anything else. */
 export type App = "calculator" | "clockTimer" | "camera";
+
+export type AppMenuTitle = {
+	/**  The key to click and to anchor the menu on (`appmenu/<n>`). */
+	key: string,
+	label: string,
+};
+
+/**  What the bar draws on the left: the app's name and its menu titles. */
+export type AppMenus = {
+	/**  Empty = nothing in front that we know (the desktop): the bar shows "Barista". */
+	appName: string,
+	titles: AppMenuTitle[],
+};
+
+/**  The app in front changed, or its menu titles did. Carries everything. */
+export type AppMenusChanged = AppMenus;
 
 export type AppVolume = AppVolume_Serialize | AppVolume_Deserialize;
 

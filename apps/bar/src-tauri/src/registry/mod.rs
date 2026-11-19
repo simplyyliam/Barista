@@ -80,6 +80,14 @@ struct StoredScript {
     menu_rev: u64,
 }
 
+/// One title of the menu bar of the app in front (ADR 0036). Key `appmenu/<index>`.
+struct StoredAppMenu {
+    /// The items are read from the app each time it is opened (UI Automation), not kept.
+    lazy: bool,
+    entries: Vec<MenuEntry>,
+    rev: u64,
+}
+
 /// Where to send a tray icon's clicks: the owner's window, the icon's id, its callback message and
 /// the `NOTIFYICON_VERSION` it asked for (ADR 0027). Handles are the 32-bit numbers tray messages carry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,6 +151,8 @@ pub enum ClickTarget {
     Tray,
     /// A script item without a menu: the script manager decides (trust prompt, or run now).
     Script,
+    /// An application menu title whose items are read when it is opened (UI Automation apps).
+    AppMenu,
 }
 
 /// What the coordinator needs to show a popover.
@@ -213,6 +223,8 @@ struct State {
     tray: Vec<(String, TrayItem)>,
     /// Script items (v0.9), keyed by script id without the `script/` prefix, in arrival order.
     scripts: Vec<(String, StoredScript)>,
+    /// The menu titles of the app in front, in order (ADR 0036). Not in the item list: the bar draws them on the left.
+    app_menus: Vec<StoredAppMenu>,
     /// The user's order, pins and collapsed flag, saved in settings (ADR 0028).
     layout: ItemLayout,
     /// Room the UI has for items, and the gap between two (logical px). `None` = unknown.
@@ -646,6 +658,44 @@ impl Registry {
         self.lock().scripts.iter().map(|(k, _)| k.clone()).collect()
     }
 
+    /// Replaces the menu titles of the app in front. Each is (read when opened, its items). An open app menu
+    /// whose title is gone closes (the menu window syncs after every menu change).
+    pub fn app_menus_replace(&self, menus: Vec<(bool, Vec<MenuEntry>)>) {
+        let mut state = self.lock();
+        let mut rev = state.last_rev;
+        state.app_menus = menus
+            .into_iter()
+            .map(|(lazy, entries)| {
+                rev += 1;
+                StoredAppMenu { lazy, entries, rev }
+            })
+            .collect();
+        state.last_rev = rev;
+        drop(state);
+        self.menu_changed.notify_one();
+    }
+
+    /// New items for one title (after the app was read again). A change of content moves its revision, so an
+    /// open menu redraws.
+    pub fn app_menu_entries(&self, index: usize, entries: Vec<MenuEntry>) {
+        let mut state = self.lock();
+        state.last_rev += 1;
+        let rev = state.last_rev;
+        let Some(menu) = state.app_menus.get_mut(index) else { return };
+        if menu.entries == entries {
+            return;
+        }
+        menu.entries = entries;
+        menu.rev = rev;
+        drop(state);
+        self.menu_changed.notify_one();
+    }
+
+    /// How many app menu titles there are (for tests and the debug list).
+    pub fn app_menu_count(&self) -> usize {
+        self.lock().app_menus.len()
+    }
+
     /// Loads the saved layout (once, at startup, before the first items arrive).
     pub fn set_layout(&self, layout: ItemLayout) {
         self.lock().layout = layout.cleaned();
@@ -897,6 +947,13 @@ impl Registry {
             let visible = state.tray.iter().any(|(k, t)| k == tray_key && t.visible);
             return if visible { ClickTarget::Tray } else { ClickTarget::App };
         }
+        if let Some(index) = key.strip_prefix("appmenu/").and_then(|n| n.parse::<usize>().ok()) {
+            return match state.app_menus.get(index) {
+                Some(m) if m.lazy => ClickTarget::AppMenu,
+                Some(m) if !m.entries.is_empty() => ClickTarget::Menu,
+                _ => ClickTarget::App,
+            };
+        }
         if let Some(id) = key.strip_prefix("script/") {
             return match state.scripts.iter().find(|(k, _)| k == id) {
                 // A menu opens on any button; without one the manager decides.
@@ -960,6 +1017,10 @@ impl Registry {
     /// The revision of a visible item's menu, without building it. `None` = nothing to show.
     pub fn menu_rev(&self, key: &str) -> Option<u64> {
         let mut state = self.lock();
+        if let Some(index) = key.strip_prefix("appmenu/").and_then(|n| n.parse::<usize>().ok()) {
+            let m = state.app_menus.get(index)?;
+            return (!m.entries.is_empty()).then_some(m.rev);
+        }
         if let Some(id) = key.strip_prefix("script/") {
             let (_, s) = state.scripts.iter().find(|(k, _)| k == id)?;
             return (!s.item.menu.is_empty() && s.item.state != ScriptState::Untrusted).then_some(s.menu_rev);
@@ -971,6 +1032,13 @@ impl Registry {
     /// The menu of a visible item, ready to draw. `None` if the item is gone, hidden or has no menu.
     pub fn menu(&self, key: &str) -> Option<MenuSnapshot> {
         let mut state = self.lock();
+        if let Some(index) = key.strip_prefix("appmenu/").and_then(|n| n.parse::<usize>().ok()) {
+            let m = state.app_menus.get(index)?;
+            if m.entries.is_empty() {
+                return None;
+            }
+            return Some(MenuSnapshot { entries: m.entries.clone(), rev: m.rev });
+        }
         if let Some(id) = key.strip_prefix("script/") {
             let (_, s) = state.scripts.iter().find(|(k, _)| k == id)?;
             if s.item.menu.is_empty() || s.item.state == ScriptState::Untrusted {

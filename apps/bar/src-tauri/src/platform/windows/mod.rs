@@ -4,6 +4,7 @@
 //! Tray bridging helpers come later.
 
 pub mod app_icon;
+pub mod app_info;
 pub mod appbar;
 pub mod audio;
 pub mod audio_policy;
@@ -33,7 +34,9 @@ pub mod radios;
 pub mod shell;
 pub mod taskbar;
 pub mod user;
+pub mod uia_menu;
 pub mod wallpaper;
+pub mod win32_menu;
 pub mod wallpaper_watch;
 pub mod windhawk;
 pub mod wmi_brightness;

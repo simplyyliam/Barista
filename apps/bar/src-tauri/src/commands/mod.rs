@@ -19,6 +19,14 @@ use std::sync::Arc;
 use tauri::State;
 
 /// The bar's version, from Cargo.toml. A sample command that proves the bridge works.
+/// The app in front and its menu titles (File, Edit, View ...), for the left side of the bar.
+/// `appMenusChanged` keeps it fresh. Click a title with `itemClicked(key)` like any item.
+#[tauri::command]
+#[specta::specta]
+pub fn get_app_menus() -> crate::appmenu::AppMenus {
+    crate::appmenu::get()
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn get_version() -> String {

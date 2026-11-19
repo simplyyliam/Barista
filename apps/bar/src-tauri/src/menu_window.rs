@@ -196,6 +196,10 @@ pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Resul
             // One thing open at a time: a menu replaces an open popover or panel.
             crate::popover::close();
             crate::panel::close();
+            // An app's classic menu is read again in the background so its states are current.
+            if key.starts_with("appmenu/") {
+                crate::appmenu::refresh_open();
+            }
             if let Some(menu) = get() {
                 menu.item_click(key);
             }
@@ -214,6 +218,12 @@ pub fn route_click(registry: &Registry, key: &str, button: MouseButton) -> Resul
             crate::popover::close();
             crate::panel::close();
             crate::scripts::item_click(key);
+            Ok(())
+        }
+        ClickTarget::AppMenu => {
+            crate::popover::close();
+            crate::panel::close();
+            crate::appmenu::open_lazy(key);
             Ok(())
         }
         ClickTarget::App => {
@@ -259,6 +269,9 @@ pub fn menu_item_clicked(
 ) -> Result<(), MenuItemClickError> {
     let result = if key.starts_with("script/") {
         crate::scripts::menu_click(key, menu_item_id);
+        Ok(())
+    } else if key.starts_with("appmenu/") {
+        crate::appmenu::menu_click(key, menu_item_id);
         Ok(())
     } else {
         registry.menu_click(key, menu_item_id)
@@ -388,7 +401,7 @@ impl MenuWindow {
         });
     }
 
-    fn item_click(&self, key: &str) {
+    pub(crate) fn item_click(&self, key: &str) {
         let action = self.lock().machine.click(key, Instant::now());
         self.apply(action);
     }
