@@ -6,6 +6,54 @@ All notable changes to the Barista app are listed here. The SDK has its own chan
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-19
+
+Barista can now run small scripts as items in the bar, and the bar shows the menus of the app you're using.
+
+### Added
+
+- **Script items.** Drop a script called like `cpu.10s.ps1` into `%APPDATA%\Barista\scripts` and it becomes an item in the bar: the first line is its label, the lines after `---` are its menu. The number in the name is how often it runs. PowerShell (`.ps1`), Python (`.py`) and Node (`.js`, `.mjs`) scripts work. Delete the file and the item disappears; rename it to change how often it runs, with no restart.
+- **Menu lines that do things.** A script's menu can open a link, run a program, run itself again, and colour a line. Submenus work too.
+- **You decide what runs.** The first time a script appears, or after you edit it, Barista asks before running it. Scripts run with your own permissions, so only allow scripts you trust.
+- **A script that misbehaves can't hurt the bar.** One that hangs, crashes, prints too much or prints garbage shows an error mark on its item (with the last good label), a menu to see the error, run it again, open it or turn it off, and everything it started is stopped.
+- **A Script items page in settings.** Turn scripts on or off, set the default interval, turn single scripts on or off, change their interval, see when each last ran and how long it took, switch off `shell` menu lines, and open the scripts folder.
+- **Example scripts.** A system monitor, a clock and a hello script to start from.
+- **App menus.** The bar shows the name of the app in front and its menus on the left. Apps with classic menus (like System Information) show their real menus, and picking an entry works. Other apps get an Edit menu (Undo, Cut, Copy, Paste, Select All) and a Window menu (Minimize, Zoom, Close). You can hide it in the bar editor.
+
+### Changed
+
+- Script menu lines can be written the way xbar scripts write them, with parameters after ` | `.
+- Plain text lines in a script's menu are just info: no hover, not clickable.
+- **Python from the Microsoft Store** is found too.
+
+### Fixed
+
+- The name of the app in front is shown correctly for apps like Spotify.
+- Two scripts with the same name now tell you which file is used.
+
+### Known issues
+
+- Windows SmartScreen may warn that the installer is from an unknown publisher, because it isn't code-signed yet. Click "More info", then "Run anyway".
+- No automatic updates yet. To get a newer version, download its installer from the GitHub Releases page and run it.
+- Barista uses about 130 to 140 MB of memory and menus take about 50 ms to appear, because the panel and menu windows are ready in the background. A release for speed and memory is planned.
+- Scripts are not sandboxed: a trusted script can do anything you can. PowerShell scripts take about 1.5 s of CPU per run, so use Python or Node for anything that runs every few seconds.
+- App menus: modern apps (Notepad, Zed, Chrome and other Electron apps) only get the Edit and Window menus, and there is no Alt-key access yet.
+- The mic mute, now playing and system monitor apps are separate programs you start yourself; the system monitor uses a few hundred MB while it runs.
+- Now playing hasn't been tested with a lot of different players, and settings haven't been tested with a second monitor or on Windows 10.
+- What an app does with a tray click is up to the app: some only react to a double click, and a few sometimes show nothing.
+- Tested on Windows 11 only. In testing, restarting Explorer while an app that tweaks the taskbar was running closed Barista; start it again if that happens.
+
+### Privacy
+
+- Barista sends nothing over the internet. It doesn't check for updates yet.
+- Scripts only run on this computer. What a script itself does (for example opening a link or calling the internet) is up to the script you allowed.
+- Your notifications, Wi-Fi networks, battery, volume, microphone state and what's playing are read on this computer only and never sent anywhere.
+- The name and menus of the app in front are read on this computer only and never sent anywhere.
+- Apps that add items, menus or popovers talk to the bar only on this computer; nothing leaves the machine. The "are you still there" checks between the bar and apps stay on this computer too.
+- The bar looks at the wallpaper behind it only to pick light or dark text. This happens on your computer, and the wallpaper is never sent anywhere.
+- Tray icons (their picture and tooltip) are read on this computer only and never sent anywhere. Your clicks on them go straight to the app they belong to, on this computer.
+- Your settings, pins, order, collapsed state and which scripts you trusted are saved on this computer. Exporting settings gives you a file; nothing is uploaded.
+
 ## [0.8.0] - 2026-11-18
 
 Barista now has a settings window, so you can shape the bar the way you like, plus first apps for mic mute, now playing and a system monitor.
