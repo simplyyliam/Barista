@@ -40,19 +40,24 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **Update to a newer build:** two throwaway builds (0.10.1, 0.10.2, signed with a disposable key, local http server, never released).
   The installed 0.10.1 asked the server 31 s after start; Settings > General offered "Barista 0.10.2 is ready"; "Update now" downloaded it,
   the old bar shut down cleanly, the installer ran, and the new bar started (product version 0.10.2). All driven through the real Settings window.
+- **Update, second run (builds that include `get_pending_update`):** the background check found 0.10.2 on its own; Settings, opened
+  afterwards for the first time, already said "Barista 0.10.2 is ready" with "Update now" (no manual check); one click and the installed and
+  running exe were 0.10.2.
+- **Clean checkout:** a fresh `git clone` of the pushed branch: `pnpm install --frozen-lockfile` 145 s, typecheck, 157 tests and eslint pass,
+  `pnpm web:build` 107 s and `out/demo` is in the output.
 - **README to working item:** `npm install` took 24 s; the README snippet put a ticking `Clock` item in the bar and removed it when stopped.
 
 ## Fix next
+(Final-state `/code-review` also fixed: a failed install now relaunches the bar after releasing the single-instance lock; the updater re-checks "installing" after its request; `BARISTA_DEBUG` raises the log level.)
 Found by dogfooding, the installer tests and the two reviews. Nothing here blocks the PR.
 1. **Publish a new SDK before announcing.** The repo README and docs describe things the published `@baristabar/sdk@0.1.1` does not have
    (`item.ready`, `StatusBar.isAvailable()`, ...). The five-minute README path works on 0.1.1; the docs pages for menus and popovers should be
    re-checked against whatever version goes out (`sdk-v*` tag).
 2. **The test client starts in about 15 s.** `@hugeicons/core-free-icons` is a huge import under Node's type stripping. The README example
    avoids icons; consider a lighter import in `examples/test-client` and a note in the docs.
-3. **Uninstall time:** 22 to 45 s, and a silent `uninstall.exe /S` run without `_?=` looked like it did nothing for 27 s. Find where the time goes
+3. **Uninstall time varies a lot:** 22 s, 45 s, 22 s and 3 s in four runs (the 3 s one had the bar already closed by the update), and a silent `uninstall.exe /S` run without `_?=` looked like it did nothing for 27 s. Find where the time goes
    (probably the NSIS uninstaller waiting on the bar or on deleting the WebView2 profile).
-4. **The updater test build predates `get_pending_update`.** Settings showed "Update now" only after a manual "Check for updates". The fix is
-   committed (the window asks for a pending update when it opens) but was not re-run on an installed build.
+4. ~~Settings did not show an update found before it was opened~~ fixed with `get_pending_update` and re-tested on an installed build.
 5. **Taskbar restore on uninstall** uses a null window handle (like the panic hook). Not tested on a PC where Barista had forced auto-hide on.
 6. **Unsigned installer:** SmartScreen warns on first run (documented). No EULA yet; privacy wording needs your eyes.
 7. **Memory 138 MB vs the 120 MB budget** (`docs/perf/0.10.md`). The memory pass moved here; candidates are listed in that file.

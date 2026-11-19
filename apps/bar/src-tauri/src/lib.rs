@@ -281,7 +281,8 @@ pub fn run() {
         // Rotating log files (5 x 1 MB) in the app log folder: nothing is ever sent anywhere.
         .plugin(
             tauri_plugin_log::Builder::new()
-                .level(log::LevelFilter::Info)
+                // BARISTA_DEBUG turns on the debug lines (wallpaper tone, ...) that are off for everyone else.
+                .level(if std::env::var_os("BARISTA_DEBUG").is_some() { log::LevelFilter::Debug } else { log::LevelFilter::Info })
                 .level_for("tao", log::LevelFilter::Warn)
                 .level_for("wry", log::LevelFilter::Warn)
                 .max_file_size(1_000_000)

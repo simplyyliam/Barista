@@ -92,6 +92,10 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
         .check()
         .await
         .map_err(|e| e.to_string())?;
+    // The request can outlast the click on "Update now": whatever it found must not replace what is installing.
+    if INSTALLING.load(Ordering::SeqCst) {
+        return Err("An update is being installed.".into());
+    }
     let Some(update) = update else {
         *app.state::<Pending>().0.lock().unwrap_or_else(|e| e.into_inner()) = None;
         return Ok(None);
@@ -161,10 +165,31 @@ async fn run_install(app: &AppHandle) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
     crate::shutdown_services();
+    // On Windows a good install ends this process inside `install`, so what follows only runs when the
+    // installer could not start. The services are stopped by then, so the bar starts again from scratch.
     if let Err(error) = update.install(bytes) {
-        // The services are already stopped, so start the bar fresh instead of leaving half of it.
         log::error!("updater: install failed: {error}");
-        app.restart();
+        relaunch_and_exit(app);
     }
-    app.restart()
+    Ok(())
+}
+
+/// Starts the bar again once this process has let go of the single-instance lock, then exits.
+/// `app.restart()` would start the new copy at once, while this one still holds the lock: the new copy would
+/// hand over to this one and exit, this one would exit too, and no bar would be left.
+fn relaunch_and_exit(app: &AppHandle) {
+    #[cfg(windows)]
+    if let Ok(exe) = std::env::current_exe() {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        // `ping -n 4` is a three second pause that needs no console and no extra tools.
+        let started = std::process::Command::new("cmd")
+            .creation_flags(CREATE_NO_WINDOW)
+            .raw_arg(format!("/C ping -n 4 127.0.0.1 >nul & start \"\" \"{}\"", exe.display()))
+            .spawn();
+        if let Err(error) = started {
+            log::error!("updater: could not schedule the restart: {error}");
+        }
+    }
+    app.exit(0);
 }

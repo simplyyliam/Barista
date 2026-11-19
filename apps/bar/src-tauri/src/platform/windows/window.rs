@@ -618,7 +618,7 @@ mod tests {
     #[test]
     fn window_state_follows_the_real_window() {
         let Some(win) = TestWindow::new() else {
-            log::warn!("no desktop to create a window on: skipping");
+            eprintln!("no desktop to create a window on: skipping");
             return;
         };
         let (monitor, work) = monitor_rects(win.0).expect("monitor");

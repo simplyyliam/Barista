@@ -127,7 +127,7 @@ mod worker {
     /// Closes the host window, so messages reach Explorer alone again (on a normal quit).
     pub fn shutdown() {
         let stats = tray_host::stats();
-        log::warn!(
+        log::info!(
             "[tray] quit: {} tray messages, {} times raised above Explorer, {} dropped, {} not answered by Explorer",
             stats.tray_messages, stats.reraised, stats.dropped, stats.forward_failed
         );
