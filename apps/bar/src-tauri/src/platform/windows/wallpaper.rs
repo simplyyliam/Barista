@@ -233,7 +233,7 @@ mod tests {
             .expect("a primary monitor");
         let started = std::time::Instant::now();
         let l = strip_luminance(monitor.rect, 48).expect("a measurement");
-        eprintln!(
+        log::warn!(
             "luminance {l:.3} -> {:?} in {:?}",
             crate::appearance::luminance::tone_for(l),
             started.elapsed()

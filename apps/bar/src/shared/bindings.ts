@@ -419,6 +419,8 @@ export const commands = {
 	importSettings: (text: string) => typedError<null, string>(__TAURI_INVOKE("import_settings", { text })),
 	/**  Switches Windows (apps and system) to dark or light mode. `themeModeChanged` follows. */
 	setDarkMode: (dark: boolean) => __TAURI_INVOKE<void>("set_dark_mode", { dark }),
+	/**  Opens the folder with the log files in Explorer (for bug reports). Logs stay on this PC. */
+	openLogsFolder: () => __TAURI_INVOKE<void>("open_logs_folder"),
 	/**  Asks the releases repo whether a newer version exists. `None` = you are up to date. */
 	checkForUpdate: () => typedError<UpdateInfo_Serialize | null, string>(__TAURI_INVOKE("check_for_update")),
 	/**

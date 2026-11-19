@@ -59,7 +59,7 @@ pub fn refresh() {
             }
         });
         if let Err(e) = spawned {
-            eprintln!("barista: could not read the user: {e}");
+            log::warn!("could not read the user: {e}");
         }
     }
 }

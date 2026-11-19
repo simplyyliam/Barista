@@ -368,7 +368,7 @@ pub fn register_debug_hotkeys(raw_hwnd: isize) {
             RegisterHotKey(Some(hwnd_from(raw_hwnd)), id as i32, modifiers, u32::from(key))
         };
         if let Err(e) = result {
-            eprintln!("barista: {name} hotkey not registered: {e}");
+            log::warn!("{name} hotkey not registered: {e}");
         }
     }
 }
@@ -618,7 +618,7 @@ mod tests {
     #[test]
     fn window_state_follows_the_real_window() {
         let Some(win) = TestWindow::new() else {
-            eprintln!("no desktop to create a window on: skipping");
+            log::warn!("no desktop to create a window on: skipping");
             return;
         };
         let (monitor, work) = monitor_rects(win.0).expect("monitor");

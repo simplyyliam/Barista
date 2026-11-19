@@ -733,7 +733,7 @@ pub fn answer_trust(id: &str, sha256: &str, allow: bool) -> Result<(), String> {
     }
     if let Err(e) = manager.lock().trust.trust(id, sha256) {
         // Still trusted until the bar restarts; say so in the log, not to the user.
-        eprintln!("barista: could not save script trust: {e}");
+        log::warn!("could not save script trust: {e}");
     }
     manager.reconcile_soon();
     Ok(())

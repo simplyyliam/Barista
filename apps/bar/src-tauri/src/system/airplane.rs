@@ -49,7 +49,7 @@ pub fn set(on: bool) {
     if crate::platform::windows::radio_manager::radios_enabled() == Some(!on) {
         // Already in that state.
     } else if !crate::platform::windows::radio_manager::set_airplane(on) {
-        eprintln!("barista: airplane mode could not be switched");
+        log::warn!("airplane mode could not be switched");
     }
     #[cfg(not(windows))]
     let _ = on;
@@ -63,7 +63,7 @@ pub fn start() {
         // reaches a subtree watch.
         let parent = r"SYSTEM\CurrentControlSet\Control\RadioManagement";
         if !crate::platform::windows::registry_watch::watch(parent, refresh) {
-            eprintln!("barista: airplane mode not watched");
+            log::warn!("airplane mode not watched");
         }
     }
 }

@@ -26,7 +26,7 @@ pub fn start(dir: PathBuf, on_change: impl Fn() + Send + 'static) {
                         | FILE_NOTIFY_CHANGE_LAST_WRITE
                         | FILE_NOTIFY_CHANGE_SIZE,
                 ) else {
-                    eprintln!("barista: could not watch {}", dir.display());
+                    log::warn!("could not watch {}", dir.display());
                     return;
                 };
                 loop {
@@ -39,6 +39,6 @@ pub fn start(dir: PathBuf, on_change: impl Fn() + Send + 'static) {
             }
         });
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the folder watcher: {e}");
+        log::warn!("could not start the folder watcher: {e}");
     }
 }

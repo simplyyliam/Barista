@@ -154,7 +154,7 @@ pub fn start(on_change: fn(Vec<RawDisplay>)) {
         .name("barista-ddc".into())
         .spawn(move || ddc_thread(ddc_rx, on_change))
     {
-        eprintln!("barista: could not start the DDC thread: {e}");
+        log::warn!("could not start the DDC thread: {e}");
     }
     let spawned = std::thread::Builder::new()
         .name("barista-brightness".into())
@@ -208,7 +208,7 @@ pub fn start(on_change: fn(Vec<RawDisplay>)) {
             }
         });
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the brightness thread: {e}");
+        log::warn!("could not start the brightness thread: {e}");
     }
 }
 

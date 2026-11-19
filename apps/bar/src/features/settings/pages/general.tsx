@@ -43,6 +43,9 @@ export function GeneralPage({ settings }: { settings: Settings }) {
       <UpdatesGroup settings={settings} />
 
       <Group title="Barista">
+        <Row label="Log files" hint="Barista keeps a small log on this PC for bug reports. It never leaves your computer.">
+          <ActionButton onClick={() => void commands.openLogsFolder()}>Open folder</ActionButton>
+        </Row>
         <Row label="Quit Barista" hint="Takes the bar away and gives the screen space back.">
           <ActionButton tone="danger" onClick={() => void commands.quitBar()}>
             Quit

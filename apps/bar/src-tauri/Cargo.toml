@@ -35,6 +35,8 @@ base64 = "0.23"
 # Reads the toast XML (title, images, buttons) from Windows' notification database.
 roxmltree = "0.21.2"
 tauri-plugin-updater = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-log = "2"
 
 # Win32 calls (AppBar, monitors, window styles). Same version Tauri already uses, so Cargo
 # builds only one copy. Each feature is one Win32 header group; add one only when needed.

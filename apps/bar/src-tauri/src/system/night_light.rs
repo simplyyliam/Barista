@@ -194,15 +194,15 @@ pub fn set(on: bool) {
         use crate::platform::windows::registry_watch::{read_user_binary, write_user_binary};
         let Some(blob) = read_user_binary(KEY, "Data") else { return };
         let Some(stored) = stamps(&blob) else {
-            eprintln!("barista: night light has a layout this Windows build does not match");
+            log::warn!("night light has a layout this Windows build does not match");
             return;
         };
         let Some(next) = with_state(&blob, on, Now::next(Now::real_ticks(), stored)) else {
-            eprintln!("barista: night light has a layout this Windows build does not match");
+            log::warn!("night light has a layout this Windows build does not match");
             return;
         };
         if !write_user_binary(KEY, "Data", &next) {
-            eprintln!("barista: night light could not be written");
+            log::warn!("night light could not be written");
         }
         refresh();
     }
@@ -214,7 +214,7 @@ pub fn start() {
     refresh();
     #[cfg(windows)]
     if !crate::platform::windows::registry_watch::watch_user(KEY, refresh) {
-        eprintln!("barista: night light not watched");
+        log::warn!("night light not watched");
     }
 }
 

@@ -111,6 +111,6 @@ pub fn start(on_change: fn(RawHotspot)) {
             }
         });
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the hotspot thread: {e}");
+        log::warn!("could not start the hotspot thread: {e}");
     }
 }

@@ -90,7 +90,7 @@ pub fn start(on_change: fn()) {
         rehook();
     });
     if spawned.is_err() {
-        eprintln!("barista: media controls not started");
+        log::warn!("media controls not started");
     }
 }
 

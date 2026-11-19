@@ -49,7 +49,7 @@ impl Drop for LiveSession {
 pub fn start(registry: Arc<Registry>) {
     tauri::async_runtime::spawn(async move {
         if let Err(error) = serve(registry).await {
-            eprintln!("barista: the client pipe is not available: {error}");
+            log::warn!("the client pipe is not available: {error}");
         }
     });
 }
@@ -80,7 +80,7 @@ async fn serve(registry: Arc<Registry>) -> std::io::Result<()> {
         if let Err(error) = connecting {
             // One broken connection attempt (for example a client that died while
             // connecting) must not stop the bar from accepting others: use a fresh instance.
-            eprintln!("barista: a client failed to connect: {error}");
+            log::warn!("a client failed to connect: {error}");
             server = next_instance().await;
             continue;
         }
@@ -117,7 +117,7 @@ async fn next_instance() -> tokio::net::windows::named_pipe::NamedPipeServer {
         match pipe::create_server(false) {
             Ok(next) => return next,
             Err(error) => {
-                eprintln!("barista: could not open the next pipe instance: {error}");
+                log::warn!("could not open the next pipe instance: {error}");
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
         }

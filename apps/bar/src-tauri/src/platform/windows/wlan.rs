@@ -149,7 +149,7 @@ fn join_now(handle: HANDLE, guid: &GUID, ssid: &str, password: Option<&str>) {
         WlanSetProfile(handle, guid, 2, PCWSTR(text.as_ptr()), PCWSTR::null(), true, None, &mut reason)
     };
     if status != ERROR_SUCCESS.0 {
-        eprintln!("barista: wifi profile refused (status {status}, reason {reason})");
+        log::warn!("wifi profile refused (status {status}, reason {reason})");
         return;
     }
     connect_profile(handle, guid, ssid);
@@ -276,6 +276,6 @@ pub fn start(on_change: fn(RawWifi)) {
             }
         });
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the wlan thread: {e}");
+        log::warn!("could not start the wlan thread: {e}");
     }
 }

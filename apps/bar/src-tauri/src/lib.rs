@@ -147,6 +147,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::settings::export_settings,
             commands::settings::import_settings,
             commands::set_dark_mode,
+            commands::open_logs_folder,
             updater::check_for_update,
             updater::install_update
         ])
@@ -267,10 +268,32 @@ pub fn run() {
     // A failed export (read-only file, ...) must not stop the app from starting.
     #[cfg(debug_assertions)]
     if let Err(error) = export_bindings(&builder) {
-        eprintln!("could not write bindings.ts: {error}");
+        log::warn!("could not write bindings.ts: {error}");
     }
 
     tauri::Builder::default()
+        // Must be the first plugin: a second Barista (double-click on the shortcut) opens Settings
+        // in the one already running and exits, instead of fighting it for the screen strip.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            settings_window::open(app);
+        }))
+        // Rotating log files (5 x 1 MB) in the app log folder: nothing is ever sent anywhere.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .level_for("tao", log::LevelFilter::Warn)
+                .level_for("wry", log::LevelFilter::Warn)
+                .max_file_size(1_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("barista".into()),
+                    }),
+                    #[cfg(debug_assertions)]
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                ])
+                .build(),
+        )
         // A page load wipes the CSS variable, so put the radius back.
         .on_page_load(|webview, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Finished {

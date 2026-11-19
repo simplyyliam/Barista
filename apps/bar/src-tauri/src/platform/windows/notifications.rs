@@ -73,7 +73,7 @@ pub fn start(publish: fn(Vec<RawToast>, Access)) {
             }
         });
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the notifications worker: {e}");
+        log::warn!("could not start the notifications worker: {e}");
     }
 }
 

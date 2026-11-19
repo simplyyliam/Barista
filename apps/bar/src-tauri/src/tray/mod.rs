@@ -68,11 +68,11 @@ mod worker {
             .map(|c| c.settings().advanced.tray)
             .unwrap_or_default();
         if mode == Mode::Windows {
-            eprintln!("[tray] trayMode is windows: the tray stays with Explorer");
+            log::warn!("[tray] trayMode is windows: the tray stays with Explorer");
             return;
         }
         if let Some(name) = tray_host::foreign_host() {
-            eprintln!("[tray] {name} already hosts the tray window or edits the taskbar: not starting ours");
+            log::warn!("[tray] {name} already hosts the tray window or edits the taskbar: not starting ours");
             return;
         }
         let (tx, rx) = sync_channel(QUEUE);
@@ -85,10 +85,10 @@ mod worker {
                     .spawn(move || Worker::new(registry).run(rx));
                 match spawned {
                     Ok(handle) => *WORKER.lock().unwrap_or_else(|e| e.into_inner()) = Some(handle),
-                    Err(e) => eprintln!("[tray] could not start the worker: {e}"),
+                    Err(e) => log::warn!("[tray] could not start the worker: {e}"),
                 }
             }
-            Err(e) => eprintln!("[tray] the tray host did not start: {e}"),
+            Err(e) => log::warn!("[tray] the tray host did not start: {e}"),
         }
     }
 
@@ -103,7 +103,7 @@ mod worker {
                 if registry.tray_len() > 0 {
                     return;
                 }
-                eprintln!("[tray] no icon arrived {wait} s after start: announcing the taskbar again");
+                log::warn!("[tray] no icon arrived {wait} s after start: announcing the taskbar again");
                 tray_host::announce();
             }
         });
@@ -116,7 +116,7 @@ mod worker {
         let started = std::time::Instant::now();
         while !handle.is_finished() {
             if started.elapsed() > std::time::Duration::from_secs(2) {
-                eprintln!("[tray] the worker did not stop in time");
+                log::warn!("[tray] the worker did not stop in time");
                 return;
             }
             std::thread::sleep(std::time::Duration::from_millis(10));
@@ -127,7 +127,7 @@ mod worker {
     /// Closes the host window, so messages reach Explorer alone again (on a normal quit).
     pub fn shutdown() {
         let stats = tray_host::stats();
-        eprintln!(
+        log::warn!(
             "[tray] quit: {} tray messages, {} times raised above Explorer, {} dropped, {} not answered by Explorer",
             stats.tray_messages, stats.reraised, stats.dropped, stats.forward_failed
         );

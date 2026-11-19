@@ -16,7 +16,17 @@ use crate::registry::{ClickError, LayoutError, MenuItemClickError, Registry, Sta
 use crate::window_radius;
 use barista_protocol::MouseButton;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{Manager, State};
+
+/// Opens the folder with the log files in Explorer (for bug reports). Logs stay on this PC.
+#[tauri::command]
+#[specta::specta]
+pub fn open_logs_folder(app: tauri::AppHandle) {
+    if let Ok(dir) = app.path().app_log_dir() {
+        let _ = std::fs::create_dir_all(&dir);
+        crate::platform::windows::shell::open_uri(&dir.to_string_lossy());
+    }
+}
 
 /// The bar's version, from Cargo.toml. A sample command that proves the bridge works.
 /// The app in front and its menu titles (File, Edit, View ...), for the left side of the bar.
