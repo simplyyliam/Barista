@@ -13,6 +13,10 @@ const { default: Stage } = await import("./stage")
 const { startBarTone } = await import("../src/shared/stores/bar-tone")
 await import("./demo.css")
 void startBarTone()
+if (params.get("scene") === "sdk") {
+  const { startCounterFx } = await import("./counter-fx")
+  startCounterFx()
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

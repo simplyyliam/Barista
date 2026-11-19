@@ -84,57 +84,6 @@ export function Monitors() {
   )
 }
 
-const TRAY = [
-  { n: "Wi-Fi", items: ["Home network", "Turn Wi-Fi off", "Open settings"] },
-  { n: "Dropbox", items: ["Open folder", "Pause syncing", "Quit"] },
-  { n: "Spotify", items: ["Play / Pause", "Next song", "Quit"] },
-  { n: "Slack", items: ["Open", "Set status", "Quit"] },
-  { n: "Docker", items: ["Dashboard", "Restart", "Quit"] },
-]
-
-// Click a tray icon and its menu drops right under it, like in the bar.
-export function TrayRow() {
-  const [open, setOpen] = useState<number | null>(null)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (open === null) return
-    const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(null)
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null)
-    document.addEventListener("pointerdown", away)
-    document.addEventListener("keydown", esc)
-    return () => {
-      document.removeEventListener("pointerdown", away)
-      document.removeEventListener("keydown", esc)
-    }
-  }, [open])
-  return (
-    <div className="tray" ref={ref}>
-      <div className="trayrow">
-        {TRAY.map((t, i) => (
-          <button
-            type="button"
-            key={t.n}
-            className={`tray__icon${i % 3 === 2 ? " white" : ""}`}
-            aria-label={t.n}
-            aria-expanded={open === i}
-            data-open={open === i}
-            onClick={() => setOpen(open === i ? null : i)}
-          />
-        ))}
-        <span>22:00</span>
-      </div>
-      {open !== null && (
-        <div className="tray__menu" key={open} style={{ left: 16 + open * 36 }} role="menu">
-          <b>{TRAY[open]?.n}</b>
-          {TRAY[open]?.items.map((it) => (
-            <button type="button" role="menuitem" key={it} onClick={() => setOpen(null)}>{it}</button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Word by word the statement lights up as you scroll into it.
 export function Scrub({ text }: { text: string }) {
   const ref = useRef<HTMLParagraphElement>(null)

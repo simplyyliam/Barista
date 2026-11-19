@@ -31,16 +31,22 @@ import type {
 } from "@/shared/bindings"
 import defaultSettings from "./settings.json"
 
-const send = (event: string, payload: unknown) => void emit(event, payload)
+// A copy, like the real IPC would hand over: the state below is changed in place, and React ignores
+// a new value that is the same object as the old one.
+const send = (event: string, payload: unknown) => void emit(event, structuredClone(payload))
 
 // ---------------------------------------------------------------- what the bar shows
 
-// `?scene=sdk` is the SDK section of the landing page: the real bar with nothing on it but one app's item.
-const SDK_SCENE = new URLSearchParams(location.search).get("scene") === "sdk"
+// `?scene=sdk` is the SDK section of the landing page: the real bar, trimmed to its brand, app name and
+// clock, so it still reads as a menu bar, plus the one item an app added with the SDK.
+const SCENE = new URLSearchParams(location.search).get("scene")
+const SDK_SCENE = SCENE === "sdk"
+// `?scene=tray` is the Tray icons tile: the same trimmed bar, with five tray icons behind the arrow.
+const TRAY_SCENE = SCENE === "tray"
 
 const baseSettings = defaultSettings as unknown as Settings_Serialize
-const settings: Settings_Serialize = SDK_SCENE
-  ? { ...baseSettings, menuBar: { ...baseSettings.menuBar, items: baseSettings.menuBar.items.map((i) => ({ ...i, visible: false })) } }
+const settings: Settings_Serialize = SDK_SCENE || TRAY_SCENE
+  ? { ...baseSettings, menuBar: { ...baseSettings.menuBar, items: baseSettings.menuBar.items.map((i) => ({ ...i, visible: ["brand", "app-name", "clock"].includes(i.id) })) } }
   : baseSettings
 
 const item = (
@@ -87,9 +93,29 @@ const clockText = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}
 const COUNTER = "demo/counter"
 let count = 0
 
+// Tray icons: simple drawn glyphs (no real brands), each with the menu its app would show.
+const glyph = (bg: string, shape: string) =>
+  `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${bg}"/>${shape}</svg>`,
+  )}`
+const TRAY_APPS: { id: string; name: string; icon: string; menu: string[] }[] = [
+  { id: "tray/cloud", name: "Cloud Sync", icon: glyph("#2f7df6", '<path d="M10 21a4 4 0 0 1 .6-7.9A5.5 5.5 0 0 1 21 12.5a4.3 4.3 0 0 1 .5 8.5z" fill="#fff"/>'), menu: ["Open folder", "Pause syncing", "Preferences", "Quit"] },
+  { id: "tray/vpn", name: "Private VPN", icon: glyph("#1fa971", '<path d="M16 6l8 3v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V9z" fill="#fff"/>'), menu: ["Connect", "Choose a server", "Settings", "Quit"] },
+  { id: "tray/boxes", name: "Containers", icon: glyph("#0b6fb8", '<g fill="#fff"><rect x="7" y="14" width="5" height="5" rx="1"/><rect x="13.5" y="14" width="5" height="5" rx="1"/><rect x="20" y="14" width="5" height="5" rx="1"/><rect x="13.5" y="8" width="5" height="5" rx="1"/></g>'), menu: ["Dashboard", "Restart", "Quit"] },
+  { id: "tray/mixer", name: "Mixer", icon: glyph("#f08a24", '<g fill="#fff"><rect x="8" y="14" width="4" height="10" rx="2"/><rect x="14" y="8" width="4" height="16" rx="2"/><rect x="20" y="11" width="4" height="13" rx="2"/></g>'), menu: ["Open mixer", "Mute everything", "Quit"] },
+  { id: "tray/updates", name: "Updates", icon: glyph("#7a55e0", '<path d="M16 8a8 8 0 1 0 7.5 5.2" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M22 6v8h-8z" fill="#fff"/>'), menu: ["Check now", "Snooze", "Quit"] },
+]
+const trayMenu = (id: string): MenuEntry_Serialize[] | null => {
+  const app = TRAY_APPS.find((a) => a.id === id)
+  if (!app) return null
+  return app.menu.map((label, i) => entry(`${id}/${i}`, label, { kind: "normal" }))
+}
+
 const items: StatusItemView_Serialize[] = SDK_SCENE
   ? [item(COUNTER, "Counter", "0", { tooltip: "Click me" })]
-  : [item(TIMER, "Focus", clockText(timer.left), { tooltip: "Focus timer" })]
+  : TRAY_SCENE
+    ? TRAY_APPS.map((a) => item(a.id, a.name, null, { icon: a.icon, tooltip: a.name, source: "tray", pinned: false, placement: "overflow" }))
+    : [item(TIMER, "Focus", clockText(timer.left), { tooltip: "Focus timer" })]
 
 function timerMenu(): MenuEntry_Serialize[] {
   return [
@@ -251,8 +277,8 @@ const clock: ClockSettings = {
   timeZone: "",
   utcOffsetMinutes: -new Date().getTimezoneOffset(),
 }
-// The bar uses its dark look on the light wallpaper (docs/design/Abstract-12.jpg): light text on a dark strip.
-const appearance: BarAppearance = { tone: "dark" }
+// The wallpaper (docs/design/Abstract-12.jpg) is light, so the bar switches its tone: dark elements, no strip.
+const appearance: BarAppearance = { tone: "light" }
 
 const now = Math.floor(Date.now() / 1000)
 const notifications: Notifications_Serialize = {
@@ -285,6 +311,15 @@ const rect = { x: 0, y: 0, width: 0, height: 0, left: 0, top: 0, right: 0, botto
 /** The size each pretend window asked for, so the stage can give it a box (see stage.tsx). */
 export type Size = { width: number; height: number } | null
 const sizes: Record<"panel" | "menu", Size> = { panel: null, menu: null }
+
+/** Where the clicked item sits, so the window can open under it like the real bar places it. */
+export type Anchor = { left: number; right: number; bottom: number } | null
+const anchors: Record<"panel" | "menu", Anchor> = { panel: null, menu: null }
+export const getAnchor = (which: "panel" | "menu") => anchors[which]
+const anchorOf = (id: string): Anchor => {
+  const r = document.querySelector(`[data-item-id="${CSS.escape(id)}"]`)?.getBoundingClientRect()
+  return r ? { left: r.left, right: r.right, bottom: r.bottom } : null
+}
 const listeners = new Set<() => void>()
 export const subscribeSizes = (cb: () => void) => (listeners.add(cb), () => void listeners.delete(cb))
 export const getSize = (which: "panel" | "menu") => sizes[which]
@@ -295,12 +330,14 @@ function setSize(which: "panel" | "menu", width: unknown, height: unknown) {
   listeners.forEach((l) => l())
 }
 
-function openPanel(name: string, anchor: string) {
+function openPanel(name: string, anchor: string, chrome: PanelOpen["chrome"]) {
   if (name === "notifications") {
     state.seen = true
     notifications.unread = false
   }
-  panel = { name, anchor, rect, scale: 1, monitorId: "demo", acrylic: true, chrome: "glass" }
+  panel = { name, anchor, rect, scale: 1, monitorId: "demo", acrylic: true, chrome }
+  anchors.panel = anchorOf(anchor)
+  listeners.forEach((l) => l())
   send("panel-changed", { open: panel })
 }
 
@@ -310,9 +347,10 @@ function closePanel() {
   send("panel-changed", { open: null })
 }
 
+let openMenuId = TIMER
 function closeMenu() {
   setSize("menu", null, null)
-  send("menu-close", { itemId: TIMER })
+  send("menu-close", { itemId: openMenuId })
 }
 
 const clamp01 = (n: unknown) => Math.min(1, Math.max(0, typeof n === "number" ? n : 0))
@@ -377,7 +415,7 @@ export function handle(cmd: string, payload?: InvokeArgs): unknown {
 
     // -- panels and menus
     case "open_panel":
-      openPanel(String(args?.name), String(args?.anchor))
+      openPanel(String(args?.name), String(args?.anchor), args?.chrome === "glass" ? "glass" : "none")
       return null
     case "close_panel":
       closePanel()
@@ -396,20 +434,35 @@ export function handle(cmd: string, payload?: InvokeArgs): unknown {
         count += 1
         items[0] = { ...items[0]!, label: String(count) }
         send("items-changed", items)
-      }
-      if (String(args?.id) === TIMER) {
-        const open: MenuOpen_Serialize = {
-          itemId: TIMER,
-          menu: timerMenu(),
-          anchor: { item: rect, monitorId: "demo", scale: 1, acrylic: true },
+        // Every fifth click the landing page throws confetti from the counter. Same origin only.
+        if (count % 5 === 0) {
+          const r = document.querySelector(`[data-item-id="${COUNTER}"]`)?.getBoundingClientRect()
+          if (r) window.parent.postMessage({ type: "barista-demo", event: "milestone", x: r.left + r.width / 2, y: r.top + r.height / 2 }, location.origin)
         }
+      }
+      const id = String(args?.id)
+      const menu = id === TIMER ? timerMenu() : trayMenu(id)
+      if (menu) {
+        openMenuId = id
+        anchors.menu = anchorOf(id)
+        listeners.forEach((l) => l())
+        const open: MenuOpen_Serialize = { itemId: id, menu, anchor: { item: rect, monitorId: "demo", scale: 1, acrylic: true } }
         send("menu-open", open)
       }
       return null
     }
     case "menu_item_clicked":
-      if (pickTimerEntry(String(args?.menuItemId)) === "close") closeMenu()
+      if (String(args?.itemId) !== TIMER || pickTimerEntry(String(args?.menuItemId)) === "close") closeMenu()
       return null
+
+    // -- tray: pin an icon into the bar, or take it out
+    case "set_pinned": {
+      const pinned = Boolean(args?.pinned)
+      const at = items.findIndex((i) => i.id === args?.id)
+      if (at >= 0) items[at] = { ...items[at]!, pinned, placement: pinned ? "bar" : "overflow" }
+      send("items-changed", items)
+      return null
+    }
 
     // -- quick toggles
     case "set_airplane_mode":

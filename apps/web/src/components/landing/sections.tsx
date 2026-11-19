@@ -2,7 +2,7 @@ import { Bean, BeanGlyph, Plus } from "./icons"
 import { Demo } from "./demo"
 import { FAQ } from "./site"
 import { BarDemo } from "./bar-demo"
-import { DownloadLink, Monitors, Scrub, Seg, Slider, SoonButton, TrayRow } from "./interactive"
+import { DownloadLink, Monitors, Scrub, Seg, Slider, SoonButton } from "./interactive"
 
 function Download({ white = false }: { white?: boolean }) {
   return <DownloadLink white={white} />
@@ -69,9 +69,7 @@ export function Features() {
           <div className="tile tile--wide" data-reveal>
             <h3 className="h3">Tray icons</h3>
             <p>Every app from the Windows tray lives in the bar. Click one and its own menu opens right under it.</p>
-            <Demo script="tray" className="tile__media" hint="Click an icon. Its menu drops right under it." delay={300}>
-              <TrayRow />
-            </Demo>
+            <BarDemo scene="tray" size="tray" label="The real Barista bar with its tray panel open" className="tile__media" />
           </div>
           <div className="tile tile--tall" data-reveal data-delay="80">
             <h3 className="h3">Notifications</h3>

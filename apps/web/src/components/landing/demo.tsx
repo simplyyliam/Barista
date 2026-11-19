@@ -14,13 +14,6 @@ export type Ghost = {
 }
 
 const SCRIPTS = {
-  tray: async (g) => {
-    await g.tap(g.q(".tray__icon", 1))
-    await g.wait(1500)
-    await g.tap(g.q(".tray__icon", 3))
-    await g.wait(1500)
-    await g.tap(g.q(".tray__icon", 3))
-  },
   monitors: async (g) => {
     await g.tap(g.q(".mon", 1))
     await g.wait(1300)
