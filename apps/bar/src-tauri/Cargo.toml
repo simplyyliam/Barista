@@ -28,11 +28,13 @@ sha2 = "0.10"
 # The messages shared with the SDK (crates/protocol is our own crate).
 barista-protocol = { path = "../../../crates/protocol" }
 # Async runtime for the pipe server. Tauri already runs on tokio, so this adds no second copy.
+log = "0.4"
 tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt", "macros", "process"] }
 # Decodes icon data URLs so their size and file type can be checked.
 base64 = "0.23"
 # Reads the toast XML (title, images, buttons) from Windows' notification database.
 roxmltree = "0.21.2"
+tauri-plugin-updater = "2"
 
 # Win32 calls (AppBar, monitors, window styles). Same version Tauri already uses, so Cargo
 # builds only one copy. Each feature is one Win32 header group; add one only when needed.

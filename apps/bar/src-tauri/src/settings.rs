@@ -397,12 +397,15 @@ impl Default for ControlCenterPrefs {
 pub struct Behavior {
     /// Hide the bar while a full-screen app has focus (v0.1).
     pub hide_on_fullscreen: bool,
+    /// Look for a new version every few hours (v0.10). Installing always waits for the user.
+    pub auto_update: bool,
 }
 
 impl Default for Behavior {
     fn default() -> Self {
         Self {
             hide_on_fullscreen: true,
+            auto_update: true,
         }
     }
 }

@@ -419,6 +419,14 @@ export const commands = {
 	importSettings: (text: string) => typedError<null, string>(__TAURI_INVOKE("import_settings", { text })),
 	/**  Switches Windows (apps and system) to dark or light mode. `themeModeChanged` follows. */
 	setDarkMode: (dark: boolean) => __TAURI_INVOKE<void>("set_dark_mode", { dark }),
+	/**  Asks the releases repo whether a newer version exists. `None` = you are up to date. */
+	checkForUpdate: () => typedError<UpdateInfo_Serialize | null, string>(__TAURI_INVOKE("check_for_update")),
+	/**
+	 *  Downloads the update found by the last check, then installs it and starts the new bar.
+	 *  The old bar gives the screen space back first: the Windows installer ends this process
+	 *  without a normal quit, so nothing after `install` would run.
+	 */
+	installUpdate: () => typedError<null, string>(__TAURI_INVOKE("install_update")),
 };
 
 /** Events */
@@ -457,6 +465,7 @@ export const events = {
 	submenuShow: makeEvent<SubmenuShow_Serialize, SubmenuShow_Deserialize>("submenu-show"),
 	themeModeChanged: makeEvent<ThemeModeChanged, ThemeModeChanged>("theme-mode-changed"),
 	trayStyleChanged: makeEvent<TrayStyleChanged, TrayStyleChanged>("tray-style-changed"),
+	updateAvailable: makeEvent<UpdateAvailable_Serialize, UpdateAvailable_Deserialize>("update-available"),
 	userChanged: makeEvent<UserChanged_Serialize, UserChanged_Deserialize>("user-changed"),
 	volumeChanged: makeEvent<VolumeChanged, VolumeChanged>("volume-changed"),
 	wifiChanged: makeEvent<WifiChanged_Serialize, WifiChanged_Deserialize>("wifi-changed"),
@@ -718,11 +727,15 @@ export type Behavior = Behavior_Serialize | Behavior_Deserialize;
 export type Behavior_Deserialize = {
 	/**  Hide the bar while a full-screen app has focus (v0.1). */
 	hideOnFullscreen?: boolean,
+	/**  Look for a new version every few hours (v0.10). Installing always waits for the user. */
+	autoUpdate?: boolean,
 };
 
 export type Behavior_Serialize = {
 	/**  Hide the bar while a full-screen app has focus (v0.1). */
 	hideOnFullscreen: boolean,
+	/**  Look for a new version every few hours (v0.10). Installing always waits for the user. */
+	autoUpdate: boolean,
 };
 
 export type Bluetooth = {
@@ -1780,6 +1793,29 @@ export type TrustRequest = {
 	preview: string[],
 	/**  The preview is not the whole file (more lines, a long line, a big file). */
 	previewCut: boolean,
+};
+
+/**  A newer version was found (by the timer or by "Check for updates"). */
+export type UpdateAvailable = UpdateAvailable_Serialize | UpdateAvailable_Deserialize;
+
+/**  A newer version was found (by the timer or by "Check for updates"). */
+export type UpdateAvailable_Deserialize = UpdateInfo_Deserialize;
+
+/**  A newer version was found (by the timer or by "Check for updates"). */
+export type UpdateAvailable_Serialize = UpdateInfo_Serialize;
+
+export type UpdateInfo = UpdateInfo_Serialize | UpdateInfo_Deserialize;
+
+export type UpdateInfo_Deserialize = {
+	version: string,
+	/**  The release notes from the changelog, if the release has any. */
+	notes?: string | null,
+};
+
+export type UpdateInfo_Serialize = {
+	version: string,
+	/**  The release notes from the changelog, if the release has any. */
+	notes: string | null,
 };
 
 export type User = User_Serialize | User_Deserialize;
