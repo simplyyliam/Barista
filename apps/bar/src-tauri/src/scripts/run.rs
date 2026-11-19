@@ -58,9 +58,10 @@ pub struct RunSpec {
     pub cwd: PathBuf,
 }
 
-/// Run by `powershell.exe -Command`: UTF-8 stdout without a BOM, run the script, pass its exit code on.
-const POWERSHELL_WRAPPER: &str =
-    "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; & $env:BARISTA_SCRIPT; exit $LASTEXITCODE";
+/// Run by `powershell.exe -Command`: UTF-8 stdout without a BOM, run the script, and pass on how it ended: a
+/// failing program *inside* a good script is not a failure (`$?` is true), `exit 3` gives 3, a throw gives 1.
+const POWERSHELL_WRAPPER: &str = "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; $global:LASTEXITCODE = 0; \
+& $env:BARISTA_SCRIPT; if ($?) { exit 0 } elseif ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 }";
 
 /// Looks `name.exe` up in every PATH folder. `skip_store_stub` ignores the empty `python.exe` that
 /// Windows ships in `WindowsApps` (it opens the Microsoft Store instead of running anything).
@@ -70,6 +71,21 @@ fn find_on_path(name: &str, skip_store_stub: bool) -> Option<PathBuf> {
         .filter(|dir| !(skip_store_stub && dir.to_string_lossy().to_ascii_lowercase().contains("windowsapps")))
         .map(|dir| dir.join(format!("{name}.exe")))
         .find(|candidate| candidate.is_file())
+}
+
+/// Python from the Microsoft Store has no `py` launcher, and `python.exe` on PATH is the empty alias
+/// that only opens the Store. But an installed Store Python also leaves a
+/// `PythonSoftwareFoundation.Python.*` folder next to the alias with the real `python.exe` in it.
+fn find_store_python(windows_apps: &Path) -> Option<PathBuf> {
+    let mut folders: Vec<PathBuf> = std::fs::read_dir(windows_apps)
+        .ok()?
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with("PythonSoftwareFoundation.Python"))
+        .map(|e| e.path())
+        .collect();
+    // The newest version sorts last.
+    folders.sort();
+    folders.iter().rev().map(|d| d.join("python.exe")).find(|p| p.is_file())
 }
 
 /// The program and its leading arguments (the script path comes last).
@@ -94,6 +110,10 @@ pub fn command_for(interpreter: Interpreter) -> Result<(PathBuf, Vec<OsString>),
         Interpreter::Python => {
             let exe = find_on_path("py", false)
                 .or_else(|| find_on_path("python", true))
+                .or_else(|| {
+                    let local = std::env::var_os("LOCALAPPDATA")?;
+                    find_store_python(&Path::new(&local).join(r"Microsoft\WindowsApps"))
+                })
                 .ok_or_else(|| missing("Python"))?;
             Ok((exe, vec![]))
         }
@@ -264,6 +284,14 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_failing_program_inside_a_good_powershell_script_is_not_an_error() {
+        // `cmd /c exit 5` leaves $LASTEXITCODE at 5, but the script itself finished fine and printed its label.
+        let Some(spec) = ps_script("'label'; cmd /c exit 5; 'more'") else { return };
+        let out = run(spec).await.unwrap();
+        assert!(String::from_utf8_lossy(&out).contains("label"));
+    }
+
+    #[tokio::test]
     async fn powershell_exit_codes_come_through() {
         let Some(spec) = ps_script("[Console]::Error.WriteLine('nope'); exit 3") else { return };
         assert!(matches!(run(spec).await, Err(RunError::Exit { code: Some(3), .. })));
@@ -389,6 +417,27 @@ mod tests {
         let out = run(spec).await.unwrap();
         assert!(String::from_utf8_lossy(&out).contains("label"));
         assert!(started.elapsed() < Duration::from_secs(3));
+    }
+
+    #[test]
+    fn store_python_is_found_by_its_package_folder_and_the_empty_alias_is_not() {
+        let dir = std::env::temp_dir().join(format!("barista-winapps-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // The alias alone (what every Windows has): not Python.
+        std::fs::write(dir.join("python.exe"), "").unwrap();
+        assert_eq!(find_store_python(&dir), None);
+        // A package folder without the exe: still not.
+        std::fs::create_dir_all(dir.join("PythonSoftwareFoundation.Python.3.11_x")).unwrap();
+        assert_eq!(find_store_python(&dir), None);
+        // Two installed versions: the newest wins.
+        for v in ["3.11_x", "3.13_x"] {
+            let d = dir.join(format!("PythonSoftwareFoundation.Python.{v}"));
+            std::fs::create_dir_all(&d).unwrap();
+            std::fs::write(d.join("python.exe"), "").unwrap();
+        }
+        let found = find_store_python(&dir).unwrap();
+        assert!(found.to_string_lossy().contains("3.13_x"));
     }
 
     #[test]

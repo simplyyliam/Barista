@@ -41,6 +41,7 @@ fn entry(id: Option<String>, kind: MenuItemType, label: &str, color: Option<Stri
         accelerator: None,
         role: None,
         icon: None,
+        info: false,
         color,
         submenu,
     }
@@ -77,7 +78,9 @@ pub fn from_output(nodes: &[Node]) -> Built {
                     }
                     let submenu = walk(children, next, actions);
                     let kind = if submenu.is_empty() { MenuItemType::Normal } else { MenuItemType::Submenu };
-                    entry(Some(id), kind, &label, color, true, submenu)
+                    // A line with no action and no submenu is only text: the UI draws it without a hover.
+                    let info = submenu.is_empty() && !actions.contains_key(&id);
+                    MenuEntry { info, ..entry(Some(id), kind, &label, color, true, submenu) }
                 }
             })
             .collect()
@@ -172,6 +175,21 @@ Open | shell=calc");
         assert_eq!(first.entries[0].id, build("l
 ---
 Open | shell=taskmgr").entries[0].id);
+    }
+
+    #[test]
+    fn lines_without_an_action_are_info_and_the_others_are_not() {
+        let b = build("l
+---
+plain
+web | href=https://example.com
+Top
+--child");
+        let by = |label: &str| b.entries.iter().find(|e| e.label == label).unwrap();
+        assert!(by("plain").info);
+        assert!(!by("web").info);
+        assert!(!by("Top").info, "a submenu is not info");
+        assert!(by("Top").submenu[0].info);
     }
 
     #[test]

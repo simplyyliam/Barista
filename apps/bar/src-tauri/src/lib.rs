@@ -1,6 +1,7 @@
 //! Barista's native side. The frontend only renders state it gets from here (CLAUDE.md rule 5).
 
 mod appearance;
+mod appmenu;
 mod bar;
 mod commands;
 mod controller;
@@ -37,9 +38,11 @@ fn specta_builder() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new()
         .commands(collect_commands![
             commands::get_version,
+            commands::get_app_menus,
             commands::scripts::get_scripts,
             commands::scripts::get_script_trust_requests,
             commands::scripts::set_scripts_enabled,
+            commands::scripts::set_scripts_allow_shell,
             commands::scripts::set_scripts_default_interval,
             commands::scripts::set_script_enabled,
             commands::scripts::set_script_interval,
@@ -181,6 +184,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             events::PanelWarm,
             appearance::BarAppearanceChanged,
             scripts::ScriptsChanged,
+            appmenu::AppMenusChanged,
             scripts::ScriptTrustRequested
         ])
 }
@@ -283,6 +287,7 @@ pub fn run() {
             #[cfg(windows)]
             tray::init(registry.clone());
             scripts::init(app.handle(), registry.clone());
+            appmenu::init(app.handle(), registry.clone());
             // For the memory bench: no pipe command or simulated click opens the settings window.
             if std::env::var_os("BARISTA_OPEN_SETTINGS").is_some() {
                 settings_window::open(app.handle());

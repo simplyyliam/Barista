@@ -77,3 +77,60 @@ pub fn watch(handler: fn(u32)) {
         eprintln!("could not watch the foreground window: outside clicks will not close popovers");
     }
 }
+
+static WINDOW_HANDLER: OnceLock<fn(isize)> = OnceLock::new();
+
+unsafe extern "system" fn on_foreground_window(
+    _hook: HWINEVENTHOOK,
+    _event: u32,
+    hwnd: HWND,
+    _object: i32,
+    _child: i32,
+    _thread: u32,
+    _time: u32,
+) {
+    if !hwnd.0.is_null() {
+        if let Some(handler) = WINDOW_HANDLER.get() {
+            handler(hwnd.0 as isize);
+        }
+    }
+}
+
+/// Like `watch`, but hands over the window handle (application menus need the window, not just the
+/// process). A second hook: both can run. Call once, from the main thread.
+pub fn watch_window(handler: fn(isize)) {
+    if WINDOW_HANDLER.set(handler).is_err() {
+        return;
+    }
+    // SAFETY: same as `watch`: OUTOFCONTEXT, no injection, events come to our own message loop.
+    let hook = unsafe {
+        SetWinEventHook(
+            EVENT_SYSTEM_FOREGROUND,
+            EVENT_SYSTEM_FOREGROUND,
+            None,
+            Some(on_foreground_window),
+            0,
+            0,
+            WINEVENT_OUTOFCONTEXT,
+        )
+    };
+    if hook.is_invalid() {
+        eprintln!("could not watch the foreground window: application menus will not follow the app in front");
+    }
+}
+
+/// The window that has the foreground right now (0 if none).
+pub fn current_window() -> isize {
+    // SAFETY: plain call.
+    unsafe { GetForegroundWindow().0 as isize }
+}
+
+/// Brings a window to the front. Allowed because the user just clicked the bar (our process has the
+/// last input), which is how the app gets the focus back after one of its menu entries was picked.
+pub fn focus(hwnd: isize) {
+    use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
+    // SAFETY: plain call; it just returns false if Windows refuses.
+    unsafe {
+        let _ = SetForegroundWindow(HWND(hwnd as *mut _));
+    }
+}

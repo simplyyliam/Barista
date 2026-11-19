@@ -1,10 +1,12 @@
+import { useAppMenus } from "@/shared/hooks/use-app-menus";
 import { MenubarItem } from "./menubar-item";
 
-/** The app name next to the logo, bold like macOS. Later: the name of the app in front. */
+/** The name of the app in front next to the logo, bold like macOS. "Barista" on the desktop. */
 export function AppName({ open }: { open?: boolean }) {
+  const name = useAppMenus()?.appName;
   return (
     <MenubarItem variant="app" open={open} className="font-bar-strong">
-      Barista
+      {name || "Barista"}
     </MenubarItem>
   );
 }

@@ -56,6 +56,12 @@ export function ScriptTrustPanel({ active }: { active: boolean }) {
       >
         {current.preview.length ? current.preview.join("\n") : "(empty file)"}
       </pre>
+      {current.previewCut && (
+        <p className="-mt-1 text-[12px] leading-snug opacity-60">
+          There is more in the file than shown here: some lines or the end are left out. Open it in your editor to
+          read all of it before you allow it.
+        </p>
+      )}
       <p className="text-[12px] leading-snug opacity-60">
         Scripts run with your permissions. Barista can't sandbox them, so only allow ones you trust. If the file
         changes, you'll be asked again.

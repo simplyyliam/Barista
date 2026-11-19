@@ -37,3 +37,11 @@ a process and memory for no gain, since the runner has no UI of its own.
 - A bug in the runner is a bug in the bar process, so the runner never `unwrap`s on script data and every
   limit (64 KB, 200 lines, timeout) is checked in Rust.
 - Scripts run with the user's permissions. This is a trust prompt, **not a sandbox**.
+- **Known and accepted:** the hash is checked just before each run and the interpreter opens the file a
+  moment later, so a write in between runs unreviewed content once (the watcher then asks again).
+  Closing that gap means keeping the file locked against writes during every run, which would make editors
+  fail to save a script while it runs (a PowerShell script runs about a third of the time at 5 s). Only
+  someone who can already write to the folder can use it, and that person can already run code as the user.
+- A menu line with `shell=` starts a program. Settings has a switch for that (default on), because a
+  script that prints outside data (a window title, a branch name) could otherwise let that data start one.
+

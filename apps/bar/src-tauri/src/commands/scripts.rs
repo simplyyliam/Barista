@@ -36,6 +36,13 @@ pub fn set_scripts_enabled(app: tauri::AppHandle, on: bool) {
     scripts::apply_settings();
 }
 
+/// Whether menu lines with `shell=` may start a program. Off: they do nothing.
+#[tauri::command]
+#[specta::specta]
+pub fn set_scripts_allow_shell(app: tauri::AppHandle, on: bool) {
+    change(&app, |s| s.scripts.allow_shell = on);
+}
+
 /// The interval for scripts whose file name has none (1 s to 30 days).
 #[tauri::command]
 #[specta::specta]

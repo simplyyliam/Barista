@@ -34,18 +34,18 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - `pnpm bench 0.9` ran (docs/perf/0.9.md): five scripts at 10 s = 0.07% CPU. The first run found 1.06%: the thread snapshot used to resume a new process cost 80 ms of bar CPU per run, now `NtResumeProcess`.
 - Gotcha: killing the dev `barista.exe` ends the whole `pnpm dev` session (vite too). The example clients (test-client, spotify, ...) from
   `pnpm dev` were not restarted.
-- Fix next (dogfooding the format):
-  - Params separated by ` | ` (xbar style) silently turn into label text.
-  - Plain menu lines are clickable but do nothing (UI could draw them as inert).
-  - Python from the Microsoft Store (no `py` launcher) reads as "Python not found": `run.rs` skips every `WindowsApps` PATH folder to avoid the Store stub.
-  - The trust preview shows only the first 12 lines (100 chars each) without saying it is cut; the hash covers the whole file.
-  - Hash check and the interpreter's read are two reads (tiny window; only someone who can already write the folder can use it).
-  - A script that prints outside data with ` | shell=` lets that data start a program on click (inherent to the format; consider a global switch for `shell=`).
-  - `.ps1` is slow: the first system monitor took 4.8 s (try/catch per process, `Win32_Processor`); now 1.7 s. Needs a docs note per interpreter.
-  - An error item shows only the file title, not the last good label; "Show error" is the only place the reason is visible.
-  - No "last run / duration" in settings; no way to see a script's output without running it.
-  - Duplicate ids (`a.5s.py` + `a.10s.py`) only show as "invalid" in settings.
-- Liam also asked (2026-11-19) for application menus (File/Edit/View) that really work: in `docs/release/releases/backlog.md` (local file), needs a research spike first. Not in v0.9.
+- Fix next (dogfooding the format): all done on `feature/script-fixes-and-app-menus` (xbar ` | ` params, Store Python, inert text lines,
+  last good label on error, last run + duration, duplicate message, preview-cut note, `shell=` switch, docs per interpreter). The hash-to-read
+  window is a documented accepted risk (ADR 0034): closing it would lock the file against editors during runs.
+- **Application menus built** (`feature/script-fixes-and-app-menus`, ADR 0036, stacked on the v0.9 branch): `src-tauri/src/appmenu/` (service, caps and cleaning,
+  `entries_from`), `platform/windows/win32_menu.rs` (GetMenu + WM_COMMAND), `uia_menu.rs` (UI Automation on a worker thread: expand, read, collapse; invoke by path),
+  `app_info.rs` (app name), `foreground::watch_window`. Registry keys `appmenu/<n>` (not in the item list). UI: `features/menubar/app-menus.tsx`, app name follows the app in
+  front, new built-in item `app-menus` (bar editor can hide it). New for the UI (wired): `getAppMenus`, event `appMenusChanged`.
+  Verified live: System Information (classic) and Windows 11 Notepad (UIA), including picking entries. Chromium/Electron/GPU apps expose nothing: name only.
+  Apps with no readable menu get a generic Edit + Window menu (SendInput chords, WM_SYSCOMMAND), only for normal app windows (`is_normal_window`). Zed, Figma, Zen verified.
+  App name comes from the exe's FileDescription, read up to the first NUL (Spotify fix).
+  **UIA reading was removed** (the app's own popup fought the bar's menu; see the ADR update). Only classic menus + the generic Edit/Window menu remain. Modern apps (Notepad, Zed...) show Edit/Window only.
+  Not done: keyboard access (Alt), item icons, hover-switching between UIA titles, a faster UIA read (about 0.8 s: one cache request per item would cut it).
 
 ## Facts a new session needs
 

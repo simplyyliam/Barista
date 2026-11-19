@@ -1,0 +1,43 @@
+---
+title: Application menus
+description: The menus of the app in front (File, Edit, View) in the Barista menu bar.
+---
+
+Like the macOS menu bar, Barista shows the name of the app in front and its menus next to it. Click a
+title and the menu opens under it; pick an entry and it runs in that app, as if you had used the app's own
+menu.
+
+## Which apps work
+
+Windows has no clean way to read another app's menus, so Barista reads the one kind that is reliable:
+
+| App style | Examples | How it shows |
+| --- | --- | --- |
+| Classic Windows menu bar | System Information, Registry Editor, Notepad++, 7-Zip | Instant. Check marks and greyed-out entries are the app's real state. |
+
+Modern apps (Windows 11 Notepad, browsers, Electron apps such as Figma, Spotify or Zed) draw their own
+menus and only show the items while a menu is open, so there is nothing Barista can read without opening
+the app's menu itself, which it does not do. For those, and for any other normal app window, the bar shows two
+standard menus instead, the same for every app so it is clear what they are:
+
+- **Edit**: Undo, Cut, Copy, Paste and Select All. Each types the usual shortcut (Ctrl+Z, Ctrl+X, Ctrl+C,
+  Ctrl+V, Ctrl+A) into the app, so it works wherever the shortcut does.
+- **Window**: Minimize, Zoom (maximize and restore) and Close Window, which do what the window's own
+  title bar buttons do.
+
+The desktop, the taskbar, the Start menu and other shell windows show no menus. An app running as
+administrator while Barista is not cannot be controlled (Windows blocks it), so its menus do nothing.
+
+## Turning it off
+
+Settings > Menu bar: switch off "App menus" in the list of bar items. The app name stays; the menus go and
+Barista stops following the app in front.
+
+## What it can and cannot do
+
+- Entries run in the window you were looking at, and only if it is still the same program. Barista never
+  runs anything itself: it tells the app which of its own menu entries you picked.
+- Menu text comes from the other app, so Barista cleans it (no control characters, limited length and
+  depth) and only ever shows it as text.
+- Not supported yet: keyboard access (Alt and menu letters), item icons, owner-drawn entries (they have
+  no text to read), and the Help search box.

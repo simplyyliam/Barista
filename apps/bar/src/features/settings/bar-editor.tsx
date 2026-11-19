@@ -28,6 +28,8 @@ export function Glyph({ id, pref, settings }: { id: BuiltInId; pref: BarItemPref
       return <BrandLogo />
     case "app-name":
       return <span className="font-bar-strong">Barista</span>
+    case "app-menus":
+      return <span>File&nbsp;&nbsp;&nbsp;Edit&nbsp;&nbsp;&nbsp;View</span>
     case "battery":
       return (
         <>
@@ -57,7 +59,7 @@ export function Glyph({ id, pref, settings }: { id: BuiltInId; pref: BarItemPref
 }
 
 export const pillClass = (pref: BarItemPref_Serialize) => {
-  const iconOnly = pref.id !== "app-name" && pref.id !== "clock" && !(pref.id === "battery" && pref.display !== "icon")
+  const iconOnly = pref.id !== "app-name" && pref.id !== "app-menus" && pref.id !== "clock" && !(pref.id === "battery" && pref.display !== "icon")
   return cn(
     "flex h-[calc(var(--bar-h)-4px)] items-center gap-1.5 rounded-full text-bar-fg select-none",
     iconOnly ? "w-7 justify-center" : "px-[9px]",

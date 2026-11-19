@@ -59,13 +59,14 @@ Open the docs | href=https://example.com
 Refresh now | refresh=true
 ```
 
-Parameters come after the last ` | `, written `key=value` and separated by spaces. Quote values that contain
-spaces (`param1="my file.txt"`).
+Parameters come after a ` | `, written `key=value`. Separate them with spaces or with ` | ` (both work, so
+scripts written for xbar read the same). Quote values that contain spaces (`param1="my file.txt"`). A line
+with no parameters and no submenu is plain text: it shows in the menu but has no hover and does nothing.
 
 | Param | Does |
 | --- | --- |
 | `href=` | Opens a link in your browser. Only `http`, `https` and `mailto`. |
-| `shell=` with `param1=`, `param2=` ... | Starts a program with those arguments. No shell string is built, so menu text can't inject a command. |
+| `shell=` with `param1=`, `param2=` ... | Starts a program with those arguments. No shell string is built, so menu text can't inject a command. Settings has a switch to turn all `shell=` lines off. |
 | `refresh=true` | Runs the script again after the click. |
 | `color=` | Colors the line: a name (`red`, `orange`, `green` ...) or `#rrggbb`. |
 | `--` before the text | A submenu. More dashes go deeper, three levels at most. |
@@ -77,10 +78,20 @@ spaces (`param1="my file.txt"`).
 - A run is stopped after 10 seconds (never longer than the interval), and so is everything it started.
 - A script never runs twice at once. After failures the wait doubles, up to 5 minutes. Click the item or
   choose "Run again" to try right away.
-- Windows PowerShell starts slowly (a second or more for a script like the system monitor). Use 5 seconds
-  or longer for `.ps1` scripts.
+- Interpreters differ a lot in cost per run: Node about 0.13 s of CPU, Python about 0.03 s, Windows
+  PowerShell 1.5 s or more for a script like the system monitor. Use 5 seconds or longer for `.ps1` scripts,
+  and `.py` or `.mjs` for anything that runs often. In PowerShell, `Get-CimInstance` costs 0.2 to 1 s per call
+  and a `try/catch` around every process costs seconds: `.CPU`, `[IO.DriveInfo]` and
+  `Microsoft.VisualBasic.Devices.ComputerInfo` are cheap.
+- Python from the Microsoft Store works (Barista finds it through its package folder). If a script says
+  "Python not found", install Python from python.org or the Store.
+- The trust prompt shows the first lines of the file and says when there is more. Open the file in your
+  editor to read all of it. Barista checks the file's hash before every run, but there is a very small gap
+  between that check and the interpreter opening the file: anyone who can write to your scripts folder can
+  already run code as you, so the folder is as private as your user account.
 
 ## When something goes wrong
 
-The item shows an error mark. Its menu has "Show error", "Run again", "Open script" and "Disable". A failing
+The item shows an error mark and keeps the last good label next to it. Settings shows when each script last
+ran and how long it took. Its menu has "Show error", "Run again", "Open script" and "Disable". A failing
 script never affects the bar or another script.

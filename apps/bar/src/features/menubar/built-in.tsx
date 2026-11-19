@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import type { BarItemPref_Serialize } from "@/shared/bindings"
+import { AppMenus } from "./app-menus"
 import { AppName } from "./app-name"
 import { Battery } from "./battery"
 import { BrandItem } from "./brand-item"
@@ -10,13 +11,14 @@ import { Volume } from "./volume"
 import { Wifi } from "./wifi"
 
 /** The bar's own items, by the ids Rust saves (`settings.rs` BAR_ITEMS). */
-export const BUILT_IN_IDS = ["brand", "app-name", "battery", "wifi", "volume", "search", "control-center", "clock"] as const
+export const BUILT_IN_IDS = ["brand", "app-name", "app-menus", "battery", "wifi", "volume", "search", "control-center", "clock"] as const
 export type BuiltInId = (typeof BUILT_IN_IDS)[number]
 
 /** Which side an item lives on. The order in the settings list decides the order inside a side. */
 export const ZONE: Record<BuiltInId, "left" | "right"> = {
   brand: "left",
   "app-name": "left",
+  "app-menus": "left",
   battery: "right",
   wifi: "right",
   volume: "right",
@@ -29,6 +31,7 @@ export const ZONE: Record<BuiltInId, "left" | "right"> = {
 export const BUILT_IN_NAMES: Record<BuiltInId, string> = {
   brand: "Barista logo",
   "app-name": "App name",
+  "app-menus": "App menus",
   battery: "Battery",
   wifi: "Wi-Fi",
   volume: "Volume",
@@ -49,6 +52,8 @@ export function renderBuiltIn(pref: BarItemPref_Serialize): ReactNode {
       return <BrandItem />
     case "app-name":
       return <AppName />
+    case "app-menus":
+      return <AppMenus />
     case "battery":
       return <Battery showLabel={pref.display !== "icon"} />
     case "wifi":

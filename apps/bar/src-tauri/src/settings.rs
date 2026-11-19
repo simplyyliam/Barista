@@ -196,9 +196,10 @@ impl Default for BarItemPref {
 }
 
 /// Built-in items in the default order (left group first, then the right group as it is drawn).
-pub const BAR_ITEMS: [&str; 8] = [
+pub const BAR_ITEMS: [&str; 9] = [
     "brand",
     "app-name",
+    "app-menus",
     "battery",
     "wifi",
     "volume",
@@ -445,6 +446,8 @@ impl Default for ScriptPref {
 #[serde(default, rename_all = "camelCase")]
 pub struct ScriptsPrefs {
     pub enabled: bool,
+    /// Menu lines with `shell=` may start a program. Off = those lines do nothing (`href` links still work).
+    pub allow_shell: bool,
     pub default_interval_secs: u32,
     /// By script id (`clock.mjs`).
     pub per_script: BTreeMap<String, ScriptPref>,
@@ -454,6 +457,7 @@ impl Default for ScriptsPrefs {
     fn default() -> Self {
         Self {
             enabled: true,
+            allow_shell: true,
             default_interval_secs: DEFAULT_SCRIPT_INTERVAL_SECS,
             per_script: BTreeMap::new(),
         }
