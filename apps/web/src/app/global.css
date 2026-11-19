@@ -19,6 +19,11 @@
 }
 ::view-transition-new(root) {
   z-index: 2;
+  /* A soft-edged disc, grown by the toggle (components/theme-toggle.tsx). */
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 60%, transparent 100%);
+  mask-image: radial-gradient(circle closest-side, #000 60%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .theme-toggle {

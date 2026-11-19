@@ -2,7 +2,7 @@
 .sl{
   --cur-bean:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 160' width='26' height='30'><ellipse cx='70' cy='82' rx='52' ry='68' transform='rotate(-14 70 82)' fill='%237a4f38' stroke='%23fff' stroke-width='8'/><rect x='38' y='62' width='24' height='38' rx='12' fill='%23fff'/><rect x='78' y='62' width='24' height='38' rx='12' fill='%23fff'/><circle cx='50' cy='84' r='6.5' fill='%230a0a0a'/><circle cx='90' cy='84' r='6.5' fill='%230a0a0a'/></svg>");--cur-bean-link:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 160' width='32' height='37'><ellipse cx='70' cy='82' rx='52' ry='68' transform='rotate(-14 70 82)' fill='%237a4f38' stroke='%23fff' stroke-width='8'/><rect x='38' y='62' width='24' height='38' rx='12' fill='%23fff'/><rect x='78' y='62' width='24' height='38' rx='12' fill='%23fff'/><circle cx='50' cy='84' r='6.5' fill='%230a0a0a'/><circle cx='90' cy='84' r='6.5' fill='%230a0a0a'/></svg>");
   --bg:#ededed;--surface:#fff;--ink:#0a0a0a;--muted:#5f5f5f;--soft:#f3f3f3;
-  --accent:#a87857;--bean:#7a4f38;--on-accent:#fff;--btn-bg:#0a0a0a;--btn-ink:#fff;
+  --accent:#a87857;--bean:#7a4f38;--on-accent:#fff;--btn-bg:#0a0a0a;--btn-ink:#fff;--ghost:rgba(10,10,10,.07);--quiet:rgba(0,0,0,.06);--quiet-hover:rgba(0,0,0,.09);
   --lift:0 1px 2px rgba(0,0,0,.04),0 16px 48px rgba(0,0,0,.08);
   --r-lg:40px;--r-md:30px;--gutter:30px;--container:1200px;--bar-h:72px;
   background:var(--bg);color:var(--ink);min-height:100vh;
@@ -70,8 +70,8 @@
 .sl .btn--sm{padding:10px 15px;font-size:14px;line-height:1.4}
 .sl .btn--primary{background:var(--btn-bg);color:var(--btn-ink)}
 .sl .btn--primary:hover{opacity:.85}
-.sl .btn--quiet{background:rgba(0,0,0,.06);color:var(--ink)}
-.sl .btn--quiet:hover{background:rgba(0,0,0,.09)}
+.sl .btn--quiet{background:var(--quiet);color:var(--ink)}
+.sl .btn--quiet:hover{background:var(--quiet-hover)}
 .sl .btn--white{background:#fff;color:#0a0a0a}
 .sl .btn--white:hover{opacity:.85}
 .sl .btn[aria-disabled="true"]{background:var(--soft);color:var(--muted);cursor:default}
@@ -187,7 +187,7 @@
 .sl .faq__q::-webkit-details-marker{display:none}
 .sl .faq__icon{width:16px;height:16px;margin-top:4px;flex:none;opacity:.35;transition:transform .25s ease,opacity .25s ease;stroke:var(--ink);stroke-width:2;fill:none}
 .sl .faq__item[open] .faq__icon{transform:rotate(45deg);opacity:1}
-.sl .faq__a{margin:12px 0 0 32px;font-size:18px;font-weight:700;line-height:1.4;letter-spacing:-.04em;color:rgba(10,10,10,.45)}
+.sl .faq__a{margin:12px 0 0 32px;font-size:18px;font-weight:700;line-height:1.4;letter-spacing:-.04em;color:color-mix(in oklab,var(--ink) 45%,transparent)}
 
 /* closing panel */
 .sl .closer{background:#0a0a0a;border-radius:var(--r-lg);padding:100px 60px 120px;position:relative;overflow:hidden;--ink:#fff;--muted:rgba(255,255,255,.6)}
@@ -201,8 +201,8 @@
 .sl .footer ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
 .sl .footer li a{font-size:14px;line-height:1.6;color:var(--muted);text-decoration:none;transition:all .2s ease}
 .sl .footer li a:hover{opacity:.8}
-.sl .footer .copy{font-size:14px;line-height:1.6;color:rgba(10,10,10,.45);margin:0}
-.sl .wordmark{position:relative;overflow:hidden;height:.62em;font-size:min(33vw,340px);font-weight:700;letter-spacing:-.06em;line-height:.9;color:rgba(10,10,10,.07);text-align:center;margin-top:80px;user-select:none;white-space:nowrap}
+.sl .footer .copy{font-size:14px;line-height:1.6;color:color-mix(in oklab,var(--ink) 45%,transparent);margin:0}
+.sl .wordmark{position:relative;overflow:hidden;height:.62em;font-size:min(33vw,340px);font-weight:700;letter-spacing:-.06em;line-height:.9;color:var(--ghost);text-align:center;margin-top:80px;user-select:none;white-space:nowrap}
 
 /* interactive bits */
 .sl .demo{position:relative}
@@ -293,7 +293,7 @@
 .sl .wordmark[data-mode="gl"] .wordmark__text{opacity:0}
 .sl .wordmark .bean{opacity:0;transition:opacity .5s ease;z-index:1}
 .sl .wordmark[data-ready="true"] .bean{opacity:1}
-.sl .wordmark[data-mode="css"] .wordmark__text{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(var(--accent),var(--accent)),linear-gradient(rgba(10,10,10,.07),rgba(10,10,10,.07));background-repeat:no-repeat;background-position:0 100%,0 0;background-size:100% 0%,100% 100%;transition:background-size 1.4s cubic-bezier(.34,1.3,.64,1)}
+.sl .wordmark[data-mode="css"] .wordmark__text{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(var(--accent),var(--accent)),linear-gradient(var(--ghost),var(--ghost));background-repeat:no-repeat;background-position:0 100%,0 0;background-size:100% 0%,100% 100%;transition:background-size 1.4s cubic-bezier(.34,1.3,.64,1)}
 .sl .wordmark[data-mode="css"][data-in="true"] .wordmark__text{background-size:100% 55%,100% 100%}
 .sl .wordmark[data-mode="css"] .wordmark__gl{display:none}
 
@@ -418,11 +418,18 @@
 .dark .sl{
   color-scheme:dark;
   --bg:#0a0a0b;--surface:#1a1a1c;--ink:#f4f4f5;--muted:#a1a1a8;--soft:#222225;
-  --btn-bg:#f4f4f5;--btn-ink:#0a0a0a;
+  --btn-bg:#f4f4f5;--btn-ink:#0a0a0a;--ghost:rgba(255,255,255,.1);--quiet:rgba(255,255,255,.08);--quiet-hover:rgba(255,255,255,.13);
   --lift:0 1px 2px rgba(0,0,0,.4),0 16px 48px rgba(0,0,0,.45);
 }
 /* dark: panels that were separated by shadow alone get a hairline edge so they read against the page */
-.dark .sl .tile,.dark .sl .card,.dark .sl .stat,.dark .sl .set,.dark .sl .code,.dark .sl .closer,.dark .sl .bar-demo,.dark .sl .faq__item{
+.dark .sl .tile,.dark .sl .card,.dark .sl .set,.dark .sl .code,.dark .sl .closer,.dark .sl .bar-demo,.dark .sl .faq__item{
   box-shadow:var(--lift),inset 0 0 0 1px rgba(255,255,255,.08);
 }
 .dark .sl .bar__inner{box-shadow:0 0 0 1px rgba(255,255,255,.1),var(--lift)}
+
+/* dark: the small controls that had fixed light colours */
+.dark .sl .seg{background:#2c2c30}
+.dark .sl .seg__thumb{background:#46464c;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.dark .sl .set__slider{background:#3a3a3f}
+.dark .sl .mon{background:#2d2d32}
+.dark .sl .mon[data-active="true"]::before{background:var(--ink)}

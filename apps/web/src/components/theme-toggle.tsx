@@ -4,11 +4,13 @@ import { useTheme } from "fumadocs-ui/provider/base"
 import { useEffect, useState } from "react"
 import { flushSync } from "react-dom"
 
-// One theme switch for the landing page and the docs. A click does not swap the colours: the new theme
-// opens as a circle from the button and grows across the page (View Transitions), like a light coming
-// on at the switch. Browsers without it, and people who asked for less motion, get an instant change.
+// One theme switch for the landing page and the docs. A click does not snap the colours: the new theme
+// spreads out from the button with a soft edge (View Transitions + a feathered mask), slowly enough to
+// feel like light moving across the page rather than a flash. Browsers without it, and people who asked
+// for less motion, get an instant change.
 
-const SPRING = "cubic-bezier(0.22, 1, 0.36, 1)"
+const DURATION = 1300
+const EASE = "cubic-bezier(0.45, 0, 0.2, 1)" // eases in and out: no sudden start, no sudden stop
 
 export function ThemeToggle({ className = "" }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme()
@@ -26,12 +28,18 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
     const x = box.left + box.width / 2
     const y = box.top + box.height / 2
     const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))
+    // The mask is a soft-edged disc (see global.css): fully opaque inside 60% of its radius, so it has to be
+    // big enough that the opaque part covers the farthest corner when it is done.
+    const size = radius * 3.6
 
     const transition = document.startViewTransition(() => flushSync(() => setTheme(next)))
     void transition.ready.then(() =>
       document.documentElement.animate(
-        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: 650, easing: SPRING, pseudoElement: "::view-transition-new(root)" },
+        {
+          maskSize: ["0px 0px", `${size}px ${size}px`],
+          maskPosition: [`${x}px ${y}px`, `${x - size / 2}px ${y - size / 2}px`],
+        },
+        { duration: DURATION, easing: EASE, pseudoElement: "::view-transition-new(root)" },
       ),
     )
   }
