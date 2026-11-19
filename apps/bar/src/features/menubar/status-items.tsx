@@ -1,6 +1,6 @@
 import { commands } from "@/shared/bindings";
 import { useItems } from "@/shared/hooks/use-items";
-import { Icon } from "@barista/ui/icons";
+import { AlertCircleIcon, Icon, LockIcon } from "@barista/ui/icons";
 import { AnimatePresence } from "motion/react";
 import { ITEM_ENTER, ITEM_EXIT, ITEM_HIDDEN, ITEM_SHOWN } from "@/shared/motion";
 import { useArrivalDelays } from "./hooks/use-arrival-delays";
@@ -40,7 +40,10 @@ export function StatusItems() {
           }}
         >
           {item.icon && <Icon icon={item.icon} />}
-          {item.label}
+          {/* Script items (v0.9): a mark while the script failed or waits for the user's yes. */}
+          {item.script === "error" && <Icon icon={AlertCircleIcon} size={14} />}
+          {item.script === "untrusted" && <Icon icon={LockIcon} size={13} />}
+          {item.color ? <span style={{ color: item.color }}>{item.label}</span> : item.label}
         </MenubarItem>
       ))}
     </AnimatePresence>

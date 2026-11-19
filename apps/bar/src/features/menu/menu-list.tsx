@@ -73,7 +73,9 @@ export function MenuList({ entries, highlighted, expanded = null, idPrefix, onHo
                 <Indicator entry={entry} />
               </span>
             )}
-            <span className="min-w-0 flex-1 truncate whitespace-nowrap">{entry.label}</span>
+            <span className="min-w-0 flex-1 truncate whitespace-nowrap" style={entry.color ? { color: entry.color } : undefined}>
+              {entry.label}
+            </span>
             {entry.accelerator && (
               <span className="ml-6 shrink-0 whitespace-nowrap text-menu-fg-muted tabular-nums group-data-[disabled=true]/row:text-menu-fg-disabled group-data-[highlighted=true]/row:text-menu-highlight-fg/75">
                 {formatAccelerator(entry.accelerator)}
