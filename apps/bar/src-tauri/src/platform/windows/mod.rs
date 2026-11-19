@@ -12,6 +12,7 @@ pub mod autostart;
 pub mod bt_devices;
 pub mod ddc;
 pub mod folder_watch;
+pub mod job;
 pub mod foreground;
 pub mod locale;
 pub mod media;
