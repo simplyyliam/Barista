@@ -413,3 +413,16 @@
 .sl .bar-demo iframe{position:absolute;inset:0 auto auto 0;border:0;display:block;max-width:none;background:transparent}
 .sl .sdk-bar{margin-top:20px}
 .sl .bar-demo.sdk-bar{border-radius:14px}
+
+/* dark theme: the same variables, new values (the theme switch sets .dark on <html>) */
+.dark .sl{
+  color-scheme:dark;
+  --bg:#0a0a0b;--surface:#1a1a1c;--ink:#f4f4f5;--muted:#a1a1a8;--soft:#222225;
+  --btn-bg:#f4f4f5;--btn-ink:#0a0a0a;
+  --lift:0 1px 2px rgba(0,0,0,.4),0 16px 48px rgba(0,0,0,.45);
+}
+/* dark: panels that were separated by shadow alone get a hairline edge so they read against the page */
+.dark .sl .tile,.dark .sl .card,.dark .sl .stat,.dark .sl .set,.dark .sl .code,.dark .sl .closer,.dark .sl .bar-demo,.dark .sl .faq__item{
+  box-shadow:var(--lift),inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.dark .sl .bar__inner{box-shadow:0 0 0 1px rgba(255,255,255,.1),var(--lift)}

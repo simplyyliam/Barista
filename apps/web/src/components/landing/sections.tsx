@@ -126,7 +126,7 @@ export function Sdk() {
           </p>
           <div className="tags" data-reveal data-delay="240">
             {["Status items", "Menus", "Popovers", "Reconnects by itself", "Typed protocol"].map((p) => (
-              <span className="tag" key={p} style={{ background: "#fff" }}>{p}</span>
+              <span className="tag" key={p} style={{ background: "var(--surface)" }}>{p}</span>
             ))}
           </div>
         </div>
