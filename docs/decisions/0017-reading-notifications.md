@@ -6,7 +6,7 @@ Status: accepted (2026-11-12). Liam chose to build the panel; the plan became AD
 
 The design has a notifications panel. The only public way to read other apps' toasts is WinRT
 `UserNotificationListener`. It was made for packaged apps, and Barista is unpackaged, so the spike
-(`examples/notifications-spike`, not part of the workspace) tested it for real.
+(a throwaway debug program, since removed; see git history before 2026-11-20) tested it for real.
 
 Tested on this machine: Windows 11 Home build 26300, unpackaged `.exe` (no package identity), 24 real
 toasts in the Action Center, plus my own test toasts sent as Windows PowerShell.

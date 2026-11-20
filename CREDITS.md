@@ -69,7 +69,6 @@ The first column must be the exact package or crate name.
 | dotenv-cli                 | 11.1    | MIT               | https://github.com/entropitor/dotenv-cli               |
 | tsx                        | 4.23    | MIT               | https://github.com/privatenumber/tsx                   |
 | electron                   | 45.2    | MIT               | https://github.com/electron/electron                   |
-| wait-on                    | 9.5     | MIT               | https://github.com/jeffbski/wait-on                    |
 | class-variance-authority   | 0.7     | Apache-2.0        | https://github.com/joe-bell/cva                        |
 | cn                         | 0.5     | MIT               | https://github.com/shadcn-ui/cn                        |
 | next                       | 16.4    | MIT               | https://github.com/vercel/next.js                      |
