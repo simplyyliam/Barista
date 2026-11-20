@@ -1,0 +1,37 @@
+---
+title: Electron
+description: A popover and a menu from an Electron app, with a complete working example.
+---
+
+The SDK never imports Electron. `electronPopover` takes your window and Electron's `screen`, and does the rest
+(position, show, hide, close on Esc).
+
+```ts
+import * as BA from "@baristabar/sdk"
+import { electronPopover } from "@baristabar/sdk/electron"
+import { BrowserWindow, screen } from "electron"
+
+const win = new BrowserWindow({ show: false, frame: false, skipTaskbar: true, alwaysOnTop: true })
+const item = await BA.StatusItem.create({ id: "note", label: "Note" })
+item.setPopover({ window: electronPopover(win, { screen }), width: 320, height: 380 })
+item.setMenu([{ role: "quit" }]) // right click
+```
+
+Set `show: false`, `frame: false`, `skipTaskbar: true` and `alwaysOnTop: true`: the bar shows and hides the window
+for you, and it should not appear in the taskbar.
+
+## A complete app: Quick note
+
+A pen in the bar. Click it, type, click away. The note is saved a moment after you stop typing, and the start of
+it shows next to the icon. About a hundred lines.
+
+<include lang="ts" meta='title="main.ts"'>../../../../examples/quick-note/src/main.ts</include>
+
+The window itself is plain HTML. `item.on("open")` reloads the note each time the popover opens.
+
+## Tips
+
+- Create the item **after** `app.whenReady()`, and call `BA.connect({ appName })` first so the bar shows a
+  proper name.
+- Keep the process alive when the popover closes: it is hidden, not destroyed.
+- If the bar restarts while your app runs, nothing to do. The SDK shows your item again with its popover.

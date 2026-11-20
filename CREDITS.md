@@ -24,6 +24,10 @@ The first column must be the exact package or crate name.
 | roxmltree         | 0.21        | MIT OR Apache-2.0 | https://github.com/RazrFalcon/roxmltree       |
 | rusqlite          | 0.40        | MIT               | https://github.com/rusqlite/rusqlite          |
 | sha2              | 0.10        | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes          |
+| log | 0.4 | MIT OR Apache-2.0 | https://github.com/rust-lang/log |
+| tauri-plugin-updater | 2.14 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| tauri-plugin-single-instance | 2.5 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| tauri-plugin-log | 2.10 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 
 ## JavaScript and TypeScript
 
@@ -65,7 +69,6 @@ The first column must be the exact package or crate name.
 | dotenv-cli                 | 11.1    | MIT               | https://github.com/entropitor/dotenv-cli               |
 | tsx                        | 4.23    | MIT               | https://github.com/privatenumber/tsx                   |
 | electron                   | 45.2    | MIT               | https://github.com/electron/electron                   |
-| wait-on                    | 9.5     | MIT               | https://github.com/jeffbski/wait-on                    |
 | class-variance-authority   | 0.7     | Apache-2.0        | https://github.com/joe-bell/cva                        |
 | cn                         | 0.5     | MIT               | https://github.com/shadcn-ui/cn                        |
 | next                       | 16.4    | MIT               | https://github.com/vercel/next.js                      |

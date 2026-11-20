@@ -4,7 +4,7 @@ import { commands } from "@/shared/bindings"
 import { useScriptTrustRequests } from "@/shared/hooks/use-scripts"
 
 /** A bit wider than the other panels so the first lines of a script read well. */
-export const SCRIPT_TRUST_PANEL_WIDTH = 380
+const SCRIPT_TRUST_PANEL_WIDTH = 380
 
 function formatSize(bytes: number) {
   return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`

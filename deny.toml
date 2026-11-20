@@ -1,0 +1,12 @@
+# cargo-deny: checked in CI (.github/workflows/checks.yml). Only security advisories for now;
+# licence rules come with the first public release review.
+
+# Barista is Windows-only, so Linux-only crates (gtk, glib, zbus, ...) in Cargo.lock never ship.
+[graph]
+targets = ["x86_64-pc-windows-msvc"]
+
+[advisories]
+version = 2
+# Vulnerabilities always fail. "Unmaintained" only fails for crates we depend on directly: we
+# cannot fix a dead crate deep inside tauri or specta, and it is not a security hole.
+unmaintained = "workspace"

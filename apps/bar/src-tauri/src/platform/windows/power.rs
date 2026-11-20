@@ -50,7 +50,7 @@ pub fn register(hwnd: HWND) {
             RegisterPowerSettingNotification(HANDLE(hwnd.0), &guid, DEVICE_NOTIFY_WINDOW_HANDLE)
         };
         if let Err(e) = result {
-            eprintln!("barista: power notification not registered: {e}");
+            log::warn!("power notification not registered: {e}");
         }
     }
 }

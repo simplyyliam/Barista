@@ -22,6 +22,8 @@ uniform vec2 res;
 uniform float time;
 uniform float surf;
 uniform float slosh;
+uniform float ghostTone;
+uniform float ghostA;
 void main(){
   float m=texture2D(mask,uv).a;
   if(m<.002){gl_FragColor=vec4(0.);return;}
@@ -68,9 +70,9 @@ void main(){
   bubble*=step(.72,bubbleSeed)*cap;
   liquid=mix(liquid,vec3(.98,.93,.85),bubble*.85);
 
-  vec3 ghost=vec3(10./255.)*.07;
+  vec3 ghost=vec3(ghostTone)*ghostA;
   vec3 col=mix(ghost,liquid,la);
-  float a=mix(.07,1.,la);
+  float a=mix(ghostA,1.,la);
   gl_FragColor=vec4(col,a)*m;
 }`
 
@@ -146,6 +148,7 @@ function start(host: HTMLElement, canvas: HTMLCanvasElement, reduce: boolean, on
 
   const u = (n: string) => gl.getUniformLocation(prog, n)
   const uRes = u("res"), uTime = u("time"), uSurf = u("surf"), uSlosh = u("slosh")
+  const uGhostTone = u("ghostTone"), uGhostA = u("ghostA")
 
   let glyphTop = 0.1 // top of the letters, 0..1 from the top of the canvas
   let pos = 1.1 // surface height (uv, 0 top .. 1 bottom); starts under the bottom edge
@@ -194,7 +197,14 @@ function start(host: HTMLElement, canvas: HTMLCanvasElement, reduce: boolean, on
   }
 
   let targetFrac = 0
+  let lastT = 0
   const draw = (t: number) => {
+    lastT = t
+    // The letters that are not filled with coffee yet are drawn faintly, in the page's ink: dark on the
+    // light theme, light on the dark one.
+    const dark = document.documentElement.classList.contains("dark")
+    gl.uniform1f(uGhostTone, dark ? 1 : 10 / 255)
+    gl.uniform1f(uGhostA, dark ? 0.12 : 0.07)
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.uniform1f(uTime, t)
@@ -239,6 +249,9 @@ function start(host: HTMLElement, canvas: HTMLCanvasElement, reduce: boolean, on
     onLost()
   }
   canvas.addEventListener("webglcontextlost", lost)
+  // A theme change redraws even when nothing else is animating.
+  const themeWatch = new MutationObserver(() => draw(lastT))
+  themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
 
   resize()
   // The font may load after first paint; redraw the mask once it has.
@@ -264,6 +277,7 @@ function start(host: HTMLElement, canvas: HTMLCanvasElement, reduce: boolean, on
       cancelAnimationFrame(raf)
       document.removeEventListener("visibilitychange", onVis)
       canvas.removeEventListener("webglcontextlost", lost)
+      themeWatch.disconnect()
       // No loseContext() here: React remounts reuse this same canvas, and a lost context would stay dead.
     },
   }

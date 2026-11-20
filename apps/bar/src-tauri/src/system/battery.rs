@@ -64,7 +64,7 @@ pub fn set_saver(on: bool) {
     #[cfg(windows)]
     {
         if let Err(status) = crate::platform::windows::energy_saver::publish(on) {
-            eprintln!("barista: energy saver not switched (status {status:#x})");
+            log::warn!("energy saver not switched (status {status:#x})");
         }
         refresh();
     }
@@ -82,7 +82,7 @@ const SAVER_KEY: &str = r"SYSTEM\CurrentControlSet\Control\Power";
 pub fn start_saver_watch() {
     #[cfg(windows)]
     if !crate::platform::windows::registry_watch::watch(SAVER_KEY, refresh) {
-        eprintln!("barista: energy saver switch not watched");
+        log::warn!("energy saver switch not watched");
     }
 }
 

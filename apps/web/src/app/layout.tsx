@@ -18,7 +18,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
         {/* Search is off until v0.10: static export needs a prebuilt index (ADR 0004). */}
-        <RootProvider search={{ enabled: false }}>{children}</RootProvider>
+        {/* RootProvider wraps next-themes: the docs follow the system theme (switch in the docs header,
+            hotkey "d"). The landing page sets its own light colours on .sl, so it does not change. */}
+        <RootProvider
+          search={{ enabled: false }}
+          theme={{ attribute: "class", defaultTheme: "system", enableSystem: true }}
+        >
+          {children}
+        </RootProvider>
       </body>
     </html>
   )

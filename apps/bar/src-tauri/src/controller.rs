@@ -80,7 +80,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
 
     window::set_no_focus_styles(hwnd);
     if !appbar::register(hwnd) {
-        eprintln!("barista: Windows refused the appbar registration; no space will be reserved");
+        log::warn!("Windows refused the appbar registration; no space will be reserved");
     }
     window::install(c.hwnd, on_window_event);
     crate::platform::windows::power::register(c.hwnd());
@@ -135,6 +135,8 @@ fn install_panic_hook() {
     std::panic::set_hook(Box::new(move |info| {
         appbar::unregister();
         restore_taskbar_lock_free();
+        // Into the log file too: a release build has no console to read it from.
+        log::error!("panic: {info}");
         previous(info);
     }));
 }
@@ -239,7 +241,7 @@ impl Controller {
         let mut state = self.lock();
         change(&mut state.settings);
         if let Err(e) = state.settings.save(&state.settings_file) {
-            eprintln!("barista: could not save settings: {e}");
+            log::warn!("could not save settings: {e}");
         }
     }
 
@@ -251,7 +253,7 @@ impl Controller {
         change(&mut next);
         state.settings = next.clamped();
         if let Err(e) = state.settings.save(&state.settings_file) {
-            eprintln!("barista: could not save settings: {e}");
+            log::warn!("could not save settings: {e}");
         }
         state.settings.clone()
     }
@@ -332,7 +334,7 @@ impl Controller {
             }
             state.settings.general.monitor = Some(id.to_string());
             if let Err(e) = state.settings.save(&state.settings_file) {
-                eprintln!("barista: could not save settings: {e}");
+                log::warn!("could not save settings: {e}");
             }
             if let Some(m) = pick_monitor(Some(id), &state.monitors) {
                 state.current = m.clone();
@@ -357,7 +359,7 @@ impl Controller {
             if state.settings.menu_bar.height != height {
                 state.settings.menu_bar.height = height;
                 if let Err(e) = state.settings.save(&state.settings_file) {
-                    eprintln!("barista: could not save settings: {e}");
+                    log::warn!("could not save settings: {e}");
                 }
             }
         }
@@ -432,7 +434,7 @@ impl Controller {
 
         // A failed ABM_NEW at startup (or a lost registration) is retried on the next apply.
         if !appbar::is_registered() && !appbar::register(self.hwnd()) {
-            eprintln!("barista: appbar registration failed, will retry");
+            log::warn!("appbar registration failed, will retry");
         }
         let granted = appbar::set_pos(self.hwnd(), desired);
 

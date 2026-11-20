@@ -59,7 +59,7 @@ pub fn start() {
     refresh();
     #[cfg(windows)]
     if !crate::platform::windows::registry_watch::watch_user(KEY, refresh) {
-        eprintln!("barista: theme mode not watched");
+        log::warn!("theme mode not watched");
     }
 }
 

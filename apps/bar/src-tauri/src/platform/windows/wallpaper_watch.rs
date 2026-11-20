@@ -39,7 +39,7 @@ pub fn start(on_change: fn()) {
         .name("wallpaper-watch".into())
         .spawn(move || run(on_change));
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the wallpaper watcher: {e}");
+        log::warn!("could not start the wallpaper watcher: {e}");
     }
 }
 
@@ -154,7 +154,7 @@ mod tests {
         while HITS.load(Ordering::SeqCst) == 0 && started.elapsed() < Duration::from_secs(5) {
             std::thread::sleep(Duration::from_millis(50));
         }
-        eprintln!(
+        log::warn!(
             "watcher fired {} time(s), first after ~{:?}",
             HITS.load(Ordering::SeqCst),
             started.elapsed()

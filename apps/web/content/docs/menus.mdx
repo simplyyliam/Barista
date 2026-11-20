@@ -1,0 +1,64 @@
+---
+title: Menus
+description: Give an item a menu that the bar draws under it.
+---
+
+Clicking an item with a menu opens the menu under it. You describe it with an Electron-style template and the
+bar draws it, so it matches the rest of the bar. A middle click still fires `on("click")`.
+
+```ts
+item.setMenu([
+  { label: "Start", accelerator: "Ctrl+S", click: () => timer.start() },
+  {
+    id: "sounds",
+    label: "Sounds",
+    type: "checkbox",
+    checked: true,
+    click: (entry, { checked }) => console.log("sounds", checked),
+  },
+  {
+    label: "Presets",
+    submenu: [
+      { id: "p25", label: "25 min", type: "radio", checked: true },
+      { id: "p50", label: "50 min", type: "radio" },
+    ],
+  },
+  { type: "separator" },
+  { role: "about" },
+  { role: "quit" },
+])
+```
+
+## Entries
+
+| Field | What it does |
+|---|---|
+| `label` | The text. |
+| `type` | `normal` (default), `checkbox`, `radio` (adjacent radios form a group), `separator`, `submenu`. |
+| `checked` | For checkboxes and radios. The bar flips them itself and tells you the new state. |
+| `enabled`, `visible` | Default `true`. |
+| `accelerator` | Shown as text (`CmdOrCtrl` becomes `Ctrl`). It is not a hotkey. |
+| `role` | `about` and `settings` go to the top, `quit` to the bottom, labelled for you. |
+| `submenu` | Another list of entries. |
+| `click` | Your function. It stays in your app; only the `id` goes to the bar. |
+
+A `quit` entry without `click` removes your items and ends the process, unless you listen to `bar.on("quit")`.
+
+## Change an entry later
+
+Give the entry an `id`, then:
+
+```ts
+item.updateMenuItem("start", { label: "Resume", enabled: true })
+```
+
+You can change `label`, `enabled`, `checked` and `visible`. The SDK sends the menu again.
+
+## Limits
+
+- At most 3 levels deep and 50 entries in total.
+- Ids are unique in the whole menu (separators need none).
+- A left click opens the menu, so an item cannot have a left-click action and a menu at once. An item that must
+  act on one click (a mic mute, say) skips the menu.
+
+Want your own layout instead of a list? See [Popovers](/docs/popovers).

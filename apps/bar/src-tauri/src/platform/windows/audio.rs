@@ -263,7 +263,7 @@ fn run(
     let Ok(enumerator) = (unsafe {
         CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL)
     }) else {
-        eprintln!("barista: audio not available");
+        log::warn!("audio not available");
         on_change(None);
         on_outputs(RawOutputs::default());
         on_apps(Vec::new());
@@ -272,7 +272,7 @@ fn run(
     let watcher: IMMNotificationClient = DeviceWatcher { tx: tx.clone() }.into();
     // SAFETY: `watcher` stays alive in this function until the thread ends.
     if let Err(e) = unsafe { enumerator.RegisterEndpointNotificationCallback(&watcher) } {
-        eprintln!("barista: audio device changes not watched: {e}");
+        log::warn!("audio device changes not watched: {e}");
     }
     // Created on this thread, once. `None` = Windows no longer has the interface: the UI opens the
     // sound settings page instead of switching.
@@ -387,6 +387,6 @@ pub fn start(on_change: fn(Option<RawVolume>), on_outputs: fn(RawOutputs), on_ap
         .name("barista-audio".into())
         .spawn(move || run(rx, tx, on_change, on_outputs, on_apps));
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the audio thread: {e}");
+        log::warn!("could not start the audio thread: {e}");
     }
 }

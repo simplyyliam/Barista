@@ -3,3 +3,12 @@
 [workspace]
 resolver = "2"
 members = ["apps/bar/src-tauri", "crates/protocol", "examples/win-helper"]
+
+# Smaller and faster installer builds. `unwind` stays: the panic hook must run to give the
+# screen space back (controller.rs), which `abort` would skip.
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "s"
+strip = true
+panic = "unwind"

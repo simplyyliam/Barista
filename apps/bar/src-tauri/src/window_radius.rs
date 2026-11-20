@@ -152,7 +152,7 @@ fn start_watcher(state: &'static State) {
     match windhawk::watch(refresh_settings) {
         Ok(started) => *watcher = Some(started),
         Err(error) => {
-            eprintln!("barista: cannot watch the Windhawk settings: {error}");
+            log::warn!("cannot watch the Windhawk settings: {error}");
             drop(watcher);
             refresh_settings();
         }

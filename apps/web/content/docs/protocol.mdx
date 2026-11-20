@@ -1,5 +1,309 @@
 ---
 title: Protocol
+description: How an app talks to the Barista bar. Everything you need to write an SDK in another language.
 ---
 
-Coming in v0.10.
+The official SDK is TypeScript, but it is a thin layer over one small protocol. This page is the whole
+protocol, so you can build a client in any language (C#, Python, Rust, ...). The message types are
+generated from the same Rust file the bar uses, so this page and the bar cannot drift apart.
+
+Current protocol version: **0.7**.
+
+<Callout type="warn" title="Before 1.0, minors can add things">
+  Protocol 0.x may still grow. New optional fields and new messages arrive as minor versions and never
+  break a client that ignores what it does not know. Removing or renaming something waits for a major version.
+</Callout>
+
+## Connect
+
+- **Transport:** a Windows named pipe, `\\.\pipe\barista`. One connection per app. Only your own Windows user
+  can open it.
+- **Framing:** every message is a 4-byte **little-endian** length, then that many bytes of UTF-8 JSON.
+- **Limits:** a message is at most **1 MB**. An icon is at most **256 KB**.
+- **Shape:** every message is a JSON object with a `type`. A request may carry a `requestId` (any string); the
+  answer or the error echoes it.
+- **Names:** field names are `camelCase`. Message types are written exactly as below (`item.create`).
+
+If the pipe does not exist, the bar is not running. Wait and try again (about once a second). A good client
+keeps trying forever, so an app started before the bar still shows its items when the bar starts.
+
+## The conversation
+
+```text
+client                                   bar
+  | -- hello ----------------------------> |
+  | <------------------------- welcome --- |
+  | -- item.create (id: "time") ----------> |
+  | <------------------------ item.created |   (clients on 0.7 or newer)
+  | -- item.update, item.setMenu, ... ----> |
+  | <---------------- item.click / menu.click ...
+  | <-------------------------------- ping |   (every 5 s)
+  | -- pong (same seq) -------------------> |
+  | -- bye -------------------------------> |   (leaving on purpose)
+```
+
+1. The first message must be `hello`. Anything else gets `error { code: "not_ready" }`.
+2. The bar answers `welcome`, or `error { code: "version_mismatch" }` and hangs up.
+3. Create items, change them, react to what the bar sends.
+4. Answer every `ping` with a `pong` carrying the same `seq`.
+
+## Versions
+
+`protocolVersion` is `"major.minor"`, two numbers (`"0.7"`). The bar accepts any client with the same major
+number. Unknown fields are ignored on both sides. A message type the bar does not know gets
+`error { code: "unknown_type" }`; keep going, do not disconnect.
+
+Newer features are only sent to clients that say they know them: pings go to clients on 0.5 or newer,
+`item.created` to clients on 0.7 or newer. Send the real version you implemented.
+
+## Messages from the client
+
+### `hello`
+
+First message on a connection.
+
+```json
+{
+  "type": "hello",
+  "protocolVersion": "0.7",
+  "appName": "Clock",
+  "pid": 4242,
+  "sdk": { "name": "my-sdk", "version": "0.1.0" }
+}
+```
+
+`appName` is at most 64 characters. The bar shows it in tooltips and in Settings > Connected Apps. `pid` is
+your process id.
+
+### `item.create`
+
+Adds an item to the bar. `icon` is a `data:` URL (`image/png` or `image/svg+xml`, base64). All fields except
+`id` are optional.
+
+```json
+{
+  "type": "item.create",
+  "requestId": "1",
+  "id": "time",
+  "icon": "data:image/svg+xml;base64,PHN2Zy4uLg==",
+  "label": "12:00",
+  "tooltip": "The time"
+}
+```
+
+- `id`: at most 64 characters, `[a-z0-9-_.]`, unique for your app.
+- `label`: at most 128 characters. `tooltip`: at most 512.
+- Icons: at most 256 KB and 1024 px on either side.
+- At most **8 items** per app.
+
+### `item.update`
+
+Changes an item. A missing field means "unchanged". An empty string clears `icon`, `label` or `tooltip`.
+
+```json
+{ "type": "item.update", "id": "time", "label": "12:01", "visible": true }
+```
+
+### `item.remove`
+
+```json
+{ "type": "item.remove", "id": "time" }
+```
+
+### `item.setMenu`
+
+Gives an item a menu, replacing any old one. An empty list removes the menu. With a menu, a left click opens
+it instead of sending `item.click`. Each entry is a [menu template item](#menu-template-item).
+
+```json
+{
+  "type": "item.setMenu",
+  "id": "time",
+  "menu": [
+    { "id": "start", "label": "Start", "accelerator": "Ctrl+S" },
+    { "type": "separator" },
+    { "id": "quit", "label": "Quit", "role": "quit" }
+  ]
+}
+```
+
+### `item.setPopover`
+
+Gives an item a popover: your own window, shown under the icon on a left click. `width` and `height` are
+logical pixels, from 48 to 1024. `0` and `0` removes the popover. See [popovers](/docs/popovers).
+
+```json
+{ "type": "item.setPopover", "id": "note", "width": 320, "height": 380 }
+```
+
+### `popover.shown`, `popover.closed`
+
+- `popover.shown { id }`: you showed your window after `popover.show`. Send it within 1.5 seconds or the bar
+  takes the popover back.
+- `popover.closed { id }`: your window closed on your side (Esc, focus lost). Never send it as an answer to
+  `popover.hide`.
+
+### `pong`
+
+```json
+{ "type": "pong", "seq": 17 }
+```
+
+Echo the `seq` of the `ping`. A `seq` the bar never sent is an `invalid_message`.
+
+### `bye`
+
+You are leaving on purpose. The bar removes your items at once and does not log an error.
+
+```json
+{ "type": "bye" }
+```
+
+## Messages from the bar
+
+### `welcome`
+
+```json
+{ "type": "welcome", "sessionId": "s3", "barVersion": "0.10.0", "protocolVersion": "0.7" }
+```
+
+### `item.created`
+
+Answers an accepted `item.create` with the same `requestId`. A refusal comes as `error` instead. Since 0.7.
+
+```json
+{ "type": "item.created", "requestId": "1", "id": "time" }
+```
+
+### `error`
+
+```json
+{ "type": "error", "requestId": "1", "code": "duplicate_id", "message": "You already have an item called time" }
+```
+
+| `code` | Meaning |
+|---|---|
+| `unknown_type` | The message `type` is not known (a newer client, an older bar). Carry on. |
+| `invalid_message` | Not valid JSON, or a size or id rule is broken. |
+| `version_mismatch` | Your major version differs from the bar's. |
+| `not_ready` | A request arrived before `hello` was accepted. |
+| `duplicate_id` | `item.create` with an id you already use. |
+| `not_found` | `item.update` or `item.remove` for an id that does not exist. |
+| `limit_reached` | You already have 8 items. |
+| `invalid_icon` | The icon is not a valid PNG or SVG data URL, or it is too big. |
+| `invalid_menu` | A menu rule is broken (depth, size, missing or repeated ids). |
+| `invalid_popover` | The popover size is outside 48 to 1024. |
+| `too_many_errors` | See below. |
+
+### `item.click`
+
+The user clicked one of your items. Sent for the middle button always, and for left and right when the item has
+no menu or popover.
+
+```json
+{
+  "type": "item.click",
+  "id": "time",
+  "button": "left",
+  "anchor": { "x": 1500, "y": 0, "width": 56, "height": 32 }
+}
+```
+
+`button` is `left`, `right` or `middle`. `anchor` is the item's rectangle on screen (since 0.4).
+
+### `menu.click`
+
+The user picked a menu entry. For `checkbox` and `radio` entries, `checked` is the new state: the bar flips it
+for you.
+
+```json
+{ "type": "menu.click", "id": "time", "menuItemId": "sound", "checked": false }
+```
+
+### `menu.opened`, `menu.closed`
+
+`{ "type": "menu.opened", "id": "time" }` arrives right before the menu shows, so you can refresh labels.
+`menu.closed` arrives when it closes.
+
+### `popover.show`, `popover.hide`
+
+```json
+{
+  "type": "popover.show",
+  "id": "note",
+  "rect": { "x": 1480, "y": 36, "width": 320, "height": 380 },
+  "scale": 1.25,
+  "monitor": "a1b2c3",
+  "tone": "dark"
+}
+```
+
+`rect` is already placed and clamped by the bar (physical pixels, so a second monitor to the left has a negative `x`). `scale` is that monitor's display scale, and `monitor` is an opaque id: treat it as text. `tone` says whether the bar is `light` or `dark`, so you can match it. Put your window exactly at `rect`. Sent only after a user
+click. `popover.hide { id }` means close it: another item was clicked, the user clicked elsewhere, or you
+took too long.
+
+### `ping`
+
+```json
+{ "type": "ping", "seq": 17 }
+```
+
+Every 5 seconds, to clients on 0.5 or newer. Answer with `pong`.
+
+### `shutdown`
+
+The last message before the bar hangs up (best effort).
+
+```json
+{ "type": "shutdown", "reason": "quit" }
+```
+
+| `reason` | What to do |
+|---|---|
+| `quit` | The bar is closing. Wait and reconnect. |
+| `unresponsive` | You did not answer pings. Reconnect. |
+| `too_many_errors` | You sent too many invalid messages. Fix the client first. |
+
+## Menu template item
+
+Electron's menu template. Click handlers stay in your code: only `id` goes over the wire and comes back in
+`menu.click`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Required on everything except separators. Unique in the whole menu. |
+| `label` | string | |
+| `type` | `normal`, `checkbox`, `radio`, `separator`, `submenu` | Default `normal`, or `submenu` if `submenu` is set. |
+| `checked` | boolean | Only for `checkbox` and `radio`. The bar keeps it up to date. |
+| `enabled`, `visible` | boolean | Default `true`. |
+| `accelerator` | string | Shown as text, like `Ctrl+S`, at most 32 characters. Not a hotkey. |
+| `role` | `quit`, `about`, `settings` | The bar places and labels these itself. |
+| `icon` | string | A small `data:` URL (PNG or SVG), at most 16 KB, drawn at 16 px. |
+| `submenu` | list of items | At most 3 levels deep. |
+
+A menu has at most **50 entries** in total.
+
+## Rules the bar enforces
+
+- One bad client never slows the others: every connection has its own task and a bounded queue.
+- A client that sends invalid messages **10 times in a minute** gets `error`, then `shutdown { too_many_errors }`.
+- **Heartbeat:** no `pong` for 15 seconds ends the session and removes your items (15 to 20 seconds after your
+  last answer).
+- When the connection ends for any reason, the bar removes all of your items. Clients that want to survive a
+  bar restart keep their state and send it again after the next `welcome`.
+- Windows may stop other apps from taking focus. The bar lets your process come to the front when it sends
+  `popover.show`.
+
+## Reconnecting
+
+What the TypeScript SDK does, and what yours should do:
+
+1. Keep what every item shows (icon, label, tooltip, visibility, menu, popover size).
+2. When the pipe closes, retry about once a second, forever.
+3. After the next `welcome`, send `item.create`, `item.setMenu` and `item.setPopover` again for every item.
+4. Do not report an error while the bar is simply not there.
+
+## Not part of the protocol
+
+A few `debug.*` messages exist for the bar's own tests. They are off in the installed app and may change at any
+time. Ignore them.

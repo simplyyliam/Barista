@@ -9,8 +9,6 @@ import * as BA from "@baristabar/sdk"
 import { electronPopover } from "@baristabar/sdk/electron"
 import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
 
-// const ICON =
-//   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f0f0f0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
 const MAX_NOTE = 100_000
 
 /** The first few characters of the note, for the bar. */

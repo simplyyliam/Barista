@@ -24,7 +24,7 @@ pub fn open(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         if let Err(e) = build(&app) {
-            eprintln!("barista: could not open the settings window: {e}");
+            log::warn!("could not open the settings window: {e}");
         }
         BUILDING.store(false, Ordering::SeqCst);
     });

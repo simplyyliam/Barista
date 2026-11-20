@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { ThemeToggle } from "../theme-toggle"
 import { BeanGlyph, WindowsGlyph } from "./icons"
 import { DOWNLOAD_URL, NAV_LINKS } from "./site"
 
@@ -88,6 +89,7 @@ export function Nav() {
           <svg viewBox="0 0 24 24"><rect x="3" y="8" width="16" height="9" rx="2.5" /><path d="M21 11v3" /><rect className="bar__charge" x="5" y="10" width="12" height="5" rx="1" fill="currentColor" stroke="none" /></svg>
           <span className="bar__time">{time || "--:--"}</span>
         </span>
+        <ThemeToggle className="bar__theme" />
         <a href={DOWNLOAD_URL} className="btn btn--sm btn--white bar__cta">
           <WindowsGlyph />
           Download

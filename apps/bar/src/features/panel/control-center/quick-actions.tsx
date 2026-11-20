@@ -15,7 +15,7 @@ import { useThemeMode } from "./hooks/use-control-center"
 import { DEFAULT_CONTROL_CENTER } from "./lib/layout"
 
 /** The card holds at most 4 x 2 actions. The list is data, so a settings screen can fill it later. */
-export const MAX_QUICK_ACTIONS = 8
+const MAX_QUICK_ACTIONS = 8
 
 export const ACTIONS = [
   { id: "dark-mode", label: "Dark mode", icon: ContrastIcon },

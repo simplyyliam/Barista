@@ -1,5 +1,61 @@
 ---
 title: Getting started
+description: Put your own item in the Barista menu bar in about five minutes.
 ---
 
-Coming in v0.10.
+Barista is a menu bar for Windows. Apps add items to it with a small SDK, and the bar draws them, so every
+item looks like it belongs.
+
+## 1. Install Barista
+
+Download the installer from the [releases page](https://github.com/simplyyliam/Barista/releases/latest) and run it.
+It installs for your user only, so it does not ask for admin rights. The bar appears at the top of your screen
+and tray icons move into it. See [Install and update](/docs/install) if Windows shows a warning.
+
+## 2. Make a project
+
+You need [Node.js](https://nodejs.org) 22 or newer.
+
+```sh
+mkdir my-item && cd my-item
+npm init -y
+npm pkg set type=module
+npm install @baristabar/sdk
+```
+
+## 3. Add an item
+
+Save this as `index.js`:
+
+<include lang="js" meta='title="index.js"'>../../../../examples/getting-started/src/index.js#item</include>
+
+Run it:
+
+```sh
+node index.js
+```
+
+A clock appears in the bar. Click it and the click shows up in your terminal. Stop the script and the item goes.
+
+## What just happened
+
+- `BA.connect` opens a connection to the bar and names your app. Settings > Connected Apps lists it by that name.
+- `BA.StatusItem.create` adds an item. The bar draws it, you only say what it shows.
+- `item.setLabel` changes it. Every `set...` call works the same way.
+- `item.on("click")` tells you when the user clicked.
+
+**You do not need the bar to be running first.** Start the script before Barista and the item shows up when the bar
+starts. If the bar restarts, your items come back by themselves, with their menus and popovers. You write no
+reconnect code.
+
+## Next
+
+| You want | Read |
+|---|---|
+| A list of actions under your item | [Menus](/docs/menus) |
+| Your own window under your item | [Popovers](/docs/popovers), [Electron](/docs/electron) |
+| An item from a PowerShell, Python or Node file, with no SDK | [Script items](/docs/script-items) |
+| The menus of the app in front (File, Edit, View) | [Application menus](/docs/app-menus) |
+| An SDK for another language | [Protocol](/docs/protocol) |
+
+Every public function in the SDK has a short example in its TSDoc, so your editor shows it as you type.

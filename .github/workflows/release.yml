@@ -2,7 +2,8 @@
 # signs the auto-update, and attaches everything plus latest.json to a DRAFT release.
 # Publishing the draft (by hand, after testing) is what makes installed copies update.
 # SDK tags (sdk-v*) are handled by sdk-release.yml, not here.
-# Stays idle until v0.10: it only runs when a v* tag is pushed, and nobody pushes one before then.
+# The installers and latest.json go to this repo's Releases page (ADR 0038). Installed apps and the Download button read from there.
+# Needs these repo secrets: TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD (pnpm updater:keygen prints them).
 name: Release
 
 on:
@@ -10,7 +11,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write # create the draft release and upload files
+  contents: write # creates the draft release and uploads the installer
 
 jobs:
   # Creates the draft release ONCE, before the build, so a retried run reuses it
@@ -40,11 +41,12 @@ jobs:
         with:
           script: |
             const tag = context.ref.replace("refs/tags/", "")
-            const releases = await github.paginate(github.rest.repos.listReleases, context.repo)
+            const target = context.repo
+            const releases = await github.paginate(github.rest.repos.listReleases, target)
             const existing = releases.find((r) => r.tag_name === tag)
             if (existing) return existing.id
             const { data } = await github.rest.repos.createRelease({
-              ...context.repo,
+              ...target,
               tag_name: tag,
               name: `Barista ${tag}`,
               body: process.env.BODY,
@@ -84,4 +86,6 @@ jobs:
           tauriScript: pnpm tauri
           # Upload into the draft made by create-release (never create one here).
           releaseId: ${{ needs.create-release.outputs.release_id }}
+          # Code signing (SmartScreen) is not set up yet. Later: add a signCommand under
+          # bundle.windows in tauri.conf.json (Azure Trusted Signing) and its secrets above.
           includeUpdaterJson: true # latest.json: what installed apps check

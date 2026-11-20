@@ -134,6 +134,6 @@ pub fn start(on_change: fn(RadioStates)) {
             }
         });
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the radios thread: {e}");
+        log::warn!("could not start the radios thread: {e}");
     }
 }

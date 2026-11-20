@@ -1,7 +1,8 @@
-import { Bean, BeanGlyph, Plus } from "./icons"
+import { Bean, Plus } from "./icons"
 import { Demo } from "./demo"
 import { FAQ } from "./site"
-import { ControlCenter, DownloadLink, MiniBar, Monitors, Notifications, Scrub, Seg, Slider, SoonButton, TrayRow } from "./interactive"
+import { BarDemo } from "./bar-demo"
+import { DownloadLink, Monitors, Scrub, Seg, Slider } from "./interactive"
 
 function Download({ white = false }: { white?: boolean }) {
   return <DownloadLink white={white} />
@@ -29,24 +30,15 @@ export function Hero() {
             <a href="/docs/" className="btn btn--lg btn--quiet">Read the docs</a>
           </div>
           <div className="facts" data-reveal data-delay="320">
-            <span>Free to start</span>
+            <span>Free</span>
             <span>Windows 11</span>
             <span>Idles near 0% CPU</span>
           </div>
         </div>
         <div className="split__media hero__media" style={{ position: "relative" }} data-reveal data-delay="200">
           <Bean style={{ width: 130, top: -112, right: 56, transform: "rotate(8deg)" }} />
-          <Demo script="hero" className="scene" role="group" label="The Barista bar on a desktop, with notifications and the control center open" hint="Go on, click around. It is all live." delay={900}>
-            <div className="mbar">
-              <span>Explorer</span>
-              <span>Sunday, 11 May</span>
-              <span style={{ display: "flex", alignItems: "center" }}><i /><i className="sq" /><i />&nbsp;&nbsp;22:00</span>
-            </div>
-            <div className="scene__body">
-              <Notifications />
-              <ControlCenter />
-            </div>
-          </Demo>
+          <BarDemo scene="notifications" label="The Barista bar on a desktop, with the notifications panel open" />
+          <p className="hint small center">This is the real bar. Click the icons.</p>
         </div>
       </div>
     </section>
@@ -77,23 +69,17 @@ export function Features() {
           <div className="tile tile--wide" data-reveal>
             <h3 className="h3">Tray icons</h3>
             <p>Every app from the Windows tray lives in the bar. Click one and its own menu opens right under it.</p>
-            <Demo script="tray" className="tile__media" hint="Click an icon. Its menu drops right under it." delay={300}>
-              <TrayRow />
-            </Demo>
+            <BarDemo scene="tray" size="tray" label="The real Barista bar with its tray panel open" className="tile__media" />
           </div>
           <div className="tile tile--tall" data-reveal data-delay="80">
             <h3 className="h3">Notifications</h3>
             <p>Read, clear and open them from a panel under the clock.</p>
-            <Demo script="notes" className="tile__media" hint="Tap a note to swipe it away." delay={600}><Notifications /></Demo>
+            <BarDemo scene="notifications" size="panel" label="The notifications panel" className="tile__media" />
           </div>
           <div className="tile" data-reveal data-delay="160">
             <h3 className="h3">Control center</h3>
-            <p>Try the switches. They are real ones.</p>
-            <Demo script="toggles" className="tile__media toggles" hint="Flip them." delay={400}>
-              <label className="tg">Wi-Fi<input type="checkbox" defaultChecked /><i /></label>
-              <label className="tg">Bluetooth<input type="checkbox" defaultChecked /><i /></label>
-              <label className="tg">Focus<input type="checkbox" /><i /></label>
-            </Demo>
+            <p>Try the switches. They are the real ones.</p>
+            <BarDemo scene="control" size="panel" label="The control center" className="tile__media" />
           </div>
           <div className="tile" data-reveal data-delay="240">
             <h3 className="h3">Every monitor</h3>
@@ -111,7 +97,6 @@ export function Sdk() {
     <section className="section" id="sdk">
       <div className="wrap split">
         <div className="split__media" data-reveal>
-          <Demo script="sdk" hint="That code is running. Click the counter." delay={400}>
           <div className="code" role="img" aria-label="Example code using the Barista SDK">
             <pre>
               <span className="c">{"// npm install @baristabar/sdk"}</span>
@@ -124,11 +109,13 @@ export function Sdk() {
               {"\n"}
               {"})"}
               {"\n\n"}
-              item.on({'"click"'}, () =&gt; item.setLabel({'"1"'}))
+              <span className="k">let</span> n = 0
+              {"\n"}
+              item.on({'"click"'}, () =&gt; item.setLabel(String(++n)))
             </pre>
           </div>
-          <MiniBar />
-          </Demo>
+          <BarDemo scene="sdk" size="bar" label="The real Barista bar with one item from the SDK example: a counter" className="sdk-bar" />
+          <p className="hint small">That is the real bar, with just this item. Click the counter.</p>
         </div>
         <div className="split__text stack">
           <p className="eyebrow" data-reveal>An SDK for your app</p>
@@ -139,7 +126,7 @@ export function Sdk() {
           </p>
           <div className="tags" data-reveal data-delay="240">
             {["Status items", "Menus", "Popovers", "Reconnects by itself", "Typed protocol"].map((p) => (
-              <span className="tag" key={p} style={{ background: "#fff" }}>{p}</span>
+              <span className="tag" key={p} style={{ background: "var(--surface)" }}>{p}</span>
             ))}
           </div>
         </div>
@@ -207,51 +194,6 @@ export function Twin() {
             </div>
           </Demo>
         </div>
-      </div>
-    </section>
-  )
-}
-
-function List({ items }: { items: string[] }) {
-  return (
-    <ul className="checks">
-      {items.map((i) => (
-        <li key={i}>
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8.5 3.2 3.2L13 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          {i}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-export function Pricing() {
-  return (
-    <section className="section" id="pricing">
-      <div className="wrap">
-        <div className="stack center" style={{ textAlign: "center" }}>
-          <h2 className="h2" data-reveal>Free. Pro for $5.</h2>
-          <p className="lead" data-reveal data-delay="80">Start free. Upgrade once if you want more, and keep it for good.</p>
-        </div>
-        <div className="pricing">
-          <div className="price-card" data-reveal>
-            <div className="price-card__head"><span className="appicon"><BeanGlyph /></span><h3 className="h3">Free</h3></div>
-            <div className="price-row"><span className="bignum">$0</span></div>
-            <List items={["The menu bar on every monitor", "Tray icons and notifications", "Control center", "The SDK for your own apps"]} />
-            <Download />
-          </div>
-          <div className="price-wrap" data-reveal data-delay="120">
-            <Bean style={{ width: 96, top: -76, right: 40, transform: "rotate(-10deg)" }} />
-            <div className="price-card">
-              <div className="price-card__head"><span className="appicon"><BeanGlyph /></span><h3 className="h3">Pro</h3></div>
-              <div className="price-row"><span className="bignum">$5</span><span className="price-unit">one-off</span></div>
-              <div className="notebox">One-time payment. No subscription.</div>
-              <List items={["Everything in Free", "Pro features coming soon"]} />
-              <SoonButton />
-            </div>
-          </div>
-        </div>
-        <p className="small center" style={{ marginTop: 24 }} data-reveal>Pro is not on sale yet. You will not be charged for anything today.</p>
       </div>
     </section>
   )

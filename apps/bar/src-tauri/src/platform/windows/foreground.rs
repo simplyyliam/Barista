@@ -26,7 +26,7 @@ pub fn current_pid() -> Option<u32> {
 pub fn allow(pid: u32) {
     // SAFETY: plain call with a number. It fails if the process is gone, which is fine.
     if let Err(error) = unsafe { AllowSetForegroundWindow(pid) } {
-        eprintln!("AllowSetForegroundWindow({pid}) failed: {error}");
+        log::warn!("AllowSetForegroundWindow({pid}) failed: {error}");
     }
 }
 
@@ -74,7 +74,7 @@ pub fn watch(handler: fn(u32)) {
         )
     };
     if hook.is_invalid() {
-        eprintln!("could not watch the foreground window: outside clicks will not close popovers");
+        log::warn!("could not watch the foreground window: outside clicks will not close popovers");
     }
 }
 
@@ -115,7 +115,7 @@ pub fn watch_window(handler: fn(isize)) {
         )
     };
     if hook.is_invalid() {
-        eprintln!("could not watch the foreground window: application menus will not follow the app in front");
+        log::warn!("could not watch the foreground window: application menus will not follow the app in front");
     }
 }
 

@@ -109,7 +109,7 @@ pub fn start() {
             }
         });
         if spawned.is_err() {
-            eprintln!("barista: media reader not started");
+            log::warn!("media reader not started");
             return;
         }
         crate::platform::windows::media::start(refresh);

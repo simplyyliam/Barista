@@ -22,6 +22,7 @@ mod settings;
 mod settings_window;
 mod system;
 mod tray;
+mod updater;
 mod window_radius;
 
 use std::sync::Arc;
@@ -145,7 +146,11 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::settings::reset_settings,
             commands::settings::export_settings,
             commands::settings::import_settings,
-            commands::set_dark_mode
+            commands::set_dark_mode,
+            commands::open_logs_folder,
+            updater::get_pending_update,
+            updater::check_for_update,
+            updater::install_update
         ])
         .events(collect_events![
             events::BarChanged,
@@ -185,7 +190,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
             appearance::BarAppearanceChanged,
             scripts::ScriptsChanged,
             appmenu::AppMenusChanged,
-            scripts::ScriptTrustRequested
+            scripts::ScriptTrustRequested,
+            updater::UpdateAvailable
         ])
 }
 
@@ -243,15 +249,53 @@ fn open_radius_test_windows(app: &tauri::AppHandle) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+/// `barista.exe --uninstall-cleanup`: the uninstaller runs it after stopping the bar. A killed bar
+/// cannot give the Windows taskbar back, so put its saved auto-hide state back from settings.json
+/// (ADR 0031). Starts no windows and touches nothing else.
+pub fn uninstall_cleanup() {
+    #[cfg(windows)]
+    {
+        let Some(appdata) = std::env::var_os("APPDATA") else { return };
+        let dir = std::path::Path::new(&appdata).join("dev.barista.app");
+        let settings = settings::Settings::load(&settings::settings_path(&dir));
+        if let Some(before) = settings.menu_bar.taskbar.saved_state {
+            platform::windows::taskbar::set_state(Default::default(), before);
+        }
+    }
+}
+
 pub fn run() {
     let builder = specta_builder();
     // A failed export (read-only file, ...) must not stop the app from starting.
     #[cfg(debug_assertions)]
     if let Err(error) = export_bindings(&builder) {
-        eprintln!("could not write bindings.ts: {error}");
+        log::warn!("could not write bindings.ts: {error}");
     }
 
     tauri::Builder::default()
+        // Must be the first plugin: a second Barista (double-click on the shortcut) opens Settings
+        // in the one already running and exits, instead of fighting it for the screen strip.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            settings_window::open(app);
+        }))
+        // Rotating log files (5 x 1 MB) in the app log folder: nothing is ever sent anywhere.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                // BARISTA_DEBUG turns on the debug lines (wallpaper tone, ...) that are off for everyone else.
+                .level(if std::env::var_os("BARISTA_DEBUG").is_some() { log::LevelFilter::Debug } else { log::LevelFilter::Info })
+                .level_for("tao", log::LevelFilter::Warn)
+                .level_for("wry", log::LevelFilter::Warn)
+                .max_file_size(1_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("barista".into()),
+                    }),
+                    #[cfg(debug_assertions)]
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                ])
+                .build(),
+        )
         // A page load wipes the CSS variable, so put the radius back.
         .on_page_load(|webview, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Finished {
@@ -288,6 +332,7 @@ pub fn run() {
             tray::init(registry.clone());
             scripts::init(app.handle(), registry.clone());
             appmenu::init(app.handle(), registry.clone());
+            updater::init(app.handle());
             // For the memory bench: no pipe command or simulated click opens the settings window.
             if std::env::var_os("BARISTA_OPEN_SETTINGS").is_some() {
                 settings_window::open(app.handle());
@@ -300,17 +345,28 @@ pub fn run() {
         .run(|_app, event| {
             // Give the reserved screen space back on a normal quit.
             if let tauri::RunEvent::Exit = event {
-                if let Some(c) = controller::get() {
-                    c.shutdown();
-                }
-                scripts::shutdown();
-                // Let Explorer have the tray messages alone again.
-                #[cfg(windows)]
-                tray::shutdown();
-                // Tell every client we are going (they wait and reconnect when we are back).
-                ipc::shutdown(std::time::Duration::from_millis(300));
+                shutdown_services();
             }
         });
+}
+
+/// Gives everything back: screen space, the tray messages, running scripts, and tells clients we
+/// are going. Runs on a normal quit, and before the updater's installer ends the process.
+pub(crate) fn shutdown_services() {
+    // Once only: a failed install restarts the bar, and the exit path would run this a second time.
+    static DONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if DONE.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    if let Some(c) = controller::get() {
+        c.shutdown();
+    }
+    scripts::shutdown();
+    // Let Explorer have the tray messages alone again.
+    #[cfg(windows)]
+    tray::shutdown();
+    // Tell every client we are going (they wait and reconnect when we are back).
+    ipc::shutdown(std::time::Duration::from_millis(300));
 }
 
 #[cfg(test)]

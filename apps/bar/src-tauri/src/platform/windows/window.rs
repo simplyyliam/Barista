@@ -368,7 +368,7 @@ pub fn register_debug_hotkeys(raw_hwnd: isize) {
             RegisterHotKey(Some(hwnd_from(raw_hwnd)), id as i32, modifiers, u32::from(key))
         };
         if let Err(e) = result {
-            eprintln!("barista: {name} hotkey not registered: {e}");
+            log::warn!("{name} hotkey not registered: {e}");
         }
     }
 }

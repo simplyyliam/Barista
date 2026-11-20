@@ -94,6 +94,6 @@ pub fn start(on_change: fn(Vec<RawDevice>)) {
     })();
     match result {
         Ok(w) => *WATCHER.lock().unwrap_or_else(|e| e.into_inner()) = Some(w),
-        Err(e) => eprintln!("barista: bluetooth devices not watched: {e}"),
+        Err(e) => log::warn!("bluetooth devices not watched: {e}"),
     }
 }

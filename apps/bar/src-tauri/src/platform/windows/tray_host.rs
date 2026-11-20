@@ -414,7 +414,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
     // A panic must not cross this boundary (it would abort the whole bar), and one bad message
     // must never take the bar down (rule 3): log it and answer "no".
     std::panic::catch_unwind(|| handle(hwnd, msg, wparam, lparam)).unwrap_or_else(|_| {
-        eprintln!("[tray-host] a message handler panicked (message {msg:#x})");
+        log::warn!("[tray-host] a message handler panicked (message {msg:#x})");
         LRESULT(0)
     })
 }

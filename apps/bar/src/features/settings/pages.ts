@@ -1,13 +1,15 @@
+// Hidden for v0.10 (menu bar only). Bring these icons back with their pages below.
+// See docs/release/plan/hidden-in-settings.md.
 import {
   CodeIcon,
-  ComputerTerminal01Icon,
-  DashboardSquare01Icon,
-  DockIcon,
+  // ComputerTerminal01Icon,
+  // DashboardSquare01Icon,
+  // DockIcon,
   InformationCircleIcon,
   Link01Icon,
   PanelTopIcon,
   Settings02Icon,
-  SidebarLeftIcon,
+  // SidebarLeftIcon,
   SlidersHorizontalIcon,
 } from "@barista/ui/icons"
 
@@ -38,8 +40,8 @@ export const SIDEBAR: { title?: string; pages: Page[] }[] = [
   {
     pages: [
       { id: "menu-bar", label: "Menu bar", icon: PanelTopIcon },
-      { id: "dock", label: "Dock", icon: DockIcon, comingIn: "a later release" },
-      { id: "sidedock", label: "Sidedock", icon: SidebarLeftIcon, comingIn: "a later release" },
+      // { id: "dock", label: "Dock", icon: DockIcon, comingIn: "a later release" },
+      // { id: "sidedock", label: "Sidedock", icon: SidebarLeftIcon, comingIn: "a later release" },
     ],
   },
   {
@@ -47,14 +49,14 @@ export const SIDEBAR: { title?: string; pages: Page[] }[] = [
     pages: [
       { id: "connected-apps", label: "Connected Apps", icon: Link01Icon },
       { id: "script-items", label: "Script Items", icon: CodeIcon },
-      { id: "script-gallery", label: "Script Gallery", icon: DashboardSquare01Icon, comingIn: "v1.1" },
+      // { id: "script-gallery", label: "Script Gallery", icon: DashboardSquare01Icon, comingIn: "v1.1" },
     ],
   },
   {
     title: "Advanced",
     pages: [
       { id: "advanced", label: "Advanced", icon: SlidersHorizontalIcon },
-      { id: "developer", label: "Developer", icon: ComputerTerminal01Icon, comingIn: "v1.0" },
+      // { id: "developer", label: "Developer", icon: ComputerTerminal01Icon, comingIn: "v1.0" },
     ],
   },
   { pages: [{ id: "about", label: "About", icon: InformationCircleIcon }] },

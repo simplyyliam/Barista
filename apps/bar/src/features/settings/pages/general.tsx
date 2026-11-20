@@ -3,6 +3,7 @@ import type { Settings } from "@/shared/stores/settings"
 import { actions } from "../actions"
 import { useBarInfo } from "../hooks/use-bar-info"
 import { ActionButton, Group, PageTitle, Row, SelectRow, SwitchRow } from "../ui"
+import { UpdatesGroup } from "../updates"
 
 export function GeneralPage({ settings }: { settings: Settings }) {
   const info = useBarInfo()
@@ -39,7 +40,12 @@ export function GeneralPage({ settings }: { settings: Settings }) {
         />
       </Group>
 
+      <UpdatesGroup settings={settings} />
+
       <Group title="Barista">
+        <Row label="Log files" hint="Barista keeps a small log on this PC for bug reports. It never leaves your computer.">
+          <ActionButton onClick={() => void commands.openLogsFolder()}>Open folder</ActionButton>
+        </Row>
         <Row label="Quit Barista" hint="Takes the bar away and gives the screen space back.">
           <ActionButton tone="danger" onClick={() => void commands.quitBar()}>
             Quit

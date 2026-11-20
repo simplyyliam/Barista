@@ -1,11 +1,11 @@
 // One place for links and copy that Liam will want to change.
+// Installers live on this repo's Releases page (ADR 0038).
 export const DOWNLOAD_URL = "https://github.com/simplyyliam/Barista/releases/latest"
 export const NPM_URL = "https://www.npmjs.com/package/@baristabar/sdk"
 
 export const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#sdk", label: "For developers" },
-  { href: "#pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
   { href: "/docs", label: "Docs" },
 ]

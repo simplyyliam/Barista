@@ -126,7 +126,7 @@ pub fn run(action: Action, confirm: bool) -> Result<(), ActionError> {
             }
         });
         if let Err(e) = spawned {
-            eprintln!("barista: could not run the action: {e}");
+            log::warn!("could not run the action: {e}");
         }
     }
     #[cfg(not(windows))]

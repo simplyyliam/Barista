@@ -37,8 +37,8 @@ export const ITEM_EXIT: Transition = { duration: 0.12, ease: EASE_OUT }
  * Items that arrive together (the bar starting, the tray group opening) come in one after another:
  * 30 ms apart, the whole wave never longer than 250 ms. Only enters stagger; leaving is all at once.
  */
-export const STAGGER_STEP = 0.035
-export const STAGGER_MAX = 0.28
+const STAGGER_STEP = 0.035
+const STAGGER_MAX = 0.28
 export const staggerDelay = (index: number) => Math.min(index * STAGGER_STEP, STAGGER_MAX)
 
 /**

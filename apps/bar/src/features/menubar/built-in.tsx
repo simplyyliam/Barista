@@ -15,7 +15,7 @@ export const BUILT_IN_IDS = ["brand", "app-name", "app-menus", "battery", "wifi"
 export type BuiltInId = (typeof BUILT_IN_IDS)[number]
 
 /** Which side an item lives on. The order in the settings list decides the order inside a side. */
-export const ZONE: Record<BuiltInId, "left" | "right"> = {
+const ZONE: Record<BuiltInId, "left" | "right"> = {
   brand: "left",
   "app-name": "left",
   "app-menus": "left",

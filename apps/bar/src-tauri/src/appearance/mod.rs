@@ -132,7 +132,7 @@ pub fn start(app: &AppHandle) {
     #[cfg(windows)]
     crate::platform::windows::wallpaper_watch::start(wallpaper_changed);
     if let Err(e) = spawned {
-        eprintln!("barista: could not start the appearance worker: {e}");
+        log::warn!("could not start the appearance worker: {e}");
     }
 }
 
@@ -214,7 +214,7 @@ fn measure(monitor: Rect, strip_h: i32) -> bool {
         };
         let tone = tone_for(l);
         if std::env::var_os("BARISTA_DEBUG").is_some() {
-            eprintln!(
+            log::debug!(
                 "barista: wallpaper strip luminance {l:.3} -> {tone:?} in {:?}",
                 started.elapsed()
             );
@@ -254,7 +254,7 @@ pub fn cycle_override() {
         };
         (before, s.effective())
     };
-    eprintln!("barista: tone override -> {after:?}");
+    log::debug!("tone override -> {after:?}");
     if before != after {
         emit(after);
     }
