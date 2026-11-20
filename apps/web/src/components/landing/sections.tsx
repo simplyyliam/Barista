@@ -199,19 +199,6 @@ export function Twin() {
   )
 }
 
-function List({ items }: { items: string[] }) {
-  return (
-    <ul className="checks">
-      {items.map((i) => (
-        <li key={i}>
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8.5 3.2 3.2L13 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          {i}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 export function Faq() {
   return (
     <section className="section" id="faq">

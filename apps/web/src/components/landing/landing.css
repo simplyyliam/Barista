@@ -163,9 +163,6 @@
 .sl .set__slider{flex:0 0 55%;height:8px;border-radius:99px;background:#d9d9d9;overflow:hidden}
 .sl .set__slider b{display:block;height:100%;background:var(--ink);border-radius:99px}
 
-.sl .checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:1.6}
-.sl .checks li{display:flex;gap:12px;align-items:center}
-.sl .checks svg{width:16px;height:16px;flex:none;stroke:var(--muted);stroke-width:1.5;fill:none}
 
 /* faq */
 .sl .faq-wrap{max-width:720px;margin:0 auto;position:relative}
