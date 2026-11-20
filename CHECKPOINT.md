@@ -27,7 +27,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 ## Liam's to-dos before the first public release
 1. Add repo secrets `TAURI_SIGNING_PRIVATE_KEY`,
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, `NPM_TOKEN`.
-2. Run `pnpm updater:keygen` (puts the public key in `tauri.conf.json`; until then updates are off).
+2. `pnpm updater:keygen` is done (public key committed). Back up `.private/updater/barista-updater.key` and its password outside this PC.
 3. LICENSE (MIT) is in. Make the code repo public when ready. Vercel: root `apps/web`, build command `pnpm build` (it builds the demo first).
 4. Review the privacy wording in the docs.
 5. Bring back before v1.0: the hidden settings pages (`docs/release/plan/hidden-in-settings.md`, local only).
