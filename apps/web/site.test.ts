@@ -10,10 +10,10 @@ describe("website", () => {
     expect(read("./next.config.mjs")).toMatch(/output:\s*"export"/)
   })
 
-  it("never calls Barista open source (closed source, freemium)", () => {
+  it("has no pricing or payment copy (Barista is free)", () => {
     const dir = fileURLToPath(new URL("./src/components/landing/", import.meta.url))
-    for (const file of readdirSync(dir)) {
-      expect(readFileSync(dir + file, "utf8").toLowerCase(), file).not.toContain("open source")
+    for (const file of readdirSync(dir).filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"))) {
+      expect(readFileSync(dir + file, "utf8"), file).not.toMatch(/pricing|\$5|one-off|upgrade/i)
     }
   })
 
@@ -33,7 +33,7 @@ describe("website", () => {
     }
   })
 
-  it("points the download at the public releases repo, never the private code repo", () => {
+  it("points the download at the public releases repo", () => {
     expect(read("./src/components/landing/site.ts")).toContain("simplyyliam/barista-releases/releases/latest")
   })
 })

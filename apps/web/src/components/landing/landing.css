@@ -163,20 +163,9 @@
 .sl .set__slider{flex:0 0 55%;height:8px;border-radius:99px;background:#d9d9d9;overflow:hidden}
 .sl .set__slider b{display:block;height:100%;background:var(--ink);border-radius:99px}
 
-/* pricing */
-.sl .pricing{display:flex;gap:100px 30px;justify-content:center;flex-wrap:wrap;margin-top:110px}
-.sl .price-card{width:400px;max-width:100%;background:var(--surface);border-radius:var(--r-md);padding:40px;display:flex;flex-direction:column;gap:20px;text-align:left;position:relative;z-index:1}
-.sl .price-wrap{position:relative}
-.sl .price-card__head{display:flex;align-items:center;gap:12px}
-.sl .appicon{width:40px;height:40px;border-radius:10px;background:var(--accent);display:grid;place-items:center;flex:none}
-.sl .appicon svg{width:24px;height:24px}
-.sl .price-row{display:flex;align-items:baseline;gap:12px}
-.sl .price-unit{font-size:16px;color:var(--muted)}
-.sl .notebox{background:var(--soft);border-radius:14px;padding:16px;font-size:14px;line-height:1.6}
 .sl .checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:1.6}
 .sl .checks li{display:flex;gap:12px;align-items:center}
 .sl .checks svg{width:16px;height:16px;flex:none;stroke:var(--muted);stroke-width:1.5;fill:none}
-.sl .price-card .btn{justify-content:center;width:100%}
 
 /* faq */
 .sl .faq-wrap{max-width:720px;margin:0 auto;position:relative}
@@ -242,14 +231,10 @@
 @keyframes roll{from{opacity:0;transform:translateY(10px);filter:blur(4px)}}
 .sl.js .scrub span{opacity:.2;transition:opacity .35s ease}
 .sl.js .scrub span.lit{opacity:1}
-.sl .btn--soon{background:var(--soft);color:var(--muted)}
-.sl .btn--soon[data-shake="true"]{animation:shake .5s cubic-bezier(.36,.07,.19,.97);color:var(--accent)}
-@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
 .sl .bean svg{transform-origin:50% 100%}
 .sl .bean svg.hop{animation:hop .75s cubic-bezier(.3,0,.3,1)}
 @keyframes hop{0%{transform:scale(1.12,.86)}25%{transform:translateY(-28px) scale(.92,1.1)}55%{transform:translateY(0) scale(1.14,.86)}75%{transform:scale(.97,1.04)}100%{transform:none}}
 .sl .eyes{transform-box:fill-box;transform-origin:center;animation:blink 5s infinite}
-.sl .price-wrap .eyes{animation-duration:6.3s}
 .sl .closer .eyes{animation-duration:4.4s}
 .sl .faq-wrap .eyes{animation-duration:7.1s}
 @keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.08)}}
@@ -282,7 +267,6 @@
 .sl .seg button{position:relative;z-index:1;border:0;background:none;font:inherit;padding:5px 14px;border-radius:99px;color:var(--muted);cursor:pointer;transition:color .2s ease}
 .sl .seg button[data-on="true"]{color:var(--ink)}
 .sl .seg__thumb{position:absolute;left:3px;top:3px;bottom:3px;width:calc((100% - 6px)/var(--n));border-radius:99px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.12);transform:translateX(calc(var(--i)*100%));transition:transform .4s cubic-bezier(.34,1.3,.64,1)}
-.sl .price-card,.sl .tile{transition:transform .4s cubic-bezier(.22,1,.36,1)}
 @keyframes drawer-in{from{opacity:0;transform:translateY(-8px)}}
 .sl .faq__item::details-content{block-size:0;overflow:clip;transition:block-size .3s cubic-bezier(.22,1,.36,1),content-visibility .3s allow-discrete}
 .sl .faq__item[open]::details-content{block-size:auto}
@@ -300,7 +284,7 @@
 /* scroll reveal */
 .sl.js [data-reveal]{opacity:0;transform:translateY(30px);transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .8s cubic-bezier(.22,1,.36,1)}
 .sl.js [data-reveal].in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.sl .wordmark[data-mode="css"] .wordmark__text{transition:none}.sl .bar{animation:none}.sl .bar__pill,.sl .brand__mark,.sl .bar__inner,.sl .bar__status{transition:none}.sl .bean svg.hop,.sl .eyes,.sl .btn--soon,.sl .roll,.sl .tray__menu,.sl .hint svg{animation:none}.sl .ghost{display:none}.sl.js [data-reveal]{opacity:1;transform:none;transition:none}.sl .bean .pupil,.sl .note-wrap,.sl .tl,.sl .mon,.sl .drag,.sl .seg__thumb,.sl .tg i::after,.sl .faq__item::details-content{transition:none}.sl .drawer[data-open="true"]{animation:none}.sl .btn:active,.sl .bar__item:active,.sl .drag:active,.sl .tl:active,.sl .mon:active{transform:none}}
+@media (prefers-reduced-motion:reduce){.sl .wordmark[data-mode="css"] .wordmark__text{transition:none}.sl .bar{animation:none}.sl .bar__pill,.sl .brand__mark,.sl .bar__inner,.sl .bar__status{transition:none}.sl .bean svg.hop,.sl .eyes,.sl .roll,.sl .tray__menu,.sl .hint svg{animation:none}.sl .ghost{display:none}.sl.js [data-reveal]{opacity:1;transform:none;transition:none}.sl .bean .pupil,.sl .note-wrap,.sl .tl,.sl .mon,.sl .drag,.sl .seg__thumb,.sl .tg i::after,.sl .faq__item::details-content{transition:none}.sl .drawer[data-open="true"]{animation:none}.sl .btn:active,.sl .bar__item:active,.sl .drag:active,.sl .tl:active,.sl .mon:active{transform:none}}
 
 @media (max-width:1199px){
   .sl{--r-lg:30px;--r-md:30px}
@@ -337,7 +321,6 @@
   .sl .bignum{font-size:56px}
   .sl .card{padding:28px}
   .sl .card .h2{font-size:32px}
-  .sl .price-card{padding:30px}
   .sl .closer{padding:64px 24px 110px}
   .sl .faq{margin-top:80px}
   .sl .footer{grid-template-columns:1fr 1fr}

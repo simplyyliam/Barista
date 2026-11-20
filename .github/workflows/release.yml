@@ -2,8 +2,7 @@
 # signs the auto-update, and attaches everything plus latest.json to a DRAFT release.
 # Publishing the draft (by hand, after testing) is what makes installed copies update.
 # SDK tags (sdk-v*) are handled by sdk-release.yml, not here.
-# The code repo is private (Barista is closed source), so the installers and latest.json go to the
-# PUBLIC releases repo (RELEASES_REPO below). Installed apps and the Download button read from there.
+# The installers and latest.json go to the PUBLIC releases repo (ADR 0038) (RELEASES_REPO below). Installed apps and the Download button read from there.
 # Needs these repo secrets: RELEASES_TOKEN (fine-grained token, contents:write on the releases repo only),
 # TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD (pnpm updater:keygen prints them).
 name: Release

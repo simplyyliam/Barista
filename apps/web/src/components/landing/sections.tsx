@@ -1,8 +1,8 @@
-import { Bean, BeanGlyph, Plus } from "./icons"
+import { Bean, Plus } from "./icons"
 import { Demo } from "./demo"
 import { FAQ } from "./site"
 import { BarDemo } from "./bar-demo"
-import { DownloadLink, Monitors, Scrub, Seg, Slider, SoonButton } from "./interactive"
+import { DownloadLink, Monitors, Scrub, Seg, Slider } from "./interactive"
 
 function Download({ white = false }: { white?: boolean }) {
   return <DownloadLink white={white} />
@@ -209,38 +209,6 @@ function List({ items }: { items: string[] }) {
         </li>
       ))}
     </ul>
-  )
-}
-
-export function Pricing() {
-  return (
-    <section className="section" id="pricing">
-      <div className="wrap">
-        <div className="stack center" style={{ textAlign: "center" }}>
-          <h2 className="h2" data-reveal>Free. Pro for $5.</h2>
-          <p className="lead" data-reveal data-delay="80">Start free. Upgrade once if you want more, and keep it for good.</p>
-        </div>
-        <div className="pricing">
-          <div className="price-card" data-reveal>
-            <div className="price-card__head"><span className="appicon"><BeanGlyph /></span><h3 className="h3">Free</h3></div>
-            <div className="price-row"><span className="bignum">$0</span></div>
-            <List items={["The menu bar on every monitor", "Tray icons and notifications", "Control center", "The SDK for your own apps"]} />
-            <Download />
-          </div>
-          <div className="price-wrap" data-reveal data-delay="120">
-            <Bean style={{ width: 96, top: -76, right: 40, transform: "rotate(-10deg)" }} />
-            <div className="price-card">
-              <div className="price-card__head"><span className="appicon"><BeanGlyph /></span><h3 className="h3">Pro</h3></div>
-              <div className="price-row"><span className="bignum">$5</span><span className="price-unit">one-off</span></div>
-              <div className="notebox">One-time payment. No subscription.</div>
-              <List items={["Everything in Free", "Pro features coming soon"]} />
-              <SoonButton />
-            </div>
-          </div>
-        </div>
-        <p className="small center" style={{ marginTop: 24 }} data-reveal>Pro is not on sale yet. You will not be charged for anything today.</p>
-      </div>
-    </section>
   )
 }
 

@@ -140,24 +140,3 @@ export function DownloadLink({ white = false }: { white?: boolean }) {
     </a>
   )
 }
-
-export function SoonButton() {
-  const [t, setT] = useState(0)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
-  return (
-    <button
-      type="button"
-      key={t}
-      className="btn btn--lg btn--soon"
-      data-shake={t > 0}
-      onClick={() => {
-        clearTimeout(timer.current)
-        setT((x) => x + 1)
-        timer.current = setTimeout(() => setT(0), 1800)
-      }}
-    >
-      {t > 0 ? "Soon. Promise." : "Coming soon"}
-    </button>
-  )
-}

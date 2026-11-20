@@ -20,7 +20,6 @@ export function Footer() {
           <h4>Product</h4>
           <ul>
             <li><a href="#features">Features</a></li>
-            {/* <li><a href="#pricing">Pricing</a></li> hidden for the beta */}
             <li><a href="#faq">FAQ</a></li>
           </ul>
         </div>

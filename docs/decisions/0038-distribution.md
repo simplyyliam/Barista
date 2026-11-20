@@ -1,17 +1,17 @@
-# 0038: Distribution for a closed-source app
+# 0038: Distribution
 
 Status: **proposed** (2026-11-19, v0.10; becomes accepted when Liam merges the PR)
 
 ## Context
 
-Barista is closed source and freemium (Liam, 2026-11-18). A stranger has to download the installer, and an
-installed copy has to find updates, without the code being public. The Tauri updater only needs a URL it can
+Barista is free and open source (Liam, 2026-11-20; it was closed source and freemium on 2026-11-18). A stranger
+has to download the installer, and an installed copy has to find updates, without needing a GitHub login. The Tauri updater only needs a URL it can
 reach without credentials that returns a small `latest.json` and the signed update files.
 
 ## Decision
 
 - **A public releases-only repo, `simplyyliam/barista-releases`,** holds installers, `latest.json` and the
-  release notes. The code repo can go private. The release Action in the code repo builds on a tag and
+  release notes. The code repo stays public. The release Action in the code repo builds on a tag and
   writes a **draft** release into the public repo (`RELEASES_TOKEN`: a fine-grained token with contents:write
   on that repo only). Liam still reviews and publishes the draft by hand.
 - **The updater endpoint is baked into every install,** so it must not change:
@@ -38,6 +38,6 @@ reach without credentials that returns a small `latest.json` and the signed upda
 
 - Two repos to keep in step (code, releases). The Action needs three secrets: `RELEASES_TOKEN`,
   `TAURI_SIGNING_PRIVATE_KEY` (+ password) and `NPM_TOKEN`.
-- If the code repo goes private before the first release, the `sdk-v*` provenance link points at a repo
-  outsiders cannot open; the package page still works.
+- The separate releases repo is a leftover of the closed-source plan. It stays because the updater URL is baked
+  into every install; merging it into the code repo later means one release that points at the new URL.
 - A GitHub outage means no updates, never a broken bar.

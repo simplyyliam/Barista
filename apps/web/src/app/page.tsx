@@ -6,7 +6,6 @@ import { RevealController } from "@/components/landing/reveal"
 import { SmoothScroll } from "@/components/landing/smooth-scroll"
 import {
   Faq, Features, FinalCta, Hero, Light, Sdk, Statement, Twin,
-  // Pricing, // Hidden for the beta: no Pro yet. See docs/release/plan/hidden-on-website.md.
 } from "@/components/landing/sections"
 
 export default function Home() {
@@ -21,7 +20,6 @@ export default function Home() {
         <Sdk />
         <Light />
         <Twin />
-        {/* <Pricing /> */}
         <Faq />
         <FinalCta />
       </main>

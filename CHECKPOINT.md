@@ -7,7 +7,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 - **v0.9.0 shipped** (tag `v0.9.0`, not pushed yet: Liam runs `pnpm release`, then publishes the draft).
   Notes in `docs/release/history/v0.9-checkpoint.md` (local only).
 - **v0.10 "Ship it" is on `feature/v0.10-ship-it`**, PR "v0.10 Ship it" (never merged by Claude). Scope was widened by Liam:
-  menu bar only (no dock), UI in scope, production cleanup, real components on the landing page, no Pro paywall during the beta.
+  menu bar only (no dock), UI in scope, production cleanup, real components on the landing page, free and open source (no Pro, no payment).
 - **v0.10.x (Liam iterates):** product videos and the highlights explorer (`TourSection` stays commented out in `apps/web/src/app/page.tsx`),
   the remaining hand-made landing pieces (Monitors tile, Settings sliders, Windows-mode switches), then two more releases before v1.
 - **Spec departures Liam confirmed (2026-11-13), do not "fix" them:** icon-only pills are 28px wide, the battery is
@@ -28,10 +28,9 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 1. Create the public `simplyyliam/barista-releases` repo **with one commit** (a README: GitHub cannot create a release in an empty repo); add repo secrets `RELEASES_TOKEN`, `TAURI_SIGNING_PRIVATE_KEY`,
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, `NPM_TOKEN`.
 2. Run `pnpm updater:keygen` (puts the public key in `tauri.conf.json`; until then updates are off).
-3. Make the code repo private when ready. Vercel: root `apps/web`, build command `pnpm build` (it builds the demo first).
-4. Review the privacy wording in the docs; an EULA is not written yet.
-5. Bring back before v1.0: Pricing/Pro (`docs/release/plan/hidden-on-website.md`) and the hidden settings pages
-   (`docs/release/plan/hidden-in-settings.md`). Both files are local only.
+3. Add a LICENSE file (decision pending: MIT?) and make the code repo public when ready. Vercel: root `apps/web`, build command `pnpm build` (it builds the demo first).
+4. Review the privacy wording in the docs.
+5. Bring back before v1.0: the hidden settings pages (`docs/release/plan/hidden-in-settings.md`, local only).
 
 ## "Done when" evidence (2026-11-19)
 - **Fresh install:** the built NSIS installer installed per-user without admin (22 s); the installed bar ran, logged to
@@ -64,7 +63,7 @@ Found by dogfooding, the installer tests and the two reviews. Nothing here block
    (probably the NSIS uninstaller waiting on the bar or on deleting the WebView2 profile).
 4. ~~Settings did not show an update found before it was opened~~ fixed with `get_pending_update` and re-tested on an installed build.
 5. **Taskbar restore on uninstall** uses a null window handle (like the panic hook). Not tested on a PC where Barista had forced auto-hide on.
-6. **Unsigned installer:** SmartScreen warns on first run (documented). No EULA yet; privacy wording needs your eyes.
+6. **Unsigned installer:** SmartScreen warns on first run (documented). Privacy wording needs your eyes.
 7. **Memory 138 MB vs the 120 MB budget** (`docs/perf/0.10.md`). The pass was measured: ~3/4 is WebView2 browser + renderer, driven by the always-on windows. Saving real memory means lazy menu-sub and panel windows (slower first open): **your call**.
 8. **Not tested:** Windows 10, no monitor at launch, the release workflow itself (needs the repo, token and key), a real phone for the site.
 9. **Silent first minute:** a script started before the bar prints its "Waiting for the Barista bar" line only after about 10 s.

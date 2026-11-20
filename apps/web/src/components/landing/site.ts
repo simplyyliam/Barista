@@ -1,12 +1,11 @@
 // One place for links and copy that Liam will want to change.
-// The public releases-only repo (the code repo is private, ADR 0038).
+// Installers live in the public releases repo (ADR 0038).
 export const DOWNLOAD_URL = "https://github.com/simplyyliam/barista-releases/releases/latest"
 export const NPM_URL = "https://www.npmjs.com/package/@baristabar/sdk"
 
 export const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#sdk", label: "For developers" },
-  // { href: "#pricing", label: "Pricing" }, // hidden for the beta (docs/release/plan/hidden-on-website.md)
   { href: "#faq", label: "FAQ" },
   { href: "/docs", label: "Docs" },
 ]

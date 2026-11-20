@@ -31,9 +31,11 @@ jobs:
       - run: cargo test --workspace
 
       # Known security advisories: Rust crates, and the JS packages that ship (high and up).
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      # The deny action is Linux-only (container), so install the binary here.
+      - uses: taiki-e/install-action@v2
         with:
-          command: check advisories
+          tool: cargo-deny
+      - run: cargo deny check advisories
       - run: pnpm audit --prod --audit-level=high
 
       # Regenerates bindings.ts (tauri-specta) and protocol.ts (crates/protocol).
