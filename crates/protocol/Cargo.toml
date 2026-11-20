@@ -1,5 +1,6 @@
 [package]
 name = "barista-protocol"
+license = "MIT"
 version = "0.0.0"
 edition = "2021"
 description = "Messages between the Barista bar and its clients. Source of packages/sdk/src/protocol.ts."

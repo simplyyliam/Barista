@@ -53,3 +53,7 @@ runs the first time and again when the file changes. Only add scripts you trust.
 
 Barista is built with the help of many libraries. Their names and licences are in
 [CREDITS.md](CREDITS.md).
+
+## License
+
+[MIT](LICENSE). Free to use, change and share.

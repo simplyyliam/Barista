@@ -28,7 +28,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
 1. Create the public `simplyyliam/barista-releases` repo **with one commit** (a README: GitHub cannot create a release in an empty repo); add repo secrets `RELEASES_TOKEN`, `TAURI_SIGNING_PRIVATE_KEY`,
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, `NPM_TOKEN`.
 2. Run `pnpm updater:keygen` (puts the public key in `tauri.conf.json`; until then updates are off).
-3. Add a LICENSE file (decision pending: MIT?) and make the code repo public when ready. Vercel: root `apps/web`, build command `pnpm build` (it builds the demo first).
+3. LICENSE (MIT) is in. Make the code repo public when ready. Vercel: root `apps/web`, build command `pnpm build` (it builds the demo first).
 4. Review the privacy wording in the docs.
 5. Bring back before v1.0: the hidden settings pages (`docs/release/plan/hidden-in-settings.md`, local only).
 
