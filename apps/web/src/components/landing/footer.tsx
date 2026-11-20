@@ -35,7 +35,7 @@ export function Footer() {
           <h4>More</h4>
           <ul>
             <li><a href={DOWNLOAD_URL}>Releases</a></li>
-            <li><a href="https://github.com/simplyyliam/barista-releases">GitHub</a></li>
+            <li><a href="https://github.com/simplyyliam/Barista">GitHub</a></li>
           </ul>
         </div>
       </div>

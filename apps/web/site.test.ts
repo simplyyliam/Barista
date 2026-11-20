@@ -33,7 +33,7 @@ describe("website", () => {
     }
   })
 
-  it("points the download at the public releases repo", () => {
-    expect(read("./src/components/landing/site.ts")).toContain("simplyyliam/barista-releases/releases/latest")
+  it("points the download at this repo's releases", () => {
+    expect(read("./src/components/landing/site.ts")).toContain("simplyyliam/Barista/releases/latest")
   })
 })

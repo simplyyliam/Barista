@@ -49,7 +49,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://github.com/simplyyliam/barista-releases/releases/latest/download/latest.json"],
+      "endpoints": ["https://github.com/simplyyliam/Barista/releases/latest/download/latest.json"],
       "windows": { "installMode": "passive" }
     }
   }

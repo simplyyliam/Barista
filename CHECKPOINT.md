@@ -14,7 +14,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   `examples/battery`'s drawing, the hover is a 999px capsule.
 
 ## What v0.10 added
-- **Distribution (ADR 0038):** release Action writes a *draft* into the public `simplyyliam/barista-releases` repo; updater module
+- **Distribution (ADR 0038):** release Action writes a *draft* release on `simplyyliam/Barista`; updater module
   (`updater.rs`, off until the public key exists); per-user NSIS installer with hooks (`installer-hooks.nsh`, `--uninstall-cleanup`).
 - **Hardening:** single instance, rotating logs (Settings > General > Log files), `eprintln` replaced with `log`, release profile
   (LTO, size, strip, unwind), CI advisories check and `clippy -D warnings`, version-sync test, dead frontend code removed.
@@ -25,7 +25,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   (all wired in Settings > General).
 
 ## Liam's to-dos before the first public release
-1. Create the public `simplyyliam/barista-releases` repo **with one commit** (a README: GitHub cannot create a release in an empty repo); add repo secrets `RELEASES_TOKEN`, `TAURI_SIGNING_PRIVATE_KEY`,
+1. Add repo secrets `TAURI_SIGNING_PRIVATE_KEY`,
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, `NPM_TOKEN`.
 2. Run `pnpm updater:keygen` (puts the public key in `tauri.conf.json`; until then updates are off).
 3. LICENSE (MIT) is in. Make the code repo public when ready. Vercel: root `apps/web`, build command `pnpm build` (it builds the demo first).
@@ -46,7 +46,7 @@ When a release ships, move its notes to `docs/release/history/` and start fresh.
   handed over to the running bar (still one process) and opened Settings, General said "Barista 0.10.2 is ready" with "Update now", one click
   updated and restarted into 0.10.2, then uninstall left no bar and no registry entry.
 - **Not exercised (needs your repo, secrets and a tag push, which I must not do):** the release Action itself (signed installer + `latest.json` into a draft in
-  `barista-releases`, `sdk-v*` npm publish) and an update served from a real GitHub release instead of my local server.
+  `simplyyliam/Barista` releases, `sdk-v*` npm publish) and an update served from a real GitHub release instead of my local server.
 - **Clean checkout:** a fresh `git clone` of the pushed branch: `pnpm install --frozen-lockfile` 145 s, typecheck, 157 tests and eslint pass,
   `pnpm web:build` 107 s and `out/demo` is in the output.
 - **README to working item:** `npm install` took 24 s; the README snippet put a ticking `Clock` item in the bar and removed it when stopped.

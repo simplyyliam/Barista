@@ -136,7 +136,7 @@ Nothing imports from `apps/`. The SDK never imports Tauri.
   `release/...` branch, then a PR. After the user merges, `/release tag [sdk]` tags the merge commit
   (annotated, never pushed).
 - `pnpm release` (the user) pushes the tag; the GitHub Action builds the signed installer and updater
-  files into a draft release in the **public `barista-releases` repo** (the code repo is private, ADR 0038)
+  files into a draft release on this repo (ADR 0038)
   that the user publishes. An `sdk-v*` tag publishes the SDK to npm.
 - Release reports go in `.private/releases/`; the updater signing key lives in `.private/updater/`
   (created by `pnpm updater:keygen`).

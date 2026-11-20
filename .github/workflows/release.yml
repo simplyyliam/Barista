@@ -2,9 +2,8 @@
 # signs the auto-update, and attaches everything plus latest.json to a DRAFT release.
 # Publishing the draft (by hand, after testing) is what makes installed copies update.
 # SDK tags (sdk-v*) are handled by sdk-release.yml, not here.
-# The installers and latest.json go to the PUBLIC releases repo (ADR 0038) (RELEASES_REPO below). Installed apps and the Download button read from there.
-# Needs these repo secrets: RELEASES_TOKEN (fine-grained token, contents:write on the releases repo only),
-# TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD (pnpm updater:keygen prints them).
+# The installers and latest.json go to this repo's Releases page (ADR 0038). Installed apps and the Download button read from there.
+# Needs these repo secrets: TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD (pnpm updater:keygen prints them).
 name: Release
 
 on:
@@ -12,11 +11,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read # the releases repo is written with RELEASES_TOKEN, not this token
-
-env:
-  RELEASES_OWNER: simplyyliam
-  RELEASES_REPO: barista-releases
+  contents: write # creates the draft release and uploads the installer
 
 jobs:
   # Creates the draft release ONCE, before the build, so a retried run reuses it
@@ -44,10 +39,9 @@ jobs:
         env:
           BODY: ${{ steps.notes.outputs.body }}
         with:
-          github-token: ${{ secrets.RELEASES_TOKEN }}
           script: |
             const tag = context.ref.replace("refs/tags/", "")
-            const target = { owner: process.env.RELEASES_OWNER, repo: process.env.RELEASES_REPO }
+            const target = context.repo
             const releases = await github.paginate(github.rest.repos.listReleases, target)
             const existing = releases.find((r) => r.tag_name === tag)
             if (existing) return existing.id
@@ -83,7 +77,7 @@ jobs:
 
       - uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Signs the update so installed apps trust it (see scripts/updater-keygen.mjs).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -91,8 +85,6 @@ jobs:
           projectPath: apps/bar
           tauriScript: pnpm tauri
           # Upload into the draft made by create-release (never create one here).
-          owner: ${{ env.RELEASES_OWNER }}
-          repo: ${{ env.RELEASES_REPO }}
           releaseId: ${{ needs.create-release.outputs.release_id }}
           # Code signing (SmartScreen) is not set up yet. Later: add a signCommand under
           # bundle.windows in tauri.conf.json (Azure Trusted Signing) and its secrets above.
